@@ -2,13 +2,13 @@ name: Hourly self-improvement
 
 # Runs Claude Code on a schedule to build the next roadmap item (or, every 5th
 # feature run, do a design/feature SWEEP across the app + public site), gate it
-# behind the Playwright smoke battery, then commit to main and deploy to
-# production automatically. Pause any time by disabling this workflow or
-# removing the CLAUDE_CODE_OAUTH_TOKEN secret.
+# behind the Playwright smoke battery, then commit to main. Deployment is NOT
+# done here — committing to main triggers the "Deploy to GitHub Pages" workflow
+# via its `workflow_run` listener, so there is exactly one deploy authority and
+# no two workflows ever race for the github-pages environment.
 #
-# Note: a push to main by the built-in GITHUB_TOKEN does NOT trigger the normal
-# deploy workflow (GitHub blocks that to avoid loops), so this job deploys Pages
-# itself after committing.
+# Pause any time by disabling this workflow or removing the
+# CLAUDE_CODE_OAUTH_TOKEN secret.
 on:
   schedule:
     # Off-peak minutes: GitHub heavily delays/drops scheduled jobs at :00.
@@ -19,20 +19,16 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
+# Never let two improvement runs overlap.
 concurrency:
-  group: manager-pages
+  group: self-improve
   cancel-in-progress: false
 
 jobs:
   improve:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,7 +59,7 @@ jobs:
           else
             echo "mode=feature" >> "$GITHUB_OUTPUT"
           fi
-          echo "Run #$COUNT — mode $(tail -c 40 "$GITHUB_OUTPUT")"
+          echo "Run #$COUNT — mode selected"
 
       - name: Run Claude Code
         env:
@@ -92,40 +88,16 @@ jobs:
       - name: Smoke test (app must load + function with no errors)
         run: node .github/smoke-test.mjs
 
-      - name: Commit + push to main
-        id: commit
+      - name: Commit + push to main (triggers the deploy workflow)
         env:
           MODE: ${{ steps.mode.outputs.mode }}
         run: |
           if [ -z "$(git status --porcelain)" ]; then
-            echo "No changes produced this run."
-            echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0
+            echo "No changes produced this run."; exit 0
           fi
           git config user.name  "manager-bot"
           git config user.email "bot@users.noreply.github.com"
           git add -A
           git commit -m "auto: self-improvement (${MODE})" \
-            -m "Automated hourly improvement; passed the smoke battery and auto-deployed."
+            -m "Automated hourly improvement; passed the smoke battery. Deploy runs via the Deploy to GitHub Pages workflow."
           git push origin HEAD:main
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-
-      # Deploy Pages ourselves (the bot's push to main won't trigger deploy.yml).
-      # Strip untracked build junk so only the site is published.
-      - name: Prepare artifact
-        if: steps.commit.outputs.changed == 'true'
-        run: rm -rf node_modules package.json package-lock.json
-
-      - name: Configure Pages
-        if: steps.commit.outputs.changed == 'true'
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        if: steps.commit.outputs.changed == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: "."
-
-      - name: Deploy to GitHub Pages
-        if: steps.commit.outputs.changed == 'true'
-        id: deploy
-        uses: actions/deploy-pages@v4

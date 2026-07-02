@@ -1,10 +1,18 @@
 name: Deploy to GitHub Pages
 
-# Static site — no build step. Publishes the repo root to GitHub Pages
-# on every push to main, and serves it at the custom domain (see CNAME).
+# Static site — no build step. The SINGLE deploy authority for the site.
+# Runs on:
+#   • push to main (your own commits)
+#   • completion of the "Hourly self-improvement" workflow (the bot commits to
+#     main but a GITHUB_TOKEN push can't trigger `push` here, so we listen for
+#     that workflow finishing instead)
+#   • manual dispatch
 on:
   push:
     branches: [main]
+  workflow_run:
+    workflows: ["Hourly self-improvement"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +20,8 @@ permissions:
   pages: write
   id-token: write
 
-# Only one concurrent deploy; let an in-progress run finish.
+# One deploy at a time to the github-pages environment; let an in-progress
+# deploy finish before the next starts (prevents "deployment_queued" stalls).
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -26,6 +35,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
