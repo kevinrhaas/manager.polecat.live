@@ -5,6 +5,7 @@ import { Access } from '../access.js';
 import { getThemePref, setTheme } from '../theme.js';
 import { el, escapeHtml, toast, modal, confirmDialog } from '../ui.js';
 import { icon } from '../icons.js';
+import { AUTO_SYNC_FAIL_THRESHOLD } from '../ingest.js';
 
 export function renderSettings(root, ctx){
   root.innerHTML='';
@@ -66,6 +67,11 @@ export function renderSettings(root, ctx){
   auto.append(intervalRow);
   const optedIn=Store.projects().filter(p=>p.autoSync);
   auto.append(el('div',{class:'tiny muted', style:'margin-top:4px', text: optedIn.length?`Opted in: ${optedIn.map(p=>p.name).join(', ')}.`:'No projects opted in yet.'}));
+  const failing=optedIn.filter(p=>(p.autoSyncFailCount||0)>=AUTO_SYNC_FAIL_THRESHOLD);
+  if(failing.length){
+    auto.append(el('div',{class:'tiny', style:'margin-top:6px;color:var(--danger)',
+      html:`${icon('warning','warn-ic')} ${failing.length} failing: ${failing.map(p=>escapeHtml(p.name)).join(', ')} — see each project’s health panel.`}));
+  }
   wrap.append(auto);
 
   // ---- Custom fields (typed project-metadata schema) ----

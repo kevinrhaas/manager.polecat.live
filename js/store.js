@@ -168,7 +168,7 @@ export const Store = new (class {
     const slug = data.slug || slugify(data.name||'project');
     const row = { id:slug, slug, status:'idea', tags:[], icon:'grid', pinned:false, fields:{},
       name:'', repo:'', site:'', sessionUrl:'', description:'', assessment:'', cadence:'',
-      autoSync:false, lastAutoSyncAt:0, ...data };
+      autoSync:false, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:'', ...data };
     row.id = row.slug = data.slug || slugify(row.name||slug);
     return this.put('projects', row, { label:'Add project' });
   }

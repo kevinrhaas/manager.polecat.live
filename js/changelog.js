@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 9,
+    title: 'Auto-sync retry/backoff signal',
+    kind: 'feature',
+    ts: '2026-07-02T22:47:01.229Z',
+    items: [
+      'A project whose auto-sync keeps failing (dead site, CORS, 404) now backs off — each consecutive failure doubles the wait before retrying, capped at 8x the usual interval — instead of hammering an unreachable source forever.',
+      'After 2 failures in a row it shows a "Failing ×N" badge with the reason, right in that project\'s health panel and on its dashboard tile, plus a one-click "Retry now".',
+      'Settings → Auto-sync now rolls up which opted-in projects are currently failing, so nothing fails silently in the background.',
+    ],
+  },
+  {
     v: 8,
     title: 'Fleet health score + release-velocity sparklines',
     kind: 'feature',

@@ -127,6 +127,34 @@ export function autoSyncMinutes(cfg){
   return Math.max(1, cfg.intervalMinutes ?? (cfg.intervalHours != null ? cfg.intervalHours * 60 : 360));
 }
 
+// A project whose auto-sync keeps failing (CORS, 404, dead site) is retried
+// less often the more times in a row it fails — doubling the wait each
+// failure, capped at 8x the normal interval — instead of hammering an
+// unreachable source on every tick forever. Any success resets the streak
+// and normal cadence resumes immediately. Once a streak reaches this many
+// consecutive failures it's surfaced in the UI as "failing", not just retried.
+const AUTO_SYNC_BACKOFF_CAP = 8;
+export const AUTO_SYNC_FAIL_THRESHOLD = 2;
+export function autoSyncBackoffMultiplier(failCount){
+  return failCount > 0 ? Math.min(2 ** failCount, AUTO_SYNC_BACKOFF_CAP) : 1;
+}
+
+// Sync one project and record the outcome onto its fail streak — resets
+// autoSyncFailCount/autoSyncLastError on success, increments and stores the
+// reason on failure. `lastAutoSyncAt` is stamped either way so a dead source
+// is scheduled by the backoff above rather than retried every tick. Shared by
+// the background auto-sync loop and the "Retry now" action a failing project
+// shows in its health panel.
+export async function attemptAutoSync(p){
+  const res = await syncProject(p);
+  if(res.status==='ok'){
+    Store.updateProject(p.id, { lastAutoSyncAt:Date.now(), autoSyncFailCount:0, autoSyncLastError:'' }, { silent:true });
+  }else if(res.status==='error'){
+    Store.updateProject(p.id, { lastAutoSyncAt:Date.now(), autoSyncFailCount:(p.autoSyncFailCount||0)+1, autoSyncLastError:res.message||'sync failed' }, { silent:true });
+  }
+  return res;
+}
+
 // A module-level in-flight guard so overlapping ticks (frequent intervals +
 // slow networks) can never stack up. If a run is already going, we skip.
 let _autoSyncing = false;
@@ -135,16 +163,18 @@ export async function runAutoSync(){
   const cfg = Store.settings().autoSync;
   if(!cfg?.enabled) return null;
   const dueMs = autoSyncMinutes(cfg) * 60000;
-  const due = Store.projects().filter(p =>
-    p.autoSync && (p.site || p.changelogUrl) && (Date.now() - (p.lastAutoSyncAt || 0)) >= dueMs);
+  const due = Store.projects().filter(p => {
+    if(!p.autoSync || !(p.site || p.changelogUrl)) return false;
+    const wait = dueMs * autoSyncBackoffMultiplier(p.autoSyncFailCount||0);
+    return (Date.now() - (p.lastAutoSyncAt || 0)) >= wait;
+  });
   if(!due.length) return null;
 
   _autoSyncing = true;
   try{
     let ok=0, failed=0, added=0, updated=0;
     for(const p of due){
-      const res = await syncProject(p);
-      Store.updateProject(p.id, { lastAutoSyncAt: Date.now() }, { silent:true });
+      const res = await attemptAutoSync(p);
       if(res.status==='ok'){ ok++; added+=res.added; updated+=res.updated; }
       else if(res.status==='error') failed++;
     }

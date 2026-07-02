@@ -14,20 +14,20 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Auto-sync retry/backoff signal — a project whose auto-sync keeps
-      failing (CORS, 404, dead site) should surface that in its health panel
-      instead of silently re-attempting every interval forever.
-
-## Next (discovered / queued)
-
 - [ ] Factor the health-score weighting (recency / velocity / status) into a
       Settings panel so it's tunable per fleet instead of the fixed constants
       in `Store.healthScore()` — today "8 points per release in 90d, capped
       at 40" etc. is a reasonable default but not something a user can nudge.
-- [ ] Feed the new per-project `healthScore()`/`releaseVelocity()` into a
-      "Needs attention" saved view or dashboard callout for anything that
-      drops into the Slowing/Stale band, instead of only showing the badge
-      passively on its tile.
+
+## Next (discovered / queued)
+
+- [ ] Feed the new per-project `healthScore()`/`releaseVelocity()`, plus the
+      new auto-sync failing signal (2026-07-02), into a "Needs attention"
+      saved view or dashboard callout, instead of only showing badges
+      passively on each tile.
+- [ ] Make the auto-sync backoff cap and fail threshold (currently fixed
+      constants in `js/ingest.js`) tunable from Settings → Auto-sync, same
+      spirit as the health-score-weighting item above.
 - [ ] Generalize the mobile no-overflow smoke check (see Done, 2026-07-02) into
       a loop over every rail section at 320px, instead of the two spots this
       sweep happened to catch — cheap insurance against the next `.section-title`
@@ -36,9 +36,6 @@ with new, ambitious, fun ideas.
       rows) for the same header-row-doesn't-wrap overflow risk on very narrow
       phones — this sweep fixed the two instances found by screenshot, but
       didn't exhaustively open every modal at 320px.
-- [ ] Auto-sync retry/backoff signal — a project whose auto-sync keeps
-      failing (CORS, 404, dead site) should surface that in its health panel
-      instead of silently re-attempting every interval forever.
 - [ ] Bulk actions in the library (tag, set status, archive) with undo.
 - [ ] Import/export the whole workspace as JSON; round-trip test in the suite.
 - [ ] Per-project "notes" markdown scratchpad with autosave + history.
@@ -65,6 +62,15 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Auto-sync retry/backoff signal** _(2026-07-02)_: a project whose
+      auto-sync keeps failing (dead site, CORS, 404) now backs off instead of
+      hammering the source every interval forever — each consecutive failure
+      doubles the wait before the next attempt, capped at 8x, and any success
+      resets it back to normal cadence. Once a project hits 2 failures in a
+      row it surfaces as a "Failing ×N" badge with the error and a one-click
+      "Retry now" in its health panel, plus a matching badge on its dashboard
+      tile and a fleet-wide roll-up in Settings → Auto-sync so nothing fails
+      silently in the background.
 - [x] **Fleet health score + trend sparklines** _(2026-07-02)_: every project
       now carries a 0-100 health score — blending release recency, release
       velocity (releases in the last 90 days), and project status — mapped to

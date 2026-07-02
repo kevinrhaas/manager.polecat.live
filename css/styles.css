@@ -303,6 +303,14 @@ body{
 .hchip.h-weak{color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent);
   border-color:color-mix(in srgb,var(--danger) 28%,transparent)}
 .hchip.h-stale{color:var(--text-3);background:color-mix(in srgb,var(--text-3) 14%,transparent)}
+/* distinct from the health-score bands above (h-weak already means "Slowing")
+   so a project that's merely slowing and one whose auto-sync is failing never
+   render the same badge */
+.fail-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+  padding:3px 9px;border-radius:999px;white-space:nowrap;color:var(--danger);
+  background:color-mix(in srgb,var(--danger) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--danger) 32%,transparent)}
+.fail-chip svg{width:12px;height:12px}
 .tspark{display:inline-flex;align-items:center}
 .spark{display:block;opacity:.9}
 .spark rect{transition:height .25s ease}
@@ -399,6 +407,7 @@ table.data tbody tr:last-child td{border-bottom:0}
   background:color-mix(in srgb,var(--brand-b) 12%,transparent);
   border:1px solid color-mix(in srgb,var(--brand-b) 28%,transparent)}
 .sync-tag svg{width:11px;height:11px}
+.warn-ic{width:13px;height:13px;vertical-align:-2px;margin-right:3px;color:var(--danger)}
 
 /* sync-changelog modal */
 .sync-preview{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px;

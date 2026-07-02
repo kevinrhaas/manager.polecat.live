@@ -285,6 +285,35 @@ try {
     }`);
     return synced && stamped && loggedRun;
   });
+  await check('auto-sync backoff multiplier grows with consecutive failures, capped at 8x', async () => {
+    const mults = await page.evaluate(async () => {
+      const { autoSyncBackoffMultiplier } = await import('/js/ingest.js');
+      return [0, 1, 2, 3, 4, 5].map(autoSyncBackoffMultiplier);
+    });
+    return mults[0] === 1 && mults[1] === 2 && mults[2] === 4 && mults[3] === 8 && mults[4] === 8 && mults[5] === 8;
+  });
+  await check('a project failing auto-sync surfaces a "Failing" badge (health panel + tile) with a working Retry now', async () => {
+    const changelogUrl = `${base}/js/changelog.js`;
+    await store(`(S)=>{
+      const p=S.project('games');
+      S.put('projects', {...p, autoSync:true, autoSyncFailCount:3, autoSyncLastError:'HTTP 404', lastAutoSyncAt:Date.now(), changelogUrl:'${changelogUrl}'}, {silent:true});
+    }`);
+    await openSec('home');
+    const tileFailBadge = (await count('.tile .fail-chip')) > 0;
+    await page.evaluate(() => { location.hash = 'project/games'; });
+    await page.waitForTimeout(400);
+    const panelFailBadgeBefore = await page.$eval('.health .fail-chip', (e) => e.textContent).catch(() => null);
+    await page.click('.health button:has-text("Retry now")');
+    await page.waitForTimeout(700);
+    const failCountAfter = await store(`(S)=>S.project('games').autoSyncFailCount`);
+    const panelFailBadgeAfter = await count('.health .fail-chip');
+    // clean up
+    await store(`(S)=>{
+      S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
+      const p=S.project('games'); S.put('projects', {...p, autoSync:false, changelogUrl:'', lastSyncAt:0, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:''}, {silent:true});
+    }`);
+    return tileFailBadge && /Failing ×3/.test(panelFailBadgeBefore || '') && failCountAfter === 0 && panelFailBadgeAfter === 0;
+  });
 
   // ---------- Credentials ----------
   console.log('Credentials');
