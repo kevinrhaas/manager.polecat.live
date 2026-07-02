@@ -1,6 +1,6 @@
 // Project detail — the full what's-new timeline + health panel + links.
-import { Store, STATUSES } from '../store.js';
-import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog } from '../ui.js';
+import { Store, STATUSES, healthBand } from '../store.js';
+import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
 import { fetchChangelog, parseChangelogSource, guessChangelogUrl, forceSyncProject } from '../ingest.js';
@@ -72,8 +72,11 @@ export function renderProject(root, ctx, params){
   const side=el('div');
   const health=el('div',{class:'card health'});
   const rel=Store.latestRelease(p.id);
+  const score=Store.healthScore(p.id);
+  const band=healthBand(score);
   const rows=[
     ['Status', `<span class="status ${st.cls}"><span class="dot"></span>${st.label}</span>`],
+    ['Health score', `<span class="hchip ${band.cls}" title="Recency + release velocity + status">${score} · ${band.label}</span>`],
     ['Latest version', rel?`<span class="vchip mono">v${rel.v}</span>`:'—'],
     ['Last shipped', escapeHtml(fmtCT(Store.lastActivity(p.id)))],
     ['Releases', String(rels.length)],
@@ -83,6 +86,10 @@ export function renderProject(root, ctx, params){
   ];
   health.innerHTML=`<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Health</h2></div>`;
   rows.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${k}</span><span class="v">${v}</span>`; health.append(r); });
+  const velRow=el('div',{class:'row'});
+  velRow.innerHTML=`<span class="k">Velocity · 10w</span>`;
+  velRow.append(el('span',{class:'v', title:'Releases per week, oldest to newest', html:sparkline(Store.releaseVelocity(p.id), {width:100, height:24, color:band.color})}));
+  health.append(velRow);
   health.append(autoSyncRow(p, ctx));
   side.append(health);
 

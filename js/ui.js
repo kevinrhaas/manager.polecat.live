@@ -72,6 +72,19 @@ export function uuid(){
   });
 }
 export function shortId(id){ return String(id).slice(0,8); }
+
+// ---- tiny inline bar-chart (release-velocity trend) ---------------------
+export function sparkline(data, { width=64, height=20, color='var(--brand-b)', gap=2 }={}){
+  const n = data.length || 1;
+  const max = Math.max(1, ...data);
+  const bw = Math.max(1.5, (width - gap*(n-1)) / n);
+  const bars = data.map((v,i)=>{
+    const h = Math.max(2, Math.round((v/max)*height));
+    const x = (bw+gap)*i;
+    return `<rect x="${x.toFixed(2)}" y="${height-h}" width="${bw.toFixed(2)}" height="${h}" rx="1"></rect>`;
+  }).join('');
+  return `<svg class="spark" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" style="fill:${color}" aria-hidden="true">${bars}</svg>`;
+}
 export function slugify(s){ return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 
 // ---- toasts ------------------------------------------------------------

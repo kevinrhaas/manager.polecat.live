@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 8,
+    title: 'Fleet health score + release-velocity sparklines',
+    kind: 'feature',
+    ts: '2026-07-02T22:25:00.958Z',
+    items: [
+      'Every project now gets a 0–100 health score (Thriving / Healthy / Steady / Slowing / Stale) blending release recency, release velocity, and project status — shown as a badge on dashboard tiles and in the project detail health panel.',
+      'A tiny 10-week bar sparkline next to the score shows release velocity at a glance, everywhere the score appears.',
+      'A new "Fleet health" stat card on the dashboard averages every project\'s score into one at-a-glance read on the whole fleet.',
+    ],
+  },
+  {
     v: 7,
     title: 'Mobile polish sweep',
     kind: 'polish',

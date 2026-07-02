@@ -14,10 +14,20 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Fleet health score + trend sparklines per project (release velocity).
+- [ ] Auto-sync retry/backoff signal — a project whose auto-sync keeps
+      failing (CORS, 404, dead site) should surface that in its health panel
+      instead of silently re-attempting every interval forever.
 
 ## Next (discovered / queued)
 
+- [ ] Factor the health-score weighting (recency / velocity / status) into a
+      Settings panel so it's tunable per fleet instead of the fixed constants
+      in `Store.healthScore()` — today "8 points per release in 90d, capped
+      at 40" etc. is a reasonable default but not something a user can nudge.
+- [ ] Feed the new per-project `healthScore()`/`releaseVelocity()` into a
+      "Needs attention" saved view or dashboard callout for anything that
+      drops into the Slowing/Stale band, instead of only showing the badge
+      passively on its tile.
 - [ ] Generalize the mobile no-overflow smoke check (see Done, 2026-07-02) into
       a loop over every rail section at 320px, instead of the two spots this
       sweep happened to catch — cheap insurance against the next `.section-title`
@@ -55,6 +65,19 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Fleet health score + trend sparklines** _(2026-07-02)_: every project
+      now carries a 0-100 health score — blending release recency, release
+      velocity (releases in the last 90 days), and project status — mapped to
+      five bands (Thriving/Healthy/Steady/Slowing/Stale) with a shared color
+      and label so the badge always means the same thing everywhere it shows
+      up. A tiny 10-week bar sparkline sits next to the score wherever it
+      appears: on every dashboard tile, and in the project detail health
+      panel (which also gets a dedicated "Health score" row). A new "Fleet
+      health" stat card on the dashboard averages every project's score for
+      an at-a-glance read on the whole fleet. Along the way, fixed a
+      pre-existing dead CSS selector (`.tile .tfoot` vs. the actual
+      `.tile-foot` class) that had silently left every dashboard tile's
+      footer unstyled.
 - [x] **Mobile overflow sweep** _(2026-07-02)_: found and fixed two real
       horizontal-scroll bugs by screenshotting the real app at phone widths
       (320–428px) rather than just reading the CSS. The public landing page's

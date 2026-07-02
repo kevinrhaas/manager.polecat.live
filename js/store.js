@@ -32,6 +32,19 @@ export const STATUSES = {
   archived: { label:'Archived', cls:'s-archived' },
 };
 
+// Fleet health bands — a project's healthScore() (0-100) maps to exactly one
+// of these, highest floor first. Shared between the dashboard tiles, the
+// fleet-wide aggregate, and the project detail health panel so the label,
+// color, and badge class always agree.
+export const HEALTH_BANDS = [
+  { min:80, label:'Thriving', cls:'h-great', color:'var(--success)' },
+  { min:60, label:'Healthy',  cls:'h-good',  color:'var(--brand-b)' },
+  { min:35, label:'Steady',   cls:'h-fair',  color:'var(--warning)' },
+  { min:15, label:'Slowing',  cls:'h-weak',  color:'var(--danger)' },
+  { min:0,  label:'Stale',    cls:'h-stale', color:'var(--text-3)' },
+];
+export function healthBand(score){ return HEALTH_BANDS.find(b=>score>=b.min) || HEALTH_BANDS[HEALTH_BANDS.length-1]; }
+
 // Typed custom-field schema (`fieldDefs` table) — a project's free-form
 // `fields` map is keyed by a def's `key`, but the def gives it a real type so
 // it can render, filter, and sort correctly instead of always being text.
@@ -235,6 +248,33 @@ export const Store = new (class {
     const p = this.project(projectId);
     const rt = r?.ts ? +new Date(r.ts) : 0;
     return Math.max(rt||0, p?.updatedAt||0) || (p?.updatedAt||0);
+  }
+
+  // ---- fleet health (recency + release velocity + status), 0-100 --------
+  healthScore(projectId){
+    const p = this.project(projectId);
+    if(!p) return 0;
+    const now = Date.now();
+    const days = this.lastActivity(projectId) ? (now-this.lastActivity(projectId))/86400000 : Infinity;
+    const recency = days<=3?40 : days<=14?32 : days<=30?24 : days<=90?12 : days<=180?4 : 0;
+    const rels90 = this.all('releases').filter(r=>r.projectId===projectId && r.ts && (now-(+new Date(r.ts)))<90*86400000).length;
+    const velocity = Math.min(rels90*8, 40);
+    const statusScore = ({ live:20, active:18, building:14, idea:6, paused:4, archived:0 })[p.status] ?? 8;
+    return Math.max(0, Math.min(100, Math.round(recency+velocity+statusScore)));
+  }
+  // Weekly release counts for the last `weeks` weeks, oldest first — the
+  // series behind the per-project release-velocity sparkline.
+  releaseVelocity(projectId, weeks=10){
+    const now = Date.now();
+    const buckets = new Array(weeks).fill(0);
+    this.releasesFor(projectId).forEach(r=>{
+      if(!r.ts) return;
+      const diff = now - (+new Date(r.ts));
+      if(!(diff>=0)) return;
+      const idx = weeks-1-Math.floor(diff/(7*86400000));
+      if(idx>=0 && idx<weeks) buckets[idx]++;
+    });
+    return buckets;
   }
 
   // ---- credentials -------------------------------------------------------

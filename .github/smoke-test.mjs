@@ -81,6 +81,11 @@ try {
     await (await $('.tile')).click(); await page.waitForTimeout(350);
     return !!(await page.$('.detail-head')) && (await count('.detail-head')) > 0;
   });
+  await check('dashboard shows a fleet health score and per-project trend sparklines', async () => {
+    await openSec('home');
+    const fleetStat = await page.$eval('.stats', (s) => /Fleet health/i.test(s.textContent));
+    return fleetStat && (await count('.tile .hchip')) >= 5 && (await count('.tile .spark')) >= 5;
+  });
 
   // ---------- Projects library ----------
   console.log('Projects library');
@@ -128,6 +133,8 @@ try {
   await page.evaluate(() => { location.hash = 'project/relay'; });
   await page.waitForTimeout(400);
   await check('project detail shows the what\'s-new timeline', async () => (await count('.timeline .tl-item')) >= 1);
+  await check('project detail health panel shows a health score and velocity sparkline', async () =>
+    (await count('.health .hchip')) >= 1 && (await count('.health .spark')) >= 1);
   await check('add a release to a project', async () => {
     const before = await store(`(S)=>S.releasesFor('relay').length`);
     await page.click('button:has-text("Add release")'); await page.waitForTimeout(300);

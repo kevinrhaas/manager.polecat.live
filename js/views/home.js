@@ -1,6 +1,6 @@
 // Dashboard — a live wall of project tiles + fleet stats + quick actions.
-import { Store, STATUSES } from '../store.js';
-import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog } from '../ui.js';
+import { Store, STATUSES, healthBand } from '../store.js';
+import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
 import { syncProject, forceSyncProject } from '../ingest.js';
@@ -20,6 +20,9 @@ export function renderHome(root, ctx){
   const feat=Store.featureCount();
   const untilSweep=(5-(feat%5))%5===0?0:(5-(feat%5));
   const rel7=Store.all('releases').filter(r=>r.ts && (Date.now()-+new Date(r.ts))<7*86400000).length;
+  const scores=projects.map(p=>Store.healthScore(p.id));
+  const fleetScore=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
+  const fleetBand=healthBand(fleetScore);
 
   // hero
   const hero=el('div',{style:'margin-bottom:20px'});
@@ -37,6 +40,7 @@ export function renderHome(root, ctx){
     stat('Live now', live, 'shipping to production', 'var(--success)'),
     stat('Shipped · 7d', rel7, 'releases across the fleet', 'var(--consensus)'),
     stat('Feature runs', feat, untilSweep===0?'sweep is next ✦':`${untilSweep} until next sweep`, 'var(--brand-c)'),
+    stat('Fleet health', fleetScore, `${fleetBand.label} · avg across ${projects.length}`, fleetBand.color),
   );
   wrap.append(stats);
 
@@ -96,6 +100,14 @@ export function tile(p, ctx){
     <span title="${escapeHtml(fmtCT(Store.lastActivity(p.id)))}">${icon('clock')} ${escapeHtml(fmtCT(Store.lastActivity(p.id)))}</span>`;
   meta.querySelectorAll('svg').forEach(s=>{s.style.width='13px';s.style.height='13px';s.style.verticalAlign='-2px';s.style.marginRight='3px';});
   c.append(meta);
+
+  const score=Store.healthScore(p.id);
+  const band=healthBand(score);
+  const health=el('div',{class:'thealth'});
+  health.innerHTML=`<span class="hchip ${band.cls}" title="Health score: ${score}/100 — ${band.label} (recency + release velocity + status)">${icon('activity')} ${score} · ${band.label}</span>`;
+  health.append(el('span',{class:'sp'}));
+  health.append(el('span',{class:'tspark', title:'Release velocity — last 10 weeks', html:sparkline(Store.releaseVelocity(p.id), {width:56, height:20, color:band.color})}));
+  c.append(health);
 
   const foot=el('div',{class:'tile-foot'});
   // what's new (in-app detail)
