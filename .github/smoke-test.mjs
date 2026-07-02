@@ -268,6 +268,43 @@ try {
     return !(await $('.tour-pop'));
   });
 
+  // ---------- Custom fields (typed project-metadata schema) ----------
+  console.log('Custom fields');
+  await check('define a select-type custom field in Settings', async () => {
+    await openSec('settings');
+    await page.click('.card:has-text("Custom fields") button:has-text("Add field")'); await page.waitForTimeout(300);
+    await page.fill('.modal input.input', 'Tier');
+    await page.selectOption('.modal select.input', 'select'); await page.waitForTimeout(150);
+    await page.fill('.modal input[placeholder="small, medium, large"]', 'Gold, Silver, Bronze');
+    await page.click('.modal button:has-text("Add field")'); await page.waitForTimeout(300);
+    return await store(`(S)=>S.fieldDefs().some(f=>f.label==='Tier' && f.type==='select')`);
+  });
+  await check('set the field on a project and see it rendered as a tag on the detail page', async () => {
+    await page.evaluate(() => { location.hash = 'project/games'; });
+    await page.waitForTimeout(400);
+    await page.click('button:has-text("Edit")'); await page.waitForTimeout(300);
+    await page.selectOption('.modal select[data-field="tier"]', 'Gold'); await page.waitForTimeout(150);
+    await page.click('.modal button:has-text("Save changes")'); await page.waitForTimeout(400);
+    return await page.$$eval('.card.health', (els) => els.some((e) => e.textContent.includes('Gold'))).catch(() => false);
+  });
+  await check('library filters the fleet by that custom field value', async () => {
+    await openSec('projects');
+    await page.selectOption('.toolbar select.field-filter', 'tier'); await page.waitForTimeout(200);
+    await page.selectOption('.toolbar select.field-filter-value', 'Gold'); await page.waitForTimeout(250);
+    const n = await count('.lib-table tbody tr');
+    const onlyGames = await page.$eval('.lib-table tbody', (tb) => tb.textContent.includes('Games')).catch(() => false);
+    await page.selectOption('.toolbar select.field-filter', ''); await page.waitForTimeout(200);
+    return n === 1 && onlyGames;
+  });
+  await check('cleanup: remove the smoke custom field and its value', async () => {
+    await store(`(S)=>{
+      const f=S.fieldDefs().find(x=>x.label==='Tier'); if(f) S.removeFieldDef(f.id, {silent:true});
+      const g=S.project('games');
+      if(g && g.fields && g.fields.tier){ const nf={...g.fields}; delete nf.tier; S.put('projects', {...g, fields:nf}, {silent:true}); }
+    }`);
+    return !(await store(`(S)=>S.fieldDefs().some(f=>f.label==='Tier')`));
+  });
+
   // ---------- Command palette ----------
   console.log('Command palette');
   await check('⌘K palette jumps to a project', async () => {

@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 4,
+    title: 'Typed custom fields',
+    kind: 'feature',
+    ts: '2026-07-02T20:01:44.339Z',
+    items: [
+      'Custom project metadata is now a real, fleet-wide schema — define fields with a type (Text, Number, URL, Date, or a fixed Select list) once in Settings → Custom fields, and every project shares them.',
+      'The project editor shows the right control for each field (a date picker, a dropdown of your options, etc.) instead of a bare text box, and you can define a brand-new field type without leaving the editor.',
+      'Typed values render properly on the project page — URLs are clickable links, dates are formatted, and Select values show as a tag.',
+      'The projects library can now filter by any custom field\'s value, and Number/Date fields join the sort dropdown alongside name, status, and version.',
+    ],
+  },
+  {
     v: 3,
     title: 'Fleet-wide sync',
     kind: 'feature',

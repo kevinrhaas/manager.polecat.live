@@ -84,17 +84,30 @@ export function renderProject(root, ctx, params){
   rows.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${k}</span><span class="v">${v}</span>`; health.append(r); });
   side.append(health);
 
-  // custom metadata
-  const fields=Object.entries(p.fields||{}).filter(([k,v])=>k&&v);
-  if(fields.length){
+  // custom metadata — typed per the fleet's field schema, plus any legacy
+  // free-form values entered before that schema existed.
+  const fieldDefs=Store.fieldDefs();
+  const fieldEntries=[];
+  fieldDefs.forEach(d=>{ const val=(p.fields||{})[d.key]; if(val!=null && val!=='') fieldEntries.push([d.label, formatFieldValue(d, val)]); });
+  const defKeys=new Set(fieldDefs.map(d=>d.key));
+  Object.entries(p.fields||{}).filter(([k,v])=>k&&v&&!defKeys.has(k)).forEach(([k,v])=>fieldEntries.push([k, escapeHtml(v)]));
+  if(fieldEntries.length){
     const meta=el('div',{class:'card health', style:'margin-top:16px'});
     meta.innerHTML=`<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Metadata</h2></div>`;
-    fields.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v)}</span>`; meta.append(r); });
+    fieldEntries.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${escapeHtml(k)}</span><span class="v">${v}</span>`; meta.append(r); });
     side.append(meta);
   }
   grid.append(side);
   wrap.append(grid);
   root.append(wrap);
+}
+
+function formatFieldValue(d, val){
+  if(d.type==='url') return `<a class="link" href="${escapeHtml(val)}" target="_blank" rel="noopener">${escapeHtml(val)}</a>`;
+  if(d.type==='date'){ const t=Date.parse(val); return escapeHtml(isNaN(t)?val:fmtCT(t, {withTime:false})); }
+  if(d.type==='select') return `<span class="tag">${escapeHtml(val)}</span>`;
+  if(d.type==='number') return `<span class="mono">${escapeHtml(val)}</span>`;
+  return escapeHtml(val);
 }
 
 function linkBtn(href, ic, label, cls=''){

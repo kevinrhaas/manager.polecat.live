@@ -11,6 +11,7 @@
 //   releases     per-project "what's new" entries (a project's changelog)
 //   credentials  shared (scope 'global') or per-project config/secrets
 //   runs         the self-improvement cadence log (feature / sweep / …)
+//   fieldDefs    the fleet-wide schema for custom project metadata fields
 //
 // Plus `settings` (app preferences) and a bounded `history` stack for undo.
 // -----------------------------------------------------------------------
@@ -19,7 +20,7 @@ import { uuid, slugify } from './ui.js';
 
 const LS_KEY   = 'manager.workspace.v1';
 const HIST_KEY = 'manager.history.v1';
-const TABLES   = ['projects', 'releases', 'credentials', 'runs'];
+const TABLES   = ['projects', 'releases', 'credentials', 'runs', 'fieldDefs'];
 const HIST_MAX = 40;
 
 export const STATUSES = {
@@ -29,6 +30,17 @@ export const STATUSES = {
   paused:   { label:'Paused',   cls:'s-paused' },
   idea:     { label:'Idea',     cls:'s-idea' },
   archived: { label:'Archived', cls:'s-archived' },
+};
+
+// Typed custom-field schema (`fieldDefs` table) — a project's free-form
+// `fields` map is keyed by a def's `key`, but the def gives it a real type so
+// it can render, filter, and sort correctly instead of always being text.
+export const FIELD_TYPES = {
+  text:   { label:'Text' },
+  number: { label:'Number' },
+  url:    { label:'URL' },
+  date:   { label:'Date' },
+  select: { label:'Select' },
 };
 
 const DEFAULT_SETTINGS = {
@@ -147,6 +159,19 @@ export const Store = new (class {
   }
   updateProject(id, patch, opts={}){ const p=this.project(id); if(!p) return; return this.put('projects', { ...p, ...patch }, { label:'Edit project', ...opts }); }
   togglePin(id){ const p=this.project(id); if(!p) return; return this.put('projects', { ...p, pinned:!p.pinned }, { silent:true }); }
+
+  // ---- custom field definitions (typed project-metadata schema) ---------
+  fieldDefs(){ return this.all('fieldDefs').sort((a,b)=>(a.order||0)-(b.order||0)); }
+  fieldDef(id){ return this.get('fieldDefs', id); }
+  addFieldDef(data){
+    const key = slugify(data.label||'field');
+    if(!key) throw new Error('Give the field a name.');
+    if(this.fieldDefs().some(f=>f.key===key)) throw new Error('A field with that name already exists.');
+    const order = this.fieldDefs().length;
+    return this.put('fieldDefs', { type:'text', options:[], order, ...data, key }, { label:'Add field' });
+  }
+  updateFieldDef(id, patch){ const f=this.fieldDef(id); if(!f) return; return this.put('fieldDefs', { ...f, ...patch }, { label:'Edit field' }); }
+  removeFieldDef(id, opts={}){ return this.remove('fieldDefs', id, { label:'Remove field', ...opts }); }
 
   // ---- releases (per-project "what's new") -------------------------------
   releasesFor(projectId){ return this.all('releases').filter(r=>r.projectId===projectId).sort((a,b)=>(b.v||0)-(a.v||0)); }

@@ -14,15 +14,10 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Custom metadata fields, first-class** — a schema editor so a project can
-      carry arbitrary typed fields (text/number/url/select/date), surfaced in the
-      library filters and the detail health panel. (Free-form key/value fields
-      already exist on the project editor/detail page — this is about typing
-      them and wiring them into filters/sort.)
+- [ ] Fleet health score + trend sparklines per project (release velocity).
 
 ## Next (discovered / queued)
 
-- [ ] Fleet health score + trend sparklines per project (release velocity).
 - [ ] Bulk actions in the library (tag, set status, archive) with undo.
 - [ ] Import/export the whole workspace as JSON; round-trip test in the suite.
 - [ ] Per-project "notes" markdown scratchpad with autosave + history.
@@ -38,9 +33,27 @@ with new, ambitious, fun ideas.
       quiet badge rather than a modal.
 - [ ] Surface a "sync all" entry point from the projects library toolbar too,
       not just the dashboard quick action, for people who live in that view.
+- [ ] "Promote to field" on a legacy free-form custom-field value — one click
+      turns an untyped key entered before the schema existed into a proper
+      typed field definition, prefilled from that value.
+- [ ] Number-type custom fields as filter range sliders (min/max) in the
+      library, to match the exact-match/contains filtering select/text fields
+      already get.
+- [ ] Reorderable custom fields (drag to set the `order` the schema already
+      tracks) so the most-used ones surface first in the editor and health panel.
 
 ## Done
 
+- [x] **Custom metadata fields, first-class** _(2026-07-02)_: a typed schema
+      editor (Settings → Custom fields) lets you define fields — Text, Number,
+      URL, Date, or a fixed Select list — once, shared across the whole fleet.
+      The project editor renders the right control per type (including a
+      "+ New field type" shortcut that defines one without leaving the modal),
+      the project detail page formats values by type (clickable URLs, formatted
+      dates, Select values as tags), and the projects library can filter by any
+      field's value and sort by Number/Date fields alongside name/status/version.
+      Legacy free-form values entered before the schema existed are preserved
+      and stay editable.
 - [x] **Fleet-wide sync** _(2026-07-02)_: a "Sync all" quick action on the
       dashboard runs the same live changelog ingestion as the per-project Sync
       button across every project that has a site or changelog URL, in one

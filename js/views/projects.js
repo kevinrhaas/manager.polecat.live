@@ -3,10 +3,12 @@
 import { Store, STATUSES } from '../store.js';
 import { el, escapeHtml, toast, modal, confirmDialog, fmtCT, avatarColor, slugify } from '../ui.js';
 import { icon } from '../icons.js';
+import { editFieldDef } from './settings.js';
 
-const VIEW_KEY = 'manager.lib.view';   // { q, status, sort, dir, saved }
+const VIEW_KEY = 'manager.lib.view';   // { q, status, sort, dir, field, fieldValue }
+const DEFAULT_STATE = { q:'', status:'all', sort:'activity', dir:'desc', field:'', fieldValue:'' };
 
-function state(){ try{ return { q:'', status:'all', sort:'activity', dir:'desc', ...(JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')) }; }catch{ return { q:'', status:'all', sort:'activity', dir:'desc' }; } }
+function state(){ try{ return { ...DEFAULT_STATE, ...(JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')) }; }catch{ return { ...DEFAULT_STATE }; } }
 function saveState(s){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify(s)); }catch{} }
 
 const SAVED_VIEWS = [
@@ -52,13 +54,44 @@ export function renderProjects(root, ctx){
   statusSel.addEventListener('change',()=>{ const ns={...state(),status:statusSel.value}; saveState(ns); renderProjects(root,ctx); });
 
   const sortSel=el('select',{class:'input', style:'max-width:170px'});
-  [['activity','Last activity'],['name','Name'],['status','Status'],['version','Latest version']].forEach(([v,t])=>
+  const fieldSorts=Store.fieldDefs().filter(d=>d.type==='number'||d.type==='date').map(d=>[`field:${d.key}`, d.label]);
+  [['activity','Last activity'],['name','Name'],['status','Status'],['version','Latest version'],...fieldSorts].forEach(([v,t])=>
     sortSel.append(el('option',{value:v,text:'Sort: '+t,selected:s.sort===v})));
   sortSel.addEventListener('change',()=>{ const ns={...state(),sort:sortSel.value}; saveState(ns); rerenderList(); });
   const dirBtn=el('button',{class:'btn icon', title:'Toggle direction', 'aria-label':'Toggle sort direction',
     html:icon('sort'), onclick:()=>{ const cur=state(); const ns={...cur,dir:cur.dir==='desc'?'asc':'desc'}; saveState(ns); rerenderList(); }});
 
   bar.append(search, statusSel, sortSel, dirBtn);
+
+  // custom-field filter — only shows once at least one field is defined
+  const defs=Store.fieldDefs();
+  if(defs.length){
+    const fieldSel=el('select',{class:'input field-filter', style:'max-width:150px'});
+    fieldSel.append(el('option',{value:'', text:'Any field'}));
+    defs.forEach(d=>fieldSel.append(el('option',{value:d.key, text:d.label})));
+    fieldSel.value = s.field||'';
+    const valWrap=el('span');
+    const renderValControl=()=>{
+      valWrap.innerHTML='';
+      const d=defs.find(x=>x.key===fieldSel.value);
+      if(!d) return;
+      if(d.type==='select'){
+        const sel=el('select',{class:'input field-filter-value', style:'max-width:150px'});
+        sel.append(el('option',{value:'', text:'Any value'}));
+        (d.options||[]).forEach(o=>sel.append(el('option',{value:o, text:o})));
+        sel.value = s.fieldValue||'';
+        sel.addEventListener('change',()=>{ const ns={...state(),field:fieldSel.value,fieldValue:sel.value}; saveState(ns); rerenderList(); });
+        valWrap.append(sel);
+      }else{
+        const inp=el('input',{class:'input field-filter-value', style:'max-width:150px', placeholder:'contains…', value:s.fieldValue||''});
+        inp.addEventListener('input',()=>{ const ns={...state(),field:fieldSel.value,fieldValue:inp.value}; saveState(ns); rerenderList(); });
+        valWrap.append(inp);
+      }
+    };
+    renderValControl();
+    fieldSel.addEventListener('change',()=>{ const ns={...state(),field:fieldSel.value,fieldValue:''}; saveState(ns); renderValControl(); rerenderList(); });
+    bar.append(fieldSel, valWrap);
+  }
   wrap.append(bar);
 
   const listHost=el('div',{id:'libList'});
@@ -76,6 +109,15 @@ function buildList(ctx){
   if(q) rows=rows.filter(p=>[p.name,p.repo,p.site,p.assessment,(p.tags||[]).join(' ')].join(' ').toLowerCase().includes(q));
   if(s.status==='pinned') rows=rows.filter(p=>p.pinned);
   else if(s.status!=='all') rows=rows.filter(p=>p.status===s.status);
+  if(s.field){
+    const def=Store.fieldDefs().find(d=>d.key===s.field);
+    rows=rows.filter(p=>{
+      const val=(p.fields||{})[s.field];
+      if(!s.fieldValue) return val!=null && val!=='';
+      if(def?.type==='select') return val===s.fieldValue;
+      return String(val||'').toLowerCase().includes(s.fieldValue.toLowerCase());
+    });
+  }
 
   const dir = s.dir==='asc'?1:-1;
   rows.sort((a,b)=>{
@@ -83,6 +125,11 @@ function buildList(ctx){
     if(s.sort==='name') r=a.name.localeCompare(b.name);
     else if(s.sort==='status') r=a.status.localeCompare(b.status);
     else if(s.sort==='version') r=((Store.latestRelease(a.id)?.v)||0)-((Store.latestRelease(b.id)?.v)||0);
+    else if(s.sort.startsWith('field:')){
+      const key=s.sort.slice(6);
+      const def=Store.fieldDefs().find(d=>d.key===key);
+      r = fieldSortValue(def,a.fields?.[key]) - fieldSortValue(def,b.fields?.[key]);
+    }
     else r=Store.lastActivity(a.id)-Store.lastActivity(b.id);
     return r*dir;
   });
@@ -91,7 +138,7 @@ function buildList(ctx){
 
   if(!rows.length){
     return el('div',{class:'card empty', html:`${icon('grid')}<div>No projects match. <a class="link" id="clearF">Clear filters</a> or add one.</div>`,
-      onclick:(e)=>{ if(e.target.id==='clearF'){ saveState({q:'',status:'all',sort:'activity',dir:'desc'}); const root=document.getElementById('view'); renderProjects(root,ctx); } }});
+      onclick:(e)=>{ if(e.target.id==='clearF'){ saveState({...DEFAULT_STATE}); const root=document.getElementById('view'); renderProjects(root,ctx); } }});
   }
 
   const box=el('div',{class:'lib-table'});
@@ -110,6 +157,13 @@ function buildList(ctx){
   table.append(tb);
   box.append(table);
   return box;
+}
+
+// Numeric key for sorting a typed field value; missing/unparsable values sort last.
+function fieldSortValue(def, val){
+  if(val==null || val==='') return -Infinity;
+  if(def?.type==='date'){ const t=Date.parse(val); return isNaN(t)?-Infinity:t; }
+  const n=parseFloat(val); return isNaN(n)?-Infinity:n;
 }
 
 function projectRow(p, ctx){
@@ -172,22 +226,45 @@ export function openProjectEditor(id, ctx){
     picker.append(b);
   });
 
-  // custom fields editor
+  // custom fields editor — one typed row per field defined in Settings, plus
+  // any legacy free-form keys from before the schema existed (kept, editable).
   const customWrap=el('div');
   const custom = { ...(v.fields||{}) };
   const renderCustom=()=>{
     customWrap.innerHTML='';
-    Object.entries(custom).forEach(([k,val])=>{
+    const defs=Store.fieldDefs();
+    if(!defs.length){
+      customWrap.append(el('div',{class:'tiny muted', style:'margin-bottom:8px', text:'No custom fields defined yet — add one below.'}));
+    }
+    defs.forEach(d=>{
+      const row=el('div',{style:'display:flex;gap:8px;margin-bottom:8px;align-items:center'});
+      const label=el('span',{class:'tiny muted', style:'flex:0 0 34%', text:d.label});
+      let input;
+      if(d.type==='select'){
+        input=el('select',{class:'input', style:'flex:1', 'data-field':d.key});
+        input.append(el('option',{value:'', text:'—'}));
+        (d.options||[]).forEach(o=>input.append(el('option',{value:o, text:o})));
+        input.value = custom[d.key]||'';
+        input.addEventListener('change',()=>{ if(input.value) custom[d.key]=input.value; else delete custom[d.key]; });
+      }else{
+        const type = d.type==='number'?'number':d.type==='date'?'date':d.type==='url'?'url':'text';
+        input=el('input',{class:'input'+(d.type==='url'?' mono':''), style:'flex:1', type, 'data-field':d.key, value:custom[d.key]??'', placeholder:d.label});
+        input.addEventListener('input',()=>{ if(String(input.value).trim()) custom[d.key]=input.value; else delete custom[d.key]; });
+      }
+      row.append(label,input); customWrap.append(row);
+    });
+    const defKeys=new Set(defs.map(d=>d.key));
+    Object.keys(custom).filter(k=>!defKeys.has(k)).forEach(k=>{
       const row=el('div',{style:'display:flex;gap:8px;margin-bottom:8px;align-items:center'});
       const kk=el('input',{class:'input', style:'flex:0 0 34%', value:k, placeholder:'Field'});
-      const vv=el('input',{class:'input', style:'flex:1', value:val, placeholder:'Value'});
+      const vv=el('input',{class:'input', style:'flex:1', value:custom[k], placeholder:'Value'});
       const del=el('button',{class:'btn ghost icon sm', title:'Remove field', 'aria-label':'Remove field', html:icon('trash'),
         onclick:()=>{ delete custom[k]; renderCustom(); }});
       kk.addEventListener('change',()=>{ const nv=vv.value; delete custom[k]; if(kk.value.trim()) custom[kk.value.trim()]=nv; renderCustom(); });
       vv.addEventListener('input',()=>{ custom[k]=vv.value; });
       row.append(kk,vv,del); customWrap.append(row);
     });
-    customWrap.append(el('button',{class:'btn sm', html:`${icon('plus')} Add field`, onclick:()=>{ let n='field'; let i=1; while(custom[n]) n='field'+(++i); custom[n]=''; renderCustom(); }}));
+    customWrap.append(el('button',{class:'btn sm', html:`${icon('plus')} New field type`, title:'Define a new typed field — appears here and on every project', onclick:()=>editFieldDef(null, renderCustom)}));
   };
   renderCustom();
 
@@ -203,7 +280,7 @@ export function openProjectEditor(id, ctx){
     f('Assessment', assessment),
     f('Icon', picker),
     el('div',{class:'divider'}),
-    el('div',{class:'field'}, [el('label',{text:'Custom fields'}), el('span',{class:'tiny muted', text:'Track anything — model, owner, budget… surfaced on the project page.'}), customWrap]),
+    el('div',{class:'field'}, [el('label',{text:'Custom fields'}), el('span',{class:'tiny muted', text:'Typed and shared across the fleet — surfaced on the project page and in the library’s filters and sort.'}), customWrap]),
   );
 
   const save=el('button',{class:'btn primary', text:isNew?'Create project':'Save changes', onclick:()=>{

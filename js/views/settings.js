@@ -1,9 +1,9 @@
 // Settings — theme, Simple mode, welcome tour, what's-new preferences,
 // data (export/import/reset), and access.
-import { Store } from '../store.js';
+import { Store, FIELD_TYPES } from '../store.js';
 import { Access } from '../access.js';
 import { getThemePref, setTheme } from '../theme.js';
-import { el, escapeHtml, toast, confirmDialog } from '../ui.js';
+import { el, escapeHtml, toast, modal, confirmDialog } from '../ui.js';
 import { icon } from '../icons.js';
 
 export function renderSettings(root, ctx){
@@ -47,6 +47,21 @@ export function renderSettings(root, ctx){
   [['newest','Newest'],['oldest','Oldest']].forEach(([v,t])=>{ const b=el('button',{class:s.wnSort===v?'on':'', text:t, onclick:()=>{ Store.setSetting('wnSort',v); [...sortSeg.children].forEach(x=>x.classList.remove('on')); b.classList.add('on'); }}); sortSeg.append(b); });
   sortRow.append(sortSeg); wn.append(sortRow);
   wrap.append(wn);
+
+  // ---- Custom fields (typed project-metadata schema) ----
+  const fields=card('Custom fields', 'sliders');
+  fields.append(el('p',{class:'muted tiny', style:'margin:0 0 10px', text:'Define typed fields — text, number, URL, date, or a fixed set of options — and they’ll show up on every project’s editor, health panel, and the library’s filters and sort.'}));
+  const fieldsList=el('div',{style:'display:flex;flex-direction:column;gap:8px'});
+  const renderFieldsList=()=>{
+    fieldsList.innerHTML='';
+    const defs=Store.fieldDefs();
+    if(!defs.length) fieldsList.append(el('div',{class:'card muted tiny', text:'No custom fields yet.'}));
+    else defs.forEach(d=>fieldsList.append(fieldDefRow(d, renderFieldsList)));
+  };
+  renderFieldsList();
+  fields.append(fieldsList);
+  fields.append(el('button',{class:'btn sm', style:'margin-top:10px', html:`${icon('plus')} Add field`, onclick:()=>editFieldDef(null, renderFieldsList)}));
+  wrap.append(fields);
 
   // ---- Data ----
   const data=card('Data', 'db');
@@ -92,6 +107,52 @@ function toggleRow(title, desc, on, onChange, compact){
     onclick:()=>{ const now=!t.classList.contains('on'); t.classList.toggle('on', now); t.setAttribute('aria-checked',String(now)); onChange(now); }});
   r.append(t);
   return r;
+}
+
+// ---- custom fields (typed project-metadata schema) -----------------------
+function fieldDefRow(d, onChange){
+  const row=el('div',{class:'card', style:'display:flex;align-items:center;gap:12px'});
+  row.innerHTML=`<span class="qicon" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--brand-b),var(--consensus));color:#05121a">${icon('sliders')}</span>`;
+  const mid=el('div',{style:'flex:1;min-width:0'});
+  mid.innerHTML=`<b>${escapeHtml(d.label)}</b> <span class="tiny mono muted">${escapeHtml(d.key)}</span>
+    <div class="tiny muted">${escapeHtml(FIELD_TYPES[d.type]?.label||'Text')}${d.type==='select'&&d.options?.length?` · ${d.options.map(escapeHtml).join(', ')}`:''}</div>`;
+  row.append(mid);
+  row.append(el('button',{class:'btn ghost icon sm', title:'Edit', 'aria-label':'Edit field', html:icon('edit'), onclick:()=>editFieldDef(d.id, onChange)}));
+  row.append(el('button',{class:'btn ghost icon sm', title:'Remove', 'aria-label':'Remove field', html:icon('trash'), onclick:async()=>{
+    if(await confirmDialog('Remove field', `Remove "${d.label}" from the schema? Existing values stay on projects, but the field won’t appear in the editor, filters, or sort unless you re-add it.`, {danger:true, okLabel:'Remove'})){
+      Store.removeFieldDef(d.id); toast('Field removed',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); onChange();
+    }
+  }}));
+  return row;
+}
+
+// Add/edit a field definition. Shared by Settings (schema management) and the
+// project editor ("+ New field" — define one without leaving the modal).
+export function editFieldDef(id, onChange){
+  const d = id ? Store.fieldDef(id) : null;
+  const isNew = !d;
+  const label=el('input',{class:'input', placeholder:'Owner', value:d?.label||''});
+  const type=el('select',{class:'input'});
+  Object.entries(FIELD_TYPES).forEach(([k,t])=>type.append(el('option',{value:k,text:t.label})));
+  type.value = d?.type||'text';
+  const options=el('input',{class:'input', placeholder:'small, medium, large', value:(d?.options||[]).join(', ')});
+  const optionsField=el('div',{class:'field'}); optionsField.append(el('label',{text:'Options'}), options, el('span',{class:'tiny muted', text:'Comma-separated choices for a Select field.'}));
+  optionsField.style.display = type.value==='select' ? '' : 'none';
+  type.addEventListener('change',()=>{ optionsField.style.display = type.value==='select' ? '' : 'none'; });
+  const f=(l,n,hint)=>{ const w=el('div',{class:'field'}); w.append(el('label',{text:l}), n); if(hint) w.append(el('span',{class:'tiny muted', text:hint})); return w; };
+  const body=el('div');
+  body.append(f('Name', label, 'Shown on the project editor, health panel, and library filters.'), f('Type', type), optionsField);
+  const save=el('button',{class:'btn primary', text:isNew?'Add field':'Save changes', onclick:()=>{
+    const lbl=label.value.trim(); if(!lbl){ label.focus(); return; }
+    const opts=options.value.split(',').map(s=>s.trim()).filter(Boolean);
+    try{
+      const data={ label:lbl, type:type.value, options:type.value==='select'?opts:[] };
+      if(isNew) Store.addFieldDef(data); else Store.updateFieldDef(id, data);
+      hide(); toast(isNew?'Field added':'Field saved',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); onChange&&onChange();
+    }catch(e){ toast('Couldn’t save field',{body:e.message, kind:'err'}); }
+  }});
+  const {hide}=modal({ title:isNew?'Add custom field':'Edit custom field', icon:'sliders', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
+  setTimeout(()=>label.focus(),50);
 }
 
 // ---- data helpers --------------------------------------------------------
