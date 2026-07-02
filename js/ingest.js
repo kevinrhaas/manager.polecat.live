@@ -120,23 +120,39 @@ export async function forceSyncProject(p){
 // fails, so an unreachable source is retried on the next interval rather than
 // on every app open. Returns null when there's nothing due (including when
 // the feature is off), so callers can stay silent.
+// The interval is stored in MINUTES (`intervalMinutes`); older workspaces that
+// only have `intervalHours` are read transparently. Default 360 min (6 h).
+export function autoSyncMinutes(cfg){
+  cfg = cfg || Store.settings().autoSync || {};
+  return Math.max(1, cfg.intervalMinutes ?? (cfg.intervalHours != null ? cfg.intervalHours * 60 : 360));
+}
+
+// A module-level in-flight guard so overlapping ticks (frequent intervals +
+// slow networks) can never stack up. If a run is already going, we skip.
+let _autoSyncing = false;
 export async function runAutoSync(){
+  if(_autoSyncing) return null;                 // never overlap — run safe
   const cfg = Store.settings().autoSync;
   if(!cfg?.enabled) return null;
-  const dueMs = (cfg.intervalHours || 6) * 3600000;
+  const dueMs = autoSyncMinutes(cfg) * 60000;
   const due = Store.projects().filter(p =>
     p.autoSync && (p.site || p.changelogUrl) && (Date.now() - (p.lastAutoSyncAt || 0)) >= dueMs);
   if(!due.length) return null;
 
-  let ok=0, failed=0, added=0, updated=0;
-  for(const p of due){
-    const res = await syncProject(p);
-    Store.updateProject(p.id, { lastAutoSyncAt: Date.now() }, { silent:true });
-    if(res.status==='ok'){ ok++; added+=res.added; updated+=res.updated; }
-    else if(res.status==='error') failed++;
+  _autoSyncing = true;
+  try{
+    let ok=0, failed=0, added=0, updated=0;
+    for(const p of due){
+      const res = await syncProject(p);
+      Store.updateProject(p.id, { lastAutoSyncAt: Date.now() }, { silent:true });
+      if(res.status==='ok'){ ok++; added+=res.added; updated+=res.updated; }
+      else if(res.status==='error') failed++;
+    }
+    if(added || updated){
+      Store.logRun({ mode:'auto-sync', note:`Auto-sync — ${added} new, ${updated} updated across ${ok} project${ok===1?'':'s'}` });
+    }
+    return { attempted:due.length, ok, failed, added, updated };
+  } finally {
+    _autoSyncing = false;
   }
-  if(added || updated){
-    Store.logRun({ mode:'auto-sync', note:`Auto-sync — ${added} new, ${updated} updated across ${ok} project${ok===1?'':'s'}` });
-  }
-  return { attempted:due.length, ok, failed, added, updated };
 }

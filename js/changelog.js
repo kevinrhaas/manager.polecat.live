@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 6,
+    title: 'Faster, safer auto-sync',
+    kind: 'feature',
+    ts: '2026-07-02T21:12:20.234Z',
+    items: [
+      'Auto-sync now runs on a real background loop — so a project actually re-checks on its interval while the app is open, not only when you reload.',
+      'The interval can go all the way down to every 1 minute (1m / 5m / 15m / 30m / 1h / 3h / 6h / 12h / 24h).',
+      'Made safe for those short intervals: a check that’s still in flight never starts another, polling pauses while the tab is hidden, and you only get a toast when something actually changed.',
+    ],
+  },
+  {
     v: 5,
     title: 'Auto-sync & force sync',
     kind: 'feature',

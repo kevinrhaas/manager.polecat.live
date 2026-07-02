@@ -51,16 +51,17 @@ export function renderSettings(root, ctx){
   // ---- Auto-sync (quiet, on-a-cadence changelog ingestion) ----
   const auto=card('Auto-sync', 'refresh');
   auto.append(el('p',{class:'muted tiny', style:'margin:0 0 6px', text:'Quietly re-pulls each opted-in project’s changelog on app open, and again once its interval has passed — banking new releases without a modal. Opt a project in from its own health panel; this switch (plus the interval) governs the fleet.'}));
-  const acfg = s.autoSync || {enabled:false, intervalHours:6};
+  const acfg = s.autoSync || {enabled:false, intervalMinutes:360};
+  const curMin = acfg.intervalMinutes ?? (acfg.intervalHours!=null ? acfg.intervalHours*60 : 360);
   auto.append(toggleRow('Auto-sync changelogs', 'Nothing runs in the background unless this is on.', acfg.enabled, (on)=>{
     Store.setSetting('autoSync', { ...Store.settings().autoSync, enabled:on });
     toast(on?'Auto-sync on':'Auto-sync off', {kind:'ok'});
   }));
-  const intervalRow=optRow('Check every', 'How often a due, opted-in project is re-checked.');
+  const intervalRow=optRow('Check every', 'How often a due, opted-in project is re-checked. Runs quietly in the background — a check that’s still in flight never starts another, and it pauses while the tab is hidden.');
   const intervalSel=el('select',{class:'input', style:'max-width:150px'});
-  [[1,'1 hour'],[3,'3 hours'],[6,'6 hours'],[12,'12 hours'],[24,'24 hours']].forEach(([h,t])=>
-    intervalSel.append(el('option',{value:h, text:t, selected:(acfg.intervalHours||6)===h})));
-  intervalSel.addEventListener('change',()=>Store.setSetting('autoSync', { ...Store.settings().autoSync, intervalHours:parseInt(intervalSel.value,10) }));
+  [[1,'1 minute'],[5,'5 minutes'],[15,'15 minutes'],[30,'30 minutes'],[60,'1 hour'],[180,'3 hours'],[360,'6 hours'],[720,'12 hours'],[1440,'24 hours']].forEach(([m,t])=>
+    intervalSel.append(el('option',{value:m, text:t, selected:curMin===m})));
+  intervalSel.addEventListener('change',()=>Store.setSetting('autoSync', { ...Store.settings().autoSync, intervalMinutes:parseInt(intervalSel.value,10) }));
   intervalRow.append(intervalSel);
   auto.append(intervalRow);
   const optedIn=Store.projects().filter(p=>p.autoSync);

@@ -218,14 +218,15 @@ try {
     await store(`(S)=>{const p=S.project('games'); S.put('projects', {...p, autoSync:false}, {silent:true});}`);
     return before !== after;
   });
-  await check('settings: global auto-sync toggle + interval persist', async () => {
+  await check('settings: global auto-sync toggle + minute interval persist', async () => {
     await openSec('settings');
     const before = await store(`(S)=>({...S.settings().autoSync})`);
     await page.click('.card:has-text("Auto-sync") .opt-row .toggle'); await page.waitForTimeout(200);
-    await page.selectOption('.card:has-text("Auto-sync") select.input', '12'); await page.waitForTimeout(150);
+    // interval is now stored in minutes and can go as low as 1 minute
+    await page.selectOption('.card:has-text("Auto-sync") select.input', '1'); await page.waitForTimeout(150);
     const after = await store(`(S)=>({...S.settings().autoSync})`);
-    await store(`(S)=>S.setSetting('autoSync', ${JSON.stringify({ enabled:false, intervalHours:6 })})`);
-    return after.enabled !== before.enabled && after.intervalHours === 12;
+    await store(`(S)=>S.setSetting('autoSync', ${JSON.stringify({ enabled:false, intervalMinutes:360 })})`);
+    return after.enabled !== before.enabled && after.intervalMinutes === 1;
   });
   await check('force sync overwrites a drifted release and removes a stale synced one', async () => {
     const changelogUrl = `${base}/js/changelog.js`;

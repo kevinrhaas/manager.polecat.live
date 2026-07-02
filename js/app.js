@@ -51,11 +51,21 @@ async function boot(){
     setTimeout(()=>ctx.startTour(), 650);
   }
 
-  // quiet, opt-in changelog auto-sync — never blocks boot, never shows a modal
+  // quiet, opt-in changelog auto-sync — a background loop that honors each
+  // project's interval (down to 1 minute). Safe by construction: runAutoSync
+  // never overlaps itself (guarded in ingest.js), we skip while the tab is
+  // hidden, and we only surface a toast when something actually changed.
+  tickAutoSync();
+  setInterval(tickAutoSync, 30000);   // wake every 30s; runAutoSync self-gates on per-project due-ness
+}
+
+function tickAutoSync(){
+  if(document.hidden) return;          // don't poll a backgrounded tab
   runAutoSync().then(res=>{
     if(!res || (!res.added && !res.updated)) return;
     toast('Auto-synced the fleet', { kind:'ok', body:`${res.added} new, ${res.updated} updated across ${res.ok} project${res.ok===1?'':'s'}.` });
-    render();
+    // refresh the current view, but never yank the ground out from under an open dialog
+    if(!document.querySelector('.overlay.show, .cmdk.show, .sheet-overlay.show, .tour-pop.show')) render();
   }).catch(()=>{});
 }
 
