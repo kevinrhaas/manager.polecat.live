@@ -14,20 +14,19 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Factor the health-score weighting (recency / velocity / status) into a
-      Settings panel so it's tunable per fleet instead of the fixed constants
-      in `Store.healthScore()` — today "8 points per release in 90d, capped
-      at 40" etc. is a reasonable default but not something a user can nudge.
-
-## Next (discovered / queued)
-
 - [ ] Feed the new per-project `healthScore()`/`releaseVelocity()`, plus the
       new auto-sync failing signal (2026-07-02), into a "Needs attention"
       saved view or dashboard callout, instead of only showing badges
       passively on each tile.
+
+## Next (discovered / queued)
+
+- [ ] Persist a per-project override of the fleet health weighting (see Done,
+      2026-07-02) for the rare project whose cadence is intentionally
+      different from the fleet norm — today the weights are fleet-wide only.
 - [ ] Make the auto-sync backoff cap and fail threshold (currently fixed
       constants in `js/ingest.js`) tunable from Settings → Auto-sync, same
-      spirit as the health-score-weighting item above.
+      spirit as the health-score-weighting item just shipped (2026-07-02).
 - [ ] Generalize the mobile no-overflow smoke check (see Done, 2026-07-02) into
       a loop over every rail section at 320px, instead of the two spots this
       sweep happened to catch — cheap insurance against the next `.section-title`
@@ -62,6 +61,16 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Tunable fleet health weighting** _(2026-07-02)_: the three signals
+      behind every project's health score — recency, release velocity, and
+      status — are no longer fixed constants in `Store.healthScore()`. A new
+      Settings → "Fleet health weighting" card exposes them as drag sliders;
+      they're relative weights renormalized to always sum to 100, so any mix
+      a user dials in behaves predictably, with a one-click reset back to the
+      shipped default (40/40/20, chosen to reproduce the original fixed
+      weighting exactly). `Store.healthScore()` now reads the live weights on
+      every call, so dashboard tiles, the fleet health average, and each
+      project's health panel all reflect a change immediately.
 - [x] **Auto-sync retry/backoff signal** _(2026-07-02)_: a project whose
       auto-sync keeps failing (dead site, CORS, 404) now backs off instead of
       hammering the source every interval forever — each consecutive failure

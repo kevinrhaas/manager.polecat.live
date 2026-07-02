@@ -376,6 +376,26 @@ try {
     const restored = await count('.rail-item');
     return trimmed < full && restored === full;
   });
+  await check('healthWeights() renormalizes any ratio to sum to 100', async () => {
+    const w = await store(`(S)=>{
+      S.setSetting('healthWeights', {recency:10, velocity:10, status:5});
+      const w=S.healthWeights();
+      S.setSetting('healthWeights', {recency:40, velocity:40, status:20});
+      return w;
+    }`);
+    const total = w.recency + w.velocity + w.status;
+    return Math.abs(total - 100) < 0.01 && Math.abs(w.recency - 40) < 0.01 && Math.abs(w.velocity - 40) < 0.01 && Math.abs(w.status - 20) < 0.01;
+  });
+  await check('settings: fleet health weighting sliders persist, reset restores the shipped default', async () => {
+    await openSec('settings');
+    await page.$eval('.health-weight-slider[data-dim="velocity"]', (s) => { s.value = '0'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(150);
+    const zeroed = await store(`(S)=>S.settings().healthWeights.velocity`);
+    await page.click('.card:has-text("Fleet health weighting") button:has-text("Reset to default weighting")');
+    await page.waitForTimeout(150);
+    const restored = await store(`(S)=>({...S.settings().healthWeights})`);
+    return zeroed === 0 && restored.recency === 40 && restored.velocity === 40 && restored.status === 20;
+  });
   await check('welcome tour starts and can finish', async () => {
     await openSec('settings');
     await page.click('button:has-text("Start tour")'); await page.waitForTimeout(400);

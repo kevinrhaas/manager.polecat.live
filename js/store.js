@@ -56,12 +56,20 @@ export const FIELD_TYPES = {
   select: { label:'Select' },
 };
 
+// Fleet health weighting — relative importance of each dimension in
+// healthScore(). These are ratios, not fixed point caps: whatever a user sets
+// them to, they're renormalized so the three always add up to 100 possible
+// points. Ship defaults reproduce the original fixed weighting exactly
+// (40 / 40 / 20 — recency and velocity equally important, status a tiebreaker).
+export const DEFAULT_HEALTH_WEIGHTS = { recency:40, velocity:40, status:20 };
+
 const DEFAULT_SETTINGS = {
   simpleMode: false,
   tourDone: false,
   wnTracked: { version:true, date:true, kind:true, items:true },
   wnSort: 'newest',
   autoSync: { enabled:false, intervalHours:6 },
+  healthWeights: { ...DEFAULT_HEALTH_WEIGHTS },
 };
 
 // ---- reactive core -------------------------------------------------------
@@ -250,17 +258,31 @@ export const Store = new (class {
     return Math.max(rt||0, p?.updatedAt||0) || (p?.updatedAt||0);
   }
 
+  // ---- fleet health weighting (tunable, Settings → Fleet health) ---------
+  // Returns the three dimensions' point caps, renormalized to sum to 100 no
+  // matter what a user dials them to — so "50/30/20" and "5/3/2" behave the same.
+  healthWeights(){
+    const raw = { ...DEFAULT_HEALTH_WEIGHTS, ...(this.settings().healthWeights||{}) };
+    const total = (raw.recency||0)+(raw.velocity||0)+(raw.status||0);
+    if(!total) return { ...DEFAULT_HEALTH_WEIGHTS };
+    const scale = 100/total;
+    return { recency:raw.recency*scale, velocity:raw.velocity*scale, status:raw.status*scale };
+  }
+  setHealthWeights(patch){ this.setSetting('healthWeights', { ...this.settings().healthWeights, ...patch }); }
+
   // ---- fleet health (recency + release velocity + status), 0-100 --------
   healthScore(projectId){
     const p = this.project(projectId);
     if(!p) return 0;
+    const w = this.healthWeights();
     const now = Date.now();
     const days = this.lastActivity(projectId) ? (now-this.lastActivity(projectId))/86400000 : Infinity;
-    const recency = days<=3?40 : days<=14?32 : days<=30?24 : days<=90?12 : days<=180?4 : 0;
+    const recencyFrac = days<=3?1 : days<=14?0.8 : days<=30?0.6 : days<=90?0.3 : days<=180?0.1 : 0;
     const rels90 = this.all('releases').filter(r=>r.projectId===projectId && r.ts && (now-(+new Date(r.ts)))<90*86400000).length;
-    const velocity = Math.min(rels90*8, 40);
-    const statusScore = ({ live:20, active:18, building:14, idea:6, paused:4, archived:0 })[p.status] ?? 8;
-    return Math.max(0, Math.min(100, Math.round(recency+velocity+statusScore)));
+    const velocityFrac = Math.min(rels90/5, 1); // 5 releases in 90d maxes it out
+    const statusFrac = ({ live:1, active:0.9, building:0.7, idea:0.3, paused:0.2, archived:0 })[p.status] ?? 0.4;
+    const score = recencyFrac*w.recency + velocityFrac*w.velocity + statusFrac*w.status;
+    return Math.max(0, Math.min(100, Math.round(score)));
   }
   // Weekly release counts for the last `weeks` weeks, oldest first — the
   // series behind the per-project release-velocity sparkline.

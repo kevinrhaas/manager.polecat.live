@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 10,
+    title: 'Tunable fleet health weighting',
+    kind: 'feature',
+    ts: '2026-07-02T23:17:51.769Z',
+    items: [
+      'Settings → "Fleet health weighting" turns the three signals behind every health score — recency, release velocity, and status — into drag sliders instead of fixed constants.',
+      'They\'re relative: whatever you set them to, they\'re renormalized to always add up to 100, so "50/30/20" and "5/3/2" score identically.',
+      'Every score recalculates live from your weights everywhere it shows — dashboard tiles, the fleet health average, and each project\'s health panel — with one click to reset back to the shipped default (40/40/20).',
+    ],
+  },
+  {
     v: 9,
     title: 'Auto-sync retry/backoff signal',
     kind: 'feature',

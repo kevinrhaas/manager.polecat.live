@@ -1,6 +1,6 @@
 // Settings — theme, Simple mode, welcome tour, what's-new preferences,
 // data (export/import/reset), and access.
-import { Store, FIELD_TYPES } from '../store.js';
+import { Store, FIELD_TYPES, DEFAULT_HEALTH_WEIGHTS } from '../store.js';
 import { Access } from '../access.js';
 import { getThemePref, setTheme } from '../theme.js';
 import { el, escapeHtml, toast, modal, confirmDialog } from '../ui.js';
@@ -73,6 +73,36 @@ export function renderSettings(root, ctx){
       html:`${icon('warning','warn-ic')} ${failing.length} failing: ${failing.map(p=>escapeHtml(p.name)).join(', ')} — see each project’s health panel.`}));
   }
   wrap.append(auto);
+
+  // ---- Fleet health weighting ----
+  const health=card('Fleet health weighting', 'gauge');
+  health.append(el('p',{class:'muted tiny', style:'margin:0 0 10px', text:'Every project’s health score (0-100) blends three signals — how recently it shipped, how fast it’s shipping, and its status. Drag to change how much each one counts; they’re relative, so they always add up to 100 no matter what you set them to.'}));
+  const wRow=el('div',{style:'display:flex;flex-direction:column;gap:12px'});
+  const dims=[['recency','Recency','How recently the project last shipped something.'],['velocity','Velocity','How many releases it’s shipped in the last 90 days.'],['status','Status','Live/active projects score higher than paused or archived ones.']];
+  const pctEls={};
+  const renderPcts=()=>{
+    const norm=Store.healthWeights();
+    dims.forEach(([k])=>{ if(pctEls[k]) pctEls[k].textContent=Math.round(norm[k])+'%'; });
+  };
+  dims.forEach(([k,label,desc])=>{
+    const cur=(Store.settings().healthWeights||DEFAULT_HEALTH_WEIGHTS)[k] ?? DEFAULT_HEALTH_WEIGHTS[k];
+    const row=el('div',{class:'field', style:'margin:0'});
+    const head=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
+    head.innerHTML=`<label style="margin:0">${escapeHtml(label)}</label><span class="tiny muted mono" style="min-width:34px;text-align:right"></span>`;
+    const pctEl=head.lastElementChild; pctEls[k]=pctEl;
+    const slider=el('input',{type:'range', min:'0', max:'100', step:'1', value:String(cur), class:'health-weight-slider', 'data-dim':k});
+    slider.addEventListener('input',()=>{ Store.setHealthWeights({ [k]:parseInt(slider.value,10) }); renderPcts(); });
+    row.append(head, slider, el('span',{class:'tiny muted', text:desc}));
+    wRow.append(row);
+  });
+  health.append(wRow);
+  renderPcts();
+  health.append(el('button',{class:'btn sm', style:'margin-top:12px', html:`${icon('refresh')} Reset to default weighting`, onclick:()=>{
+    Store.setSetting('healthWeights', { ...DEFAULT_HEALTH_WEIGHTS });
+    dims.forEach(([k])=>{ const s=wRow.querySelector(`[data-dim="${k}"]`); if(s) s.value=String(DEFAULT_HEALTH_WEIGHTS[k]); });
+    renderPcts(); toast('Health weighting reset',{kind:'ok'});
+  }}));
+  wrap.append(health);
 
   // ---- Custom fields (typed project-metadata schema) ----
   const fields=card('Custom fields', 'sliders');
