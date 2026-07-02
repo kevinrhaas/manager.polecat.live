@@ -14,13 +14,19 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Feed the new per-project `healthScore()`/`releaseVelocity()`, plus the
-      new auto-sync failing signal (2026-07-02), into a "Needs attention"
-      saved view or dashboard callout, instead of only showing badges
-      passively on each tile.
+- [ ] A notification center (see Next) for run failures / stale projects,
+      built on top of the "Needs attention" rollup (2026-07-02) so both
+      surfaces share the same underlying signal instead of drifting apart.
 
 ## Next (discovered / queued)
 
+- [ ] Badge the rail's Dashboard nav item with the live "Needs attention"
+      count (see Done, 2026-07-02) so a slipping project is visible even
+      before you land on the dashboard — today the callout is silent until
+      you're already looking at it.
+- [ ] Let "Needs attention" thresholds be tuned from Settings, same spirit as
+      the fleet health weighting (see Done, 2026-07-02) — today Slowing/Stale
+      and the auto-sync fail threshold are fixed, not configurable per fleet.
 - [ ] Persist a per-project override of the fleet health weighting (see Done,
       2026-07-02) for the rare project whose cadence is intentionally
       different from the fleet norm — today the weights are fleet-wide only.
@@ -61,6 +67,17 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **"Needs attention" rollup** _(2026-07-02)_: the health score, release
+      velocity, and auto-sync failing signal shipped earlier this cadence
+      were only ever passive per-tile badges — easy to miss in a big grid. A
+      new `Store.needsAttention()` centralizes the definition (health slipped
+      to Slowing/Stale, or auto-sync failing past the threshold) and surfaces
+      it in two places that share it exactly: a dashboard callout at the top
+      of the fleet view listing every flagged project with its reason chips
+      and one-click "Retry now" / "Open", and a new "Needs attention" saved
+      view chip in the projects library that filters the table down to the
+      same set. Nothing is flagged and the callout doesn't render when the
+      fleet is healthy.
 - [x] **Tunable fleet health weighting** _(2026-07-02)_: the three signals
       behind every project's health score — recency, release velocity, and
       status — are no longer fixed constants in `Store.healthScore()`. A new

@@ -3,7 +3,7 @@ import { Store, STATUSES, healthBand } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
-import { syncProject, forceSyncProject, AUTO_SYNC_FAIL_THRESHOLD } from '../ingest.js';
+import { syncProject, forceSyncProject, attemptAutoSync, AUTO_SYNC_FAIL_THRESHOLD } from '../ingest.js';
 
 function greeting(){
   const h = new Date().toLocaleString('en-US',{ timeZone:'America/Chicago', hour:'numeric', hour12:false });
@@ -29,6 +29,12 @@ export function renderHome(root, ctx){
   hero.innerHTML=`<h1 style="margin:0 0 4px;font-size:26px;letter-spacing:-.4px">${greeting()}, Commander.</h1>
     <p class="muted" style="margin:0;font-size:14px">Your fleet has <b style="color:var(--text)">${projects.length}</b> project${projects.length!==1?'s':''} — ${active} active, ${live} live. Everything below updates the moment it changes.</p>`;
   wrap.append(hero);
+
+  // needs attention — a callout roll-up of the same health/auto-sync signals
+  // that already show as passive badges on each tile, so a slipping project
+  // never gets lost in a big grid.
+  const attn=Store.needsAttention();
+  if(attn.length) wrap.append(attentionPanel(attn, ctx));
 
   // stats
   const stats=el('div',{class:'grid stats'});
@@ -77,6 +83,51 @@ export function renderHome(root, ctx){
   wrap.append(qa);
 
   root.append(wrap);
+}
+
+// -------------------------------------------------------------------------
+// Needs-attention callout — a dashboard-level roll-up of every project whose
+// health has slipped or whose auto-sync is failing, worst-off first, with a
+// one-click jump to the project and (when it's a sync failure) a "Retry now"
+// right in the row. Shares Store.needsAttention() with the library's "Needs
+// attention" saved view, so both surfaces always agree on the same set.
+// -------------------------------------------------------------------------
+function attentionPanel(attn, ctx){
+  const panel=el('div',{class:'card attn-panel', style:'margin-bottom:20px'});
+  const head=el('div',{class:'section-title', style:'margin:0 0 6px'});
+  head.innerHTML=`<span style="color:var(--danger);display:inline-flex">${icon('warning')}</span><h2>Needs attention</h2>`;
+  head.append(el('span',{class:'sp'}));
+  head.append(el('span',{class:'tiny muted', text:`${attn.length} project${attn.length===1?'':'s'}`}));
+  panel.append(head);
+  attn.forEach(a=>panel.append(attentionRow(a, ctx)));
+  return panel;
+}
+
+function attentionRow(a, ctx){
+  const {project:p, band, reasons}=a;
+  const row=el('div',{class:'attn-row', onclick:()=>ctx.go('project',{id:p.id})});
+  row.innerHTML=`<span class="aavatar" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span>
+    <span class="aname">${escapeHtml(p.name)}</span>`;
+  const reasonsWrap=el('span',{class:'areasons'});
+  reasons.forEach(r=>{
+    if(r.kind==='health') reasonsWrap.append(el('span',{class:`hchip ${band.cls}`, html:`${icon('activity')} ${escapeHtml(r.text)}`}));
+    else reasonsWrap.append(el('span',{class:'fail-chip', title:p.autoSyncLastError||'', html:`${icon('warning')} ${escapeHtml(r.text)}`}));
+  });
+  row.append(reasonsWrap);
+  const actions=el('span',{class:'aactions'});
+  if(reasons.some(r=>r.kind==='sync')){
+    actions.append(el('button',{class:'linkbtn stopnav', html:`${icon('refresh')} Retry now`, onclick:async(e)=>{
+      e.stopPropagation();
+      const btn=e.currentTarget; btn.disabled=true; btn.textContent='Retrying…';
+      const res=await attemptAutoSync(p);
+      if(res.status==='ok') toast('Auto-sync recovered', { kind:'ok', body:`${p.name}: ${res.added} new, ${res.updated} updated.` });
+      else toast('Still failing', { kind:'warn', body:res.message||res.reason||'Could not reach that source.' });
+      ctx.go('home');
+    }}));
+  }
+  actions.append(el('button',{class:'linkbtn stopnav', html:`${icon('chevron')} Open`, onclick:(e)=>{ e.stopPropagation(); ctx.go('project',{id:p.id}); }}));
+  row.append(actions);
+  return row;
 }
 
 function sectionTitle(text, ic, extra){

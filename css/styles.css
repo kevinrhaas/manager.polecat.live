@@ -311,6 +311,20 @@ body{
   background:color-mix(in srgb,var(--danger) 12%,transparent);
   border:1px solid color-mix(in srgb,var(--danger) 32%,transparent)}
 .fail-chip svg{width:12px;height:12px}
+
+/* ---- needs-attention callout (dashboard) ------------------------------ */
+.attn-panel{border-color:color-mix(in srgb,var(--danger) 32%,var(--border));
+  background:color-mix(in srgb,var(--danger) 5%,var(--surface))}
+.attn-row{display:flex;align-items:center;gap:12px;padding:9px 2px;cursor:pointer;
+  border-top:1px solid var(--border);flex-wrap:wrap;row-gap:6px}
+.attn-row:first-of-type{border-top:none;padding-top:4px}
+.attn-row .aavatar{width:30px;height:30px;flex:0 0 auto;border-radius:9px;color:#05121a;
+  display:flex;align-items:center;justify-content:center}
+.attn-row .aavatar svg{width:15px;height:15px}
+.attn-row .aname{font-weight:620;font-size:13px;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
+.attn-row .areasons{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:120px}
+.attn-row .aactions{display:flex;gap:6px;flex:0 0 auto;margin-left:auto}
 .tspark{display:inline-flex;align-items:center}
 .spark{display:block;opacity:.9}
 .spark rect{transition:height .25s ease}

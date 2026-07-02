@@ -13,7 +13,8 @@
 // would allow it — so failures here are expected and handled gracefully by
 // the caller, which offers a paste-to-import fallback.
 
-import { Store } from './store.js';
+import { Store, AUTO_SYNC_FAIL_THRESHOLD } from './store.js';
+export { AUTO_SYNC_FAIL_THRESHOLD };
 
 export function guessChangelogUrl(site){
   if(!site) return '';
@@ -133,8 +134,8 @@ export function autoSyncMinutes(cfg){
 // unreachable source on every tick forever. Any success resets the streak
 // and normal cadence resumes immediately. Once a streak reaches this many
 // consecutive failures it's surfaced in the UI as "failing", not just retried.
+// (AUTO_SYNC_FAIL_THRESHOLD itself now lives in store.js — see there.)
 const AUTO_SYNC_BACKOFF_CAP = 8;
-export const AUTO_SYNC_FAIL_THRESHOLD = 2;
 export function autoSyncBackoffMultiplier(failCount){
   return failCount > 0 ? Math.min(2 ** failCount, AUTO_SYNC_BACKOFF_CAP) : 1;
 }

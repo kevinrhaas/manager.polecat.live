@@ -13,10 +13,11 @@ function state(){ try{ return { ...DEFAULT_STATE, ...(JSON.parse(localStorage.ge
 function saveState(s){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify(s)); }catch{} }
 
 const SAVED_VIEWS = [
-  { id:'all',     label:'All',           icon:'grid',     apply:s=>({...s,status:'all'}) },
-  { id:'live',    label:'Live only',     icon:'globe',    apply:s=>({...s,status:'live',sort:'activity',dir:'desc'}) },
-  { id:'recent',  label:'Recently active',icon:'clock',   apply:s=>({...s,status:'all',sort:'activity',dir:'desc'}) },
-  { id:'pinned',  label:'Pinned',        icon:'pin',      apply:s=>({...s,status:'pinned'}) },
+  { id:'all',       label:'All',             icon:'grid',    apply:s=>({...s,status:'all'}) },
+  { id:'live',      label:'Live only',       icon:'globe',   apply:s=>({...s,status:'live',sort:'activity',dir:'desc'}) },
+  { id:'recent',    label:'Recently active', icon:'clock',   apply:s=>({...s,status:'all',sort:'activity',dir:'desc'}) },
+  { id:'pinned',    label:'Pinned',          icon:'pin',     apply:s=>({...s,status:'pinned'}) },
+  { id:'attention', label:'Needs attention', icon:'warning', apply:s=>({...s,status:'attention'}) },
 ];
 
 export function renderProjects(root, ctx){
@@ -36,6 +37,7 @@ export function renderProjects(root, ctx){
   const views=el('div',{class:'saved-views'});
   SAVED_VIEWS.forEach(v=>{
     const on = (v.id==='pinned'&&s.status==='pinned') || (v.id==='live'&&s.status==='live') ||
+      (v.id==='attention'&&s.status==='attention') ||
       (v.id==='all'&&s.status==='all'&&s.sort!=='activity') || (v.id==='recent'&&s.status==='all'&&s.sort==='activity');
     views.append(el('button',{class:'filter-chip'+(on?' on':''), html:`${icon(v.icon)} ${v.label}`,
       onclick:()=>{ const ns=v.apply(state()); saveState(ns); renderProjects(root,ctx); }}));
@@ -52,7 +54,7 @@ export function renderProjects(root, ctx){
   const statusSel=el('select',{class:'input', style:'max-width:150px'});
   statusSel.append(el('option',{value:'all',text:'All statuses'}));
   Object.entries(STATUSES).forEach(([k,v])=>statusSel.append(el('option',{value:k,text:v.label,selected:s.status===k})));
-  statusSel.value = (s.status==='pinned'?'all':s.status);
+  statusSel.value = (s.status==='pinned'||s.status==='attention'?'all':s.status);
   statusSel.addEventListener('change',()=>{ const ns={...state(),status:statusSel.value}; saveState(ns); renderProjects(root,ctx); });
 
   const sortSel=el('select',{class:'input', style:'max-width:170px'});
@@ -110,6 +112,10 @@ function buildList(ctx){
   const q=s.q.trim().toLowerCase();
   if(q) rows=rows.filter(p=>[p.name,p.repo,p.site,p.assessment,(p.tags||[]).join(' ')].join(' ').toLowerCase().includes(q));
   if(s.status==='pinned') rows=rows.filter(p=>p.pinned);
+  else if(s.status==='attention'){
+    const ids=new Set(Store.needsAttention().map(a=>a.project.id));
+    rows=rows.filter(p=>ids.has(p.id));
+  }
   else if(s.status!=='all') rows=rows.filter(p=>p.status===s.status);
   if(s.field){
     const def=Store.fieldDefs().find(d=>d.key===s.field);

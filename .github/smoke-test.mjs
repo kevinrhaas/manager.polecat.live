@@ -314,6 +314,46 @@ try {
     }`);
     return tileFailBadge && /Failing ×3/.test(panelFailBadgeBefore || '') && failCountAfter === 0 && panelFailBadgeAfter === 0;
   });
+  await check('dashboard "Needs attention" callout surfaces a failing project with a working Retry now', async () => {
+    const changelogUrl = `${base}/js/changelog.js`;
+    await store(`(S)=>{
+      const p=S.project('games');
+      S.put('projects', {...p, autoSync:true, autoSyncFailCount:3, autoSyncLastError:'HTTP 404', lastAutoSyncAt:Date.now(), changelogUrl:'${changelogUrl}'}, {silent:true});
+    }`);
+    await openSec('home');
+    const panelBefore = (await count('.attn-panel')) > 0;
+    const chipText = await page.$eval('.attn-row .fail-chip', (e) => e.textContent).catch(() => null);
+    await page.click('.attn-row button:has-text("Retry now")');
+    await page.waitForTimeout(700);
+    const failCountAfter = await store(`(S)=>S.project('games').autoSyncFailCount`);
+    const panelRowsAfter = await count('.attn-row');
+    // clean up
+    await store(`(S)=>{
+      S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
+      const p=S.project('games'); S.put('projects', {...p, autoSync:false, changelogUrl:'', lastSyncAt:0, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:''}, {silent:true});
+    }`);
+    return panelBefore && /Auto-sync failing/.test(chipText || '') && failCountAfter === 0 && panelRowsAfter === 0;
+  });
+  await check('projects library "Needs attention" saved view matches Store.needsAttention()', async () => {
+    const changelogUrl = `${base}/js/changelog.js`;
+    await store(`(S)=>{
+      const p=S.project('games');
+      S.put('projects', {...p, autoSync:true, autoSyncFailCount:3, autoSyncLastError:'HTTP 404', lastAutoSyncAt:Date.now(), changelogUrl:'${changelogUrl}'}, {silent:true});
+    }`);
+    await openSec('projects');
+    await page.click('.saved-views button:has-text("Needs attention")');
+    await page.waitForTimeout(300);
+    const expected = await store(`(S)=>S.needsAttention().length`);
+    const rows = await count('.lib-table tbody tr');
+    const hasGames = await page.evaluate(() => document.querySelector('.lib-table tbody')?.textContent.includes('Games'));
+    await page.click('.saved-views button:has-text("All")');
+    await page.waitForTimeout(200);
+    // clean up
+    await store(`(S)=>{
+      const p=S.project('games'); S.put('projects', {...p, autoSync:false, changelogUrl:'', lastSyncAt:0, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:''}, {silent:true});
+    }`);
+    return rows === expected && hasGames;
+  });
 
   // ---------- Credentials ----------
   console.log('Credentials');

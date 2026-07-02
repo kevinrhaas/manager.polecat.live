@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 11,
+    title: '"Needs attention" rollup',
+    kind: 'feature',
+    ts: '2026-07-02T23:51:07.889Z',
+    items: [
+      'A new dashboard callout lists every project whose health has slipped to Slowing/Stale or whose auto-sync is failing — reasons, one-click "Retry now", and a jump to the project, right at the top of the fleet view.',
+      'A matching "Needs attention" saved view in the projects library filters the table to the same set, so it works whichever surface you live in.',
+      'Nothing renders when the fleet is healthy — this only shows up when something actually needs a look.',
+    ],
+  },
+  {
     v: 10,
     title: 'Tunable fleet health weighting',
     kind: 'feature',

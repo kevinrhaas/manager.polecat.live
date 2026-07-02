@@ -45,6 +45,14 @@ export const HEALTH_BANDS = [
 ];
 export function healthBand(score){ return HEALTH_BANDS.find(b=>score>=b.min) || HEALTH_BANDS[HEALTH_BANDS.length-1]; }
 
+// Once a project's auto-sync fails this many times in a row it counts as
+// "failing" rather than merely retrying — surfaced in the UI (health panel,
+// dashboard tile, Settings roll-up, and needsAttention() below) instead of
+// silently backing off forever. Defined here (not ingest.js) so this table's
+// own health rollup and the ingestion module share one definition; ingest.js
+// re-exports it for backward-compatible imports.
+export const AUTO_SYNC_FAIL_THRESHOLD = 2;
+
 // Typed custom-field schema (`fieldDefs` table) — a project's free-form
 // `fields` map is keyed by a def's `key`, but the def gives it a real type so
 // it can render, filter, and sort correctly instead of always being text.
@@ -297,6 +305,23 @@ export const Store = new (class {
       if(idx>=0 && idx<weeks) buckets[idx]++;
     });
     return buckets;
+  }
+
+  // A project "needs attention" when its health score has slipped into the
+  // bottom two bands (Slowing/Stale) or its auto-sync is failing outright.
+  // One shared definition so the dashboard callout and the library's saved
+  // view always agree on exactly the same set of projects, sorted worst-off
+  // first. Each reason is `{ kind:'health'|'sync', text }` so callers can
+  // render the right chip style without recomputing the logic themselves.
+  needsAttention(){
+    return this.projects().map(p=>{
+      const score = this.healthScore(p.id);
+      const band = healthBand(score);
+      const reasons = [];
+      if(band.label==='Slowing' || band.label==='Stale') reasons.push({ kind:'health', text:`${band.label} · ${score}/100` });
+      if(p.autoSync && (p.autoSyncFailCount||0)>=AUTO_SYNC_FAIL_THRESHOLD) reasons.push({ kind:'sync', text:`Auto-sync failing ×${p.autoSyncFailCount}` });
+      return reasons.length ? { project:p, score, band, reasons } : null;
+    }).filter(Boolean).sort((a,b)=>a.score-b.score);
   }
 
   // ---- credentials -------------------------------------------------------
