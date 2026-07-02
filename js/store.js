@@ -145,15 +145,36 @@ export const Store = new (class {
     row.id = row.slug = data.slug || slugify(row.name||slug);
     return this.put('projects', row, { label:'Add project' });
   }
-  updateProject(id, patch){ const p=this.project(id); if(!p) return; return this.put('projects', { ...p, ...patch }, { label:'Edit project' }); }
+  updateProject(id, patch, opts={}){ const p=this.project(id); if(!p) return; return this.put('projects', { ...p, ...patch }, { label:'Edit project', ...opts }); }
   togglePin(id){ const p=this.project(id); if(!p) return; return this.put('projects', { ...p, pinned:!p.pinned }, { silent:true }); }
 
   // ---- releases (per-project "what's new") -------------------------------
   releasesFor(projectId){ return this.all('releases').filter(r=>r.projectId===projectId).sort((a,b)=>(b.v||0)-(a.v||0)); }
   latestRelease(projectId){ return this.releasesFor(projectId)[0] || null; }
-  addRelease(projectId, data){
+  addRelease(projectId, data, opts={}){
     const v = data.v ?? ((this.latestRelease(projectId)?.v||0)+1);
-    return this.put('releases', { projectId, v, title:'', kind:'feature', items:[], ts:new Date().toISOString(), ...data, v }, { label:'Add release' });
+    return this.put('releases', { projectId, v, title:'', kind:'feature', items:[], ts:new Date().toISOString(), ...data, v }, { label:'Add release', ...opts });
+  }
+  // Reconcile a project's releases with a fetched/pasted changelog: add rows
+  // for versions we don't have, overwrite rows for versions whose content
+  // changed. Silent (no undo entry per row) — nothing is written until the
+  // caller has already shown the user a preview and they've confirmed.
+  syncReleases(projectId, entries, sourceUrl){
+    const existing = new Map(this.releasesFor(projectId).map(r=>[r.v, r]));
+    let added=0, updated=0;
+    entries.forEach(e=>{
+      const prev = existing.get(e.v);
+      if(prev){
+        if(prev.title===e.title && JSON.stringify(prev.items)===JSON.stringify(e.items)) return;
+        this.put('releases', { ...prev, title:e.title, kind:e.kind, ts:e.ts, items:e.items, source:'sync', sourceUrl }, { silent:true });
+        updated++;
+      }else{
+        this.addRelease(projectId, { ...e, source:'sync', sourceUrl }, { silent:true });
+        added++;
+      }
+    });
+    this.updateProject(projectId, { changelogUrl:sourceUrl, lastSyncAt:Date.now() }, { silent:true });
+    return { added, updated };
   }
   // The "last updated" signal for a project = its newest release, else its own updatedAt.
   lastActivity(projectId){

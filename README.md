@@ -28,7 +28,10 @@ dark theme and collapsible "rail" navigation, re-skinned into a cyan/indigo
 - **Projects library** — filter, sort, search, pin, and edit every project.
   Add your own metadata fields. This is the source of truth for the fleet.
 - **Project detail** — the full "what's new" timeline (latest + every prior
-  release), plus links and an at-a-glance health panel.
+  release), plus links and an at-a-glance health panel. A **Sync** button pulls
+  a project's real changelog from its deployed site, previews what's new, and
+  imports it — with a paste-in fallback when the source blocks cross-origin
+  fetches.
 - **Activity** — the cadence log of self-improvement runs. Manager tracks the
   feature/polish/sweep rhythm (every 5th feature run → a design & feature sweep).
 - **Credentials & config** — set shared secrets once (global) or per-project.
@@ -64,6 +67,7 @@ assets/logo.svg       # Manager mark
 js/
   app.js              # controller: boot, routing, topbar, cross-view glue
   store.js            # relational data layer (projects, releases, creds, runs, history)
+  ingest.js           # live changelog fetch + safe (no-eval) parse for sync
   access.js           # invite-only ECDSA gate + admin token
   shell.js            # collapsible / draggable rail navigation
   theme.js            # dark / light / system

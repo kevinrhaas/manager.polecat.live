@@ -128,6 +128,38 @@ try {
     return after === before + 1;
   });
 
+  // ---------- Live changelog sync ----------
+  console.log('Changelog sync');
+  await check('sync fetches, previews, and imports a real changelog', async () => {
+    await openSec('projects');   // ensure the section actually changes so the hash nav below fires
+    await page.evaluate(() => { location.hash = 'project/games'; });
+    await page.waitForTimeout(400);
+    const before = await store(`(S)=>S.releasesFor('games').length`);
+    await page.click('button:has-text("Sync")'); await page.waitForTimeout(300);
+    // point at Manager's own changelog.js, served same-origin by this test server
+    await page.fill('.modal input.mono', `${base}/js/changelog.js`);
+    await page.click('.modal button:has-text("Fetch")'); await page.waitForTimeout(500);
+    const previewed = (await count('.sync-preview li')) >= 1;
+    await page.click('.modal button:has-text("Import")'); await page.waitForTimeout(400);
+    const after = await store(`(S)=>S.releasesFor('games').length`);
+    const synced = await store(`(S)=>S.releasesFor('games').some(r=>r.source==='sync')`);
+    // clean up
+    await store(`(S)=>{S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
+      const p=S.project('games'); S.put('projects', {...p, changelogUrl:'', lastSyncAt:0}, {silent:true});}`);
+    return previewed && synced && after > before;
+  });
+  await check('sync surfaces a graceful error for an unreachable URL', async () => {
+    await page.click('button:has-text("Sync")'); await page.waitForTimeout(300);
+    // an unreachable port — simulates the network/CORS failures this fallback exists for,
+    // without tripping a real 404 (which Chromium logs as a console error the suite treats as a failure)
+    await page.fill('.modal input.mono', 'http://localhost:1/changelog.js');
+    await page.click('.modal button:has-text("Fetch")'); await page.waitForTimeout(500);
+    const hasError = (await count('.sync-err')) >= 1;
+    const pasteShown = await page.$eval('.modal textarea', (t) => t.closest('div').style.display !== 'none').catch(() => false);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    return hasError && pasteShown;
+  });
+
   // ---------- Credentials ----------
   console.log('Credentials');
   await openSec('credentials');

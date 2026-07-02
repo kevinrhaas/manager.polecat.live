@@ -154,6 +154,7 @@ export function openProjectEditor(id, ctx){
   const name=el('input',{class:'input', placeholder:'Relay', value:v.name});
   const repo=el('input',{class:'input mono', placeholder:'kevinrhaas/relay.polecat.live', value:v.repo});
   const site=el('input',{class:'input mono', placeholder:'https://relay.polecat.live', value:v.site});
+  const changelogUrl=el('input',{class:'input mono', placeholder:'auto: <site>/js/changelog.js', value:v.changelogUrl||''});
   const session=el('input',{class:'input mono', placeholder:'https://claude.ai/code/session_…', value:v.sessionUrl});
   const status=el('select',{class:'input'});
   Object.entries(STATUSES).forEach(([k,st])=>status.append(el('option',{value:k,text:st.label,selected:v.status===k})));
@@ -195,6 +196,7 @@ export function openProjectEditor(id, ctx){
   body.append(
     f('Name', name),
     twoCol(f('Repository', repo, 'owner/name on GitHub'), f('Live site', site, 'blank if none')),
+    f('Changelog URL', changelogUrl, 'Where "Sync" pulls real releases from — leave blank to guess from the live site.'),
     f('Claude Code session', session, 'The session you drive most of this work from — opens in a new tab.'),
     twoCol(f('Status', status), f('Cadence', cadence, 'how it self-improves')),
     f('Tags', tags, 'comma-separated'),
@@ -206,7 +208,7 @@ export function openProjectEditor(id, ctx){
 
   const save=el('button',{class:'btn primary', text:isNew?'Create project':'Save changes', onclick:()=>{
     const nm=name.value.trim(); if(!nm){ name.focus(); return; }
-    const data={ name:nm, repo:repo.value.trim(), site:site.value.trim(), sessionUrl:session.value.trim(),
+    const data={ name:nm, repo:repo.value.trim(), site:site.value.trim(), changelogUrl:changelogUrl.value.trim(), sessionUrl:session.value.trim(),
       status:status.value, icon:chosenIcon, cadence:cadence.value.trim(),
       tags:tags.value.split(',').map(t=>t.trim()).filter(Boolean),
       assessment:assessment.value.trim(), fields:custom };

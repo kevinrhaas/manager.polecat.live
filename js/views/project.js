@@ -3,6 +3,7 @@ import { Store, STATUSES } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
+import { fetchChangelog, parseChangelogSource, guessChangelogUrl } from '../ingest.js';
 
 export function renderProject(root, ctx, params){
   const p = Store.project(params?.id);
@@ -52,6 +53,7 @@ export function renderProject(root, ctx, params){
   const th=el('div',{class:'section-title', style:'margin-top:0'});
   th.innerHTML=`<span style="color:var(--brand-b);display:inline-flex">${icon('sparkle')}</span><h2>What’s new</h2>`;
   th.append(el('span',{class:'sp'}));
+  th.append(el('button',{class:'btn sm', html:`${icon('refresh')} Sync`, title:'Pull real releases from the project’s deployed changelog', onclick:()=>openSync(p, ctx)}));
   th.append(el('button',{class:'btn sm primary', html:`${icon('plus')} Add release`, onclick:()=>addRelease(p.id, ctx)}));
   main.append(th);
 
@@ -76,6 +78,7 @@ export function renderProject(root, ctx, params){
     ['Releases', String(rels.length)],
     ['Cadence', escapeHtml(p.cadence||'—')],
     ['Tags', (p.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')||'—'],
+    ['Changelog sync', p.lastSyncAt?`Synced ${escapeHtml(fmtCT(p.lastSyncAt))}`:'<span class="muted">Not connected</span>'],
   ];
   health.innerHTML=`<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Health</h2></div>`;
   rows.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${k}</span><span class="v">${v}</span>`; health.append(r); });
@@ -103,6 +106,7 @@ function release(r, ctx){
   const head=el('div',{class:'tl-head'});
   head.innerHTML=`<span class="tl-badge">v${r.v}</span><b>${escapeHtml(r.title||'Untitled release')}</b>
     ${r.kind&&r.kind!=='feature'?`<span class="wn-kind">${escapeHtml(r.kind)}</span>`:''}
+    ${r.source==='sync'?`<span class="tag sync-tag" title="Synced from ${escapeHtml(r.sourceUrl||'')}">${icon('refresh')} synced</span>`:''}
     <span class="tl-when">${escapeHtml(fmtCT(r.ts))}</span>`;
   const edit=el('button',{class:'btn ghost icon sm', title:'Edit release', 'aria-label':'Edit release', html:icon('edit'),
     style:'margin-left:auto', onclick:()=>addRelease(r.projectId, ctx, r)});
@@ -149,4 +153,75 @@ function addRelease(projectId, ctx, existing){
   foot.push(save);
   const {hide}=modal({ title:isNew?'Add release':'Edit release', icon:'sparkle', body, foot });
   setTimeout(()=>title.focus(),50);
+}
+
+// -------------------------------------------------------------------------
+// Live "what's new" ingestion — pull a project's real changelog from its
+// deployed site (js/changelog.js by convention across this fleet). Never
+// executes remote code: the source text is parsed as data only. Cross-origin
+// fetches are often blocked by CORS, so on failure we offer a paste-in
+// fallback — copy the file from a tab you opened yourself, paste it here.
+// -------------------------------------------------------------------------
+function openSync(p, ctx){
+  const urlInput=el('input',{class:'input mono', placeholder:'https://relay.polecat.live/js/changelog.js', value:p.changelogUrl||guessChangelogUrl(p.site)});
+  const status=el('div',{class:'tiny muted', style:'margin-top:10px'});
+  const results=el('div');
+  const pasteWrap=el('div',{style:'display:none;margin-top:12px'});
+  const pasteArea=el('textarea',{class:'input mono', rows:'6', placeholder:'…paste the raw contents of changelog.js here…'});
+  pasteWrap.append(
+    el('div',{class:'tiny muted', style:'margin-bottom:6px', text:'Couldn’t fetch automatically — that’s usually a CORS restriction on the source site, not a bug. Open the URL above in a new tab, copy the file’s contents, and paste them here:'}),
+    pasteArea,
+    el('button',{class:'btn sm', style:'margin-top:8px', text:'Parse pasted content', onclick:()=>{
+      try{ onParsed(parseChangelogSource(pasteArea.value), urlInput.value.trim()); }
+      catch(e){ status.innerHTML=`<span class="sync-err">Couldn’t parse that: ${escapeHtml(e.message)}</span>`; }
+    }}),
+  );
+
+  let pending=null;
+  function setImportEnabled(n){ importBtn.disabled = !n; importBtn.textContent = n?`Import ${n} release${n===1?'':'s'}`:'Import'; }
+
+  function onParsed(entries, url){
+    const existing=new Map(Store.releasesFor(p.id).map(r=>[r.v,r]));
+    const fresh=entries.filter(e=>!existing.has(e.v));
+    const changed=entries.filter(e=>{ const ex=existing.get(e.v); return ex && (ex.title!==e.title || JSON.stringify(ex.items)!==JSON.stringify(e.items)); });
+    results.innerHTML=''; pasteWrap.style.display='none';
+    if(!fresh.length && !changed.length){
+      status.textContent=`Fetched ${entries.length} release${entries.length===1?'':'s'} — already up to date.`;
+      setImportEnabled(0); pending=null; return;
+    }
+    status.textContent=`Found ${entries.length} release${entries.length===1?'':'s'} — ${fresh.length} new, ${changed.length} updated.`;
+    const list=el('ul',{class:'sync-preview'});
+    fresh.forEach(e=>list.append(el('li',{html:`<span class="tag sync-new">new</span><b>v${e.v}</b> ${escapeHtml(e.title)}`})));
+    changed.forEach(e=>list.append(el('li',{html:`<span class="tag sync-upd">update</span><b>v${e.v}</b> ${escapeHtml(e.title)}`})));
+    results.append(list);
+    pending={ entries, url };
+    setImportEnabled(fresh.length+changed.length);
+  }
+
+  async function runFetch(){
+    const url=urlInput.value.trim();
+    if(!url){ urlInput.focus(); return; }
+    status.textContent='Fetching…'; results.innerHTML=''; pasteWrap.style.display='none'; setImportEnabled(0); pending=null;
+    try{ onParsed(await fetchChangelog(url), url); }
+    catch(e){ status.innerHTML=`<span class="sync-err">Couldn’t load that automatically (${escapeHtml(e.message)}).</span>`; pasteWrap.style.display='block'; }
+  }
+
+  const fetchBtn=el('button',{class:'btn sm primary', html:`${icon('refresh')} Fetch`, onclick:runFetch});
+  const importBtn=el('button',{class:'btn primary', text:'Import', disabled:true, onclick:()=>{
+    if(!pending) return;
+    const { added, updated }=Store.syncReleases(p.id, pending.entries, pending.url);
+    hide();
+    toast(`Synced ${p.name}`,{kind:'ok', body:`${added} added, ${updated} updated.`});
+    ctx.go('project',{id:p.id});
+  }});
+
+  const body=el('div');
+  body.append(
+    el('div',{class:'field'},[el('label',{text:'Changelog URL'}), urlInput,
+      el('span',{class:'tiny muted', text:'A raw JS or JSON file exposing a CHANGELOG array — the convention every project in this fleet publishes at js/changelog.js.'})]),
+    el('div',{style:'display:flex;gap:8px'},[fetchBtn]),
+    status, results, pasteWrap,
+  );
+  const {hide}=modal({ title:'Sync changelog', icon:'refresh', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), importBtn] });
+  setTimeout(()=>{ urlInput.focus(); urlInput.select(); }, 60);
 }

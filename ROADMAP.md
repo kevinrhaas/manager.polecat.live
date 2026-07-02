@@ -14,17 +14,14 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Live "what's new" ingestion** — let a project pull its real changelog
-      from its deployed site (e.g. `relay.polecat.live/js/changelog.js`) with a
-      graceful CORS/opt-in fallback to manual entry. Cache it into the releases
-      table so the dashboard tiles and detail timeline reflect true ship state.
 - [ ] **Custom metadata fields, first-class** — a schema editor so a project can
       carry arbitrary typed fields (text/number/url/select/date), surfaced in the
-      library filters and the detail health panel.
-- [ ] **Saved views & smart filters** in the library — save a filter+sort combo
-      ("Live only, by last-updated") as a named chip; make it the default.
-- [ ] **Command palette (⌘K)** — jump to any project, section, or action;
-      fuzzy search across the fleet.
+      library filters and the detail health panel. (Free-form key/value fields
+      already exist on the project editor/detail page — this is about typing
+      them and wiring them into filters/sort.)
+- [ ] **Fleet-wide sync** — a "Sync all" action from the dashboard that runs
+      changelog ingestion (see Done, below) across every project with a
+      changelog URL, with a per-project result summary.
 
 ## Next (discovered / queued)
 
@@ -36,9 +33,24 @@ with new, ambitious, fun ideas.
 - [ ] Public site: an animated live "fleet" showcase driven by demo data.
 - [ ] SQLite adapter behind the same Store interface (design already relational).
 - [ ] Notification center for run failures / stale projects.
+- [ ] Saved views: let a user save a *custom* filter+sort combo as a new named
+      chip (today's saved views are a fixed, useful set — All/Live/Recent/
+      Pinned — but they aren't user-definable yet).
 
 ## Done
 
+- [x] **Live "what's new" ingestion** _(2026-07-02)_: a "Sync" button on the
+      project page fetches a project's real `changelog.js` from its deployed
+      site, safely parses the `CHANGELOG` array as data (never executes remote
+      code), previews new/changed releases, and imports them into the releases
+      table on confirmation. Cross-origin fetches blocked by CORS fail
+      gracefully with a paste-the-file-contents fallback. Per-project changelog
+      URL is editable (or guessed from the live site) and the health panel shows
+      last-synced time.
+- [x] **Command palette (⌘K)** _(previously shipped)_: fuzzy-search jump to any
+      project, section, or action, with full keyboard navigation.
+- [x] **Saved views** _(previously shipped)_: All / Live only / Recently active /
+      Pinned chips in the projects library, persisted per-browser.
 - [x] **v1 — Mission Control launch** _(initial build)_: landing page, token-gated
       app shell with rail nav, dashboard of project tiles (status, CT time, latest
       version, assessment, session link), projects library (filter/sort/search/
