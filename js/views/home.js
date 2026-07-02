@@ -1,9 +1,9 @@
 // Dashboard — a live wall of project tiles + fleet stats + quick actions.
 import { Store, STATUSES } from '../store.js';
-import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal } from '../ui.js';
+import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
-import { syncProject } from '../ingest.js';
+import { syncProject, forceSyncProject } from '../ingest.js';
 
 function greeting(){
   const h = new Date().toLocaleString('en-US',{ timeZone:'America/Chicago', hour:'numeric', hour12:false });
@@ -60,10 +60,13 @@ export function renderHome(root, ctx){
   const act=(ic,color,title,desc,fn)=>{ const c=el('div',{class:'card qa hover', onclick:fn});
     c.innerHTML=`<div class="qicon" style="background:${color}">${icon(ic)}</div><div><b>${title}</b><p>${desc}</p></div>`; return c; };
   const syncable=projects.filter(p=>p.changelogUrl||p.site).length;
+  const autoCfg=Store.settings().autoSync||{};
+  const autoOn=projects.filter(p=>p.autoSync).length;
   qa.append(
     act('plus','linear-gradient(135deg,var(--brand-b),var(--consensus))','Add a project','Track a new repo or site in the fleet.',()=>openProjectEditor(null,ctx)),
     act('grid','linear-gradient(135deg,var(--consensus),#7c3aed)','Open the library','Filter, sort, and edit every project.',()=>ctx.go('projects')),
-    act('refresh','linear-gradient(135deg,#0891b2,var(--brand-b))','Sync all', syncable?`Pull real changelogs for all ${syncable} synced project${syncable===1?'':'s'} in one pass.`:'Add a site or changelog URL to a project to enable this.', ()=>openSyncAll(ctx)),
+    act('refresh','linear-gradient(135deg,#0891b2,var(--brand-b))','Sync all', syncable?`Pull real changelogs for all ${syncable} synced project${syncable===1?'':'s'} in one pass.${autoCfg.enabled?` Auto-sync is on for ${autoOn} project${autoOn===1?'':'s'} (every ${autoCfg.intervalHours||6}h).`:''}`:'Add a site or changelog URL to a project to enable this.', ()=>openSyncAll(ctx)),
+    act('bolt','linear-gradient(135deg,var(--warning),var(--danger))','Force sync all', syncable?'Fully reconcile every synced project to its source — overwrites drifted rows.':'Add a site or changelog URL to a project to enable this.', ()=>openForceSyncAll(ctx)),
     act('book','linear-gradient(135deg,var(--brand-a),var(--brand-b))','Read the docs','New here? Start with the guide.',()=>ctx.go('docs')),
     act('sparkle','linear-gradient(135deg,var(--brand-c),#65a30d)','What’s new','See what shipped in Manager.',()=>ctx.openWhatsNew()),
   );
@@ -186,4 +189,69 @@ function openSyncAll(ctx){
       toast('Fleet sync failed', { kind:'warn', body:`Couldn’t reach ${failed} project${failed===1?'':'s'} — try syncing them individually.` });
     }
   })();
+}
+
+// -------------------------------------------------------------------------
+// Force sync all — the destructive sibling of Sync all: for every synced
+// project, fully reconciles local releases to the source (overwrites drifted
+// or manually-edited rows, removes synced releases no longer published
+// upstream). Gated behind an explicit confirm since it can't be undone with
+// a single ⌘Z (each row change is written silently, like the safe sync).
+// -------------------------------------------------------------------------
+async function openForceSyncAll(ctx){
+  const all=Store.projects();
+  const targets=all.filter(p=>p.changelogUrl||p.site);
+  if(!targets.length){ toast('Nothing to force sync', {kind:'info', body:'Add a site or changelog URL to a project first.'}); return; }
+
+  const proceed=await confirmDialog('Force sync all', `This fully reconciles ${targets.length} project${targets.length===1?'':'s'} to its source — any local edits to a matching version are overwritten, and previously-synced releases no longer published upstream are removed. Releases added by hand are left alone.`, {danger:true, okLabel:'Force sync all'});
+  if(!proceed) return;
+
+  const body=el('div');
+  const list=el('div',{class:'sync-all-list'});
+  const rows=new Map();
+  targets.forEach(p=>{
+    const row=el('div',{class:'sync-all-row'});
+    row.innerHTML=`<span class="saa" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span>
+      <span class="name">${escapeHtml(p.name)}</span>
+      <span class="status tiny muted">Waiting…</span>`;
+    rows.set(p.id, row.querySelector('.status'));
+    list.append(row);
+  });
+  body.append(list);
+  const summary=el('div',{class:'tiny', style:'margin-top:14px;min-height:16px'});
+  body.append(summary);
+
+  const closeBtn=el('button',{class:'btn primary', text:'Close', onclick:()=>hide()});
+  const {hide}=modal({ title:'Force sync all', icon:'bolt', body, foot:[closeBtn] });
+
+  let added=0, updated=0, removed=0, ok=0, failed=0;
+  for(const p of targets){
+    const statusEl=rows.get(p.id);
+    statusEl.textContent='Fetching…';
+    const res=await forceSyncProject(p);
+    if(res.status==='ok'){
+      ok++; added+=res.added; updated+=res.updated; removed+=res.removed;
+      const changed=res.added||res.updated||res.removed;
+      statusEl.className='status tiny'+(changed?'':' muted');
+      statusEl.style.color=changed?'var(--success)':'';
+      const parts=[res.added?`${res.added} new`:'', res.updated?`${res.updated} updated`:'', res.removed?`${res.removed} removed`:''].filter(Boolean);
+      statusEl.textContent=parts.length?parts.join(', '):'up to date';
+    }else{
+      failed++;
+      statusEl.className='status tiny sync-err';
+      statusEl.textContent=res.message||'failed';
+    }
+  }
+  summary.className='tiny '+(failed?'muted':'');
+  summary.innerHTML=`Done — <b>${ok}</b> reconciled${failed?`, <b>${failed}</b> failed`:''}. `+
+    `<b>${added}</b> new, <b>${updated}</b> updated, <b>${removed}</b> removed.`;
+  if(added||updated||removed){
+    Store.logRun({ mode:'manual', note:`Fleet-wide force sync — ${added} new, ${updated} updated, ${removed} removed across ${ok} project${ok===1?'':'s'}` });
+    toast('Fleet force sync complete', { kind:'ok', body:`${added} new, ${updated} updated, ${removed} removed across ${ok} project${ok===1?'':'s'}.` });
+    ctx.go('home');
+  }else if(ok){
+    toast('Fleet force sync complete', { kind:'info', body:'Everything already matched the source.' });
+  }else{
+    toast('Fleet force sync failed', { kind:'warn', body:`Couldn’t reach ${failed} project${failed===1?'':'s'}.` });
+  }
 }

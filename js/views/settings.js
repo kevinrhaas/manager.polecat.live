@@ -48,6 +48,25 @@ export function renderSettings(root, ctx){
   sortRow.append(sortSeg); wn.append(sortRow);
   wrap.append(wn);
 
+  // ---- Auto-sync (quiet, on-a-cadence changelog ingestion) ----
+  const auto=card('Auto-sync', 'refresh');
+  auto.append(el('p',{class:'muted tiny', style:'margin:0 0 6px', text:'Quietly re-pulls each opted-in project’s changelog on app open, and again once its interval has passed — banking new releases without a modal. Opt a project in from its own health panel; this switch (plus the interval) governs the fleet.'}));
+  const acfg = s.autoSync || {enabled:false, intervalHours:6};
+  auto.append(toggleRow('Auto-sync changelogs', 'Nothing runs in the background unless this is on.', acfg.enabled, (on)=>{
+    Store.setSetting('autoSync', { ...Store.settings().autoSync, enabled:on });
+    toast(on?'Auto-sync on':'Auto-sync off', {kind:'ok'});
+  }));
+  const intervalRow=optRow('Check every', 'How often a due, opted-in project is re-checked.');
+  const intervalSel=el('select',{class:'input', style:'max-width:150px'});
+  [[1,'1 hour'],[3,'3 hours'],[6,'6 hours'],[12,'12 hours'],[24,'24 hours']].forEach(([h,t])=>
+    intervalSel.append(el('option',{value:h, text:t, selected:(acfg.intervalHours||6)===h})));
+  intervalSel.addEventListener('change',()=>Store.setSetting('autoSync', { ...Store.settings().autoSync, intervalHours:parseInt(intervalSel.value,10) }));
+  intervalRow.append(intervalSel);
+  auto.append(intervalRow);
+  const optedIn=Store.projects().filter(p=>p.autoSync);
+  auto.append(el('div',{class:'tiny muted', style:'margin-top:4px', text: optedIn.length?`Opted in: ${optedIn.map(p=>p.name).join(', ')}.`:'No projects opted in yet.'}));
+  wrap.append(auto);
+
   // ---- Custom fields (typed project-metadata schema) ----
   const fields=card('Custom fields', 'sliders');
   fields.append(el('p',{class:'muted tiny', style:'margin:0 0 10px', text:'Define typed fields — text, number, URL, date, or a fixed set of options — and they’ll show up on every project’s editor, health panel, and the library’s filters and sort.'}));

@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 5,
+    title: 'Auto-sync & force sync',
+    kind: 'feature',
+    ts: '2026-07-02T20:52:45.733Z',
+    items: [
+      'Auto-sync quietly re-pulls an opted-in project\'s changelog on app open and on a cadence you choose — no modal, just new releases banked and a "last auto-synced" time. Turn it on fleet-wide in Settings, then opt individual projects in from their health panel.',
+      'Force sync fully reconciles a project\'s releases to its source — it overwrites rows that drifted (even ones you hand-edited) and removes synced releases no longer published upstream, behind a confirm since it\'s deliberate.',
+      'Both sit right next to the existing Sync button on the project page, and "Force sync all" now sits next to "Sync all" on the dashboard.',
+    ],
+  },
+  {
     v: 4,
     title: 'Typed custom fields',
     kind: 'feature',

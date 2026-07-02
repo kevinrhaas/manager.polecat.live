@@ -195,6 +195,78 @@ try {
     return rowOk && after > before && loggedRun;
   });
 
+  // ---------- Auto-sync & force sync ----------
+  console.log('Auto-sync & force sync');
+  await check('project health panel toggles per-project auto-sync', async () => {
+    await openSec('projects');
+    await page.evaluate(() => { location.hash = 'project/games'; });
+    await page.waitForTimeout(400);
+    const before = await store(`(S)=>!!S.project('games').autoSync`);
+    await page.click('.health .toggle'); await page.waitForTimeout(200);
+    const after = await store(`(S)=>!!S.project('games').autoSync`);
+    await store(`(S)=>{const p=S.project('games'); S.put('projects', {...p, autoSync:false}, {silent:true});}`);
+    return before !== after;
+  });
+  await check('settings: global auto-sync toggle + interval persist', async () => {
+    await openSec('settings');
+    const before = await store(`(S)=>({...S.settings().autoSync})`);
+    await page.click('.card:has-text("Auto-sync") .opt-row .toggle'); await page.waitForTimeout(200);
+    await page.selectOption('.card:has-text("Auto-sync") select.input', '12'); await page.waitForTimeout(150);
+    const after = await store(`(S)=>({...S.settings().autoSync})`);
+    await store(`(S)=>S.setSetting('autoSync', ${JSON.stringify({ enabled:false, intervalHours:6 })})`);
+    return after.enabled !== before.enabled && after.intervalHours === 12;
+  });
+  await check('force sync overwrites a drifted release and removes a stale synced one', async () => {
+    const changelogUrl = `${base}/js/changelog.js`;
+    await openSec('projects');
+    await store(`(S)=>{const p=S.project('games'); S.put('projects', {...p, changelogUrl:'${changelogUrl}'}, {silent:true});}`);
+    await page.evaluate(() => { location.hash = 'project/games'; });
+    await page.waitForTimeout(400);
+    // seed synced releases directly (fetch/parse already covered by the sync check above), then corrupt one and plant a stale one
+    await page.evaluate(async (url) => {
+      const { fetchChangelog } = await import('/js/ingest.js');
+      const { Store } = await import('/js/store.js');
+      Store.syncReleases('games', await fetchChangelog(url), url);
+    }, changelogUrl);
+    await store(`(S)=>{
+      const r=S.releasesFor('games').find(x=>x.source==='sync');
+      if(r) S.put('releases', {...r, title:'CORRUPTED TITLE'}, {silent:true});
+      S.addRelease('games', { v:9999, title:'Stale synced release', kind:'feature', items:[], source:'sync', sourceUrl:'${changelogUrl}' }, {silent:true});
+    }`);
+    const corruptedBefore = await store(`(S)=>S.releasesFor('games').some(r=>r.title==='CORRUPTED TITLE')`);
+    const staleBefore = await store(`(S)=>S.releasesFor('games').some(r=>r.v===9999)`);
+    await page.click('button:has-text("Force sync")'); await page.waitForTimeout(300);
+    await page.click('.modal button:has-text("Force sync")'); await page.waitForTimeout(700);
+    const corruptedAfter = await store(`(S)=>S.releasesFor('games').some(r=>r.title==='CORRUPTED TITLE')`);
+    const staleAfter = await store(`(S)=>S.releasesFor('games').some(r=>r.v===9999)`);
+    // clean up
+    await store(`(S)=>{
+      S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
+      const p=S.project('games'); S.put('projects', {...p, changelogUrl:'', lastSyncAt:0}, {silent:true});
+    }`);
+    return corruptedBefore && staleBefore && !corruptedAfter && !staleAfter;
+  });
+  await check('auto-sync runs quietly on app open when a project is due', async () => {
+    const changelogUrl = `${base}/js/changelog.js`;
+    await store(`(S)=>{
+      S.setSetting('autoSync', {enabled:true, intervalHours:6});
+      const p=S.project('games'); S.put('projects', {...p, autoSync:true, changelogUrl:'${changelogUrl}', lastAutoSyncAt:0}, {silent:true});
+    }`);
+    await page.reload({ waitUntil:'networkidle' });
+    await page.waitForTimeout(1500);
+    const synced = await store(`(S)=>S.releasesFor('games').some(r=>r.source==='sync')`);
+    const stamped = await store(`(S)=>S.project('games').lastAutoSyncAt > 0`);
+    const loggedRun = await store(`(S)=>S.runs().some(r=>r.mode==='auto-sync')`);
+    // clean up
+    await store(`(S)=>{
+      S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
+      const p=S.project('games'); S.put('projects', {...p, autoSync:false, changelogUrl:'', lastSyncAt:0, lastAutoSyncAt:0}, {silent:true});
+      S.setSetting('autoSync', {enabled:false, intervalHours:6});
+      const run=S.runs().find(r=>r.mode==='auto-sync'); if(run) S.remove('runs', run.id, {silent:true});
+    }`);
+    return synced && stamped && loggedRun;
+  });
+
   // ---------- Credentials ----------
   console.log('Credentials');
   await openSec('credentials');

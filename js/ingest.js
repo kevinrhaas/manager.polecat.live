@@ -95,3 +95,48 @@ export async function syncProject(p){
     return { status:'error', message:e.message||'sync failed' };
   }
 }
+
+// Force sync: same fetch, but a full reconcile (see Store.forceSyncReleases) —
+// overwrites drifted/edited rows unconditionally and removes synced releases
+// no longer published upstream. Used by the project page's "Force sync" and
+// the dashboard's "Force sync all", both behind an explicit confirm.
+export async function forceSyncProject(p){
+  const url = p.changelogUrl || guessChangelogUrl(p.site);
+  if(!url) return { status:'skipped', reason:'no site or changelog URL' };
+  try{
+    const entries = await fetchChangelog(url);
+    const { added, updated, removed } = Store.forceSyncReleases(p.id, entries, url);
+    return { status:'ok', added, updated, removed, url };
+  }catch(e){
+    return { status:'error', message:e.message||'force sync failed' };
+  }
+}
+
+// Auto-sync: quietly re-pull every opted-in project whose interval has
+// elapsed (or that has never been auto-synced). Opt-in is two-layered — a
+// global switch (Settings → Auto-sync) plus a per-project toggle (a
+// project's health panel) — so nothing runs unless both agree. Every
+// attempted project's `lastAutoSyncAt` is stamped whether it succeeds or
+// fails, so an unreachable source is retried on the next interval rather than
+// on every app open. Returns null when there's nothing due (including when
+// the feature is off), so callers can stay silent.
+export async function runAutoSync(){
+  const cfg = Store.settings().autoSync;
+  if(!cfg?.enabled) return null;
+  const dueMs = (cfg.intervalHours || 6) * 3600000;
+  const due = Store.projects().filter(p =>
+    p.autoSync && (p.site || p.changelogUrl) && (Date.now() - (p.lastAutoSyncAt || 0)) >= dueMs);
+  if(!due.length) return null;
+
+  let ok=0, failed=0, added=0, updated=0;
+  for(const p of due){
+    const res = await syncProject(p);
+    Store.updateProject(p.id, { lastAutoSyncAt: Date.now() }, { silent:true });
+    if(res.status==='ok'){ ok++; added+=res.added; updated+=res.updated; }
+    else if(res.status==='error') failed++;
+  }
+  if(added || updated){
+    Store.logRun({ mode:'auto-sync', note:`Auto-sync — ${added} new, ${updated} updated across ${ok} project${ok===1?'':'s'}` });
+  }
+  return { attempted:due.length, ok, failed, added, updated };
+}

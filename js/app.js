@@ -15,6 +15,7 @@ import { renderAdmin } from './views/admin.js';
 import { renderSettings } from './views/settings.js';
 import { openWhatsNew, hasUnread } from './views/whatsnew.js';
 import { startTour, MANAGER_TOUR } from './tour.js';
+import { runAutoSync } from './ingest.js';
 
 const TITLES = { home:'Dashboard', projects:'Projects', project:'Project', activity:'Activity',
   credentials:'Credentials', docs:'Docs', admin:'Admin', settings:'Settings' };
@@ -49,6 +50,13 @@ async function boot(){
   if(!Store.settings().tourDone){
     setTimeout(()=>ctx.startTour(), 650);
   }
+
+  // quiet, opt-in changelog auto-sync — never blocks boot, never shows a modal
+  runAutoSync().then(res=>{
+    if(!res || (!res.added && !res.updated)) return;
+    toast('Auto-synced the fleet', { kind:'ok', body:`${res.added} new, ${res.updated} updated across ${res.ok} project${res.ok===1?'':'s'}.` });
+    render();
+  }).catch(()=>{});
 }
 
 function rebuildRail(){

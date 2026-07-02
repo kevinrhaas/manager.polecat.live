@@ -38,7 +38,8 @@ const SECTIONS = [
     </ul>` },
   { id:'releases', title:'Releases & what’s new', body:`
     <p>Every project has its own <b>what’s-new timeline</b>. Open a project and click <b>Add release</b> to record one: a version number, a title, a kind (feature / polish / fix), and a bullet list of what changed. The newest release drives the tile’s “latest version” and “last shipped”.</p>
-    <p>Manager itself also has a what’s-new panel — the ✨ button in the top bar — with search, filtering, and sorting.</p>` },
+    <p>Manager itself also has a what’s-new panel — the ✨ button in the top bar — with search, filtering, and sorting.</p>
+    <p><b>Sync</b> pulls a project’s real changelog and previews what’s new or changed before importing — safe and additive. <b>Force sync</b> (next to it) is a full reconcile: it overwrites any local edits to a matching release and removes synced releases no longer published upstream, behind a confirm since it’s deliberate. <b>Auto-sync</b> does the safe kind quietly — turn it on fleet-wide in Settings, then opt individual projects in from their health panel, and Manager re-checks them on a cadence without a modal in your way.</p>` },
   { id:'credentials', title:'Credentials & config', body:`
     <p>Store shared secrets once as <b>global</b>, or scope them to a single project when they differ. Values are masked by default; reveal or copy them per row. Everything stays in this browser — nothing is uploaded. This is designed to graduate into an encrypted table when Manager gets a database.</p>` },
   { id:'cadence', title:'Activity & the cadence', body:`

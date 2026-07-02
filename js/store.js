@@ -48,6 +48,7 @@ const DEFAULT_SETTINGS = {
   tourDone: false,
   wnTracked: { version:true, date:true, kind:true, items:true },
   wnSort: 'newest',
+  autoSync: { enabled:false, intervalHours:6 },
 };
 
 // ---- reactive core -------------------------------------------------------
@@ -153,7 +154,8 @@ export const Store = new (class {
   addProject(data){
     const slug = data.slug || slugify(data.name||'project');
     const row = { id:slug, slug, status:'idea', tags:[], icon:'grid', pinned:false, fields:{},
-      name:'', repo:'', site:'', sessionUrl:'', description:'', assessment:'', cadence:'', ...data };
+      name:'', repo:'', site:'', sessionUrl:'', description:'', assessment:'', cadence:'',
+      autoSync:false, lastAutoSyncAt:0, ...data };
     row.id = row.slug = data.slug || slugify(row.name||slug);
     return this.put('projects', row, { label:'Add project' });
   }
@@ -200,6 +202,32 @@ export const Store = new (class {
     });
     this.updateProject(projectId, { changelogUrl:sourceUrl, lastSyncAt:Date.now() }, { silent:true });
     return { added, updated };
+  }
+  // Force sync: a full reconcile, not just additive. Every version the source
+  // publishes is written verbatim (even if a synced row was edited locally
+  // afterward — the source wins), and any previously-synced release no longer
+  // present upstream is removed. Releases added by hand (source !== 'sync')
+  // are never touched, even if their version number collides.
+  forceSyncReleases(projectId, entries, sourceUrl){
+    const existing = new Map(this.releasesFor(projectId).map(r=>[r.v, r]));
+    const upstreamVs = new Set(entries.map(e=>e.v));
+    let added=0, updated=0, removed=0;
+    entries.forEach(e=>{
+      const prev = existing.get(e.v);
+      if(prev){
+        const changed = prev.title!==e.title || prev.kind!==e.kind || prev.ts!==e.ts || JSON.stringify(prev.items)!==JSON.stringify(e.items);
+        this.put('releases', { ...prev, title:e.title, kind:e.kind, ts:e.ts, items:e.items, source:'sync', sourceUrl }, { silent:true });
+        if(changed) updated++;
+      }else{
+        this.addRelease(projectId, { ...e, source:'sync', sourceUrl }, { silent:true });
+        added++;
+      }
+    });
+    existing.forEach((r,v)=>{
+      if(r.source==='sync' && !upstreamVs.has(v)){ this.remove('releases', r.id, { silent:true }); removed++; }
+    });
+    this.updateProject(projectId, { changelogUrl:sourceUrl, lastSyncAt:Date.now() }, { silent:true });
+    return { added, updated, removed };
   }
   // The "last updated" signal for a project = its newest release, else its own updatedAt.
   lastActivity(projectId){

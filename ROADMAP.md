@@ -14,18 +14,13 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Auto-sync & force-sync** — make changelog ingestion effortless.
-      **Auto-sync:** an opt-in (global + per-project) that re-pulls each connected
-      project's `changelog.js` automatically — on app open and on a cadence —
-      quietly banking new releases and badging what changed, with a "last
-      auto-synced" time. **Force sync:** a re-fetch that fully reconciles local
-      releases to the source (overwrites drifted/edited rows, not just additive),
-      behind a confirm so it's deliberate. Both sit next to the existing manual
-      **Sync** button on the project page and the dashboard's **Sync all**.
 - [ ] Fleet health score + trend sparklines per project (release velocity).
 
 ## Next (discovered / queued)
 
+- [ ] Auto-sync retry/backoff signal — a project whose auto-sync keeps
+      failing (CORS, 404, dead site) should surface that in its health panel
+      instead of silently re-attempting every interval forever.
 - [ ] Bulk actions in the library (tag, set status, archive) with undo.
 - [ ] Import/export the whole workspace as JSON; round-trip test in the suite.
 - [ ] Per-project "notes" markdown scratchpad with autosave + history.
@@ -52,6 +47,18 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Auto-sync & force-sync** _(2026-07-02)_: changelog ingestion effortless
+      end to end. **Auto-sync** is a two-layer opt-in — a global switch +
+      interval in Settings, plus a per-project toggle on that project's health
+      panel — that quietly re-pulls a project's changelog on app open and on
+      the configured cadence, banking new releases with no modal, and shows a
+      "last auto-synced" time. **Force sync** is a full reconcile: it
+      overwrites any release row that's drifted from the source (even if it
+      was hand-edited afterward) and removes previously-synced releases no
+      longer published upstream, behind an explicit confirm since it's
+      deliberate and not undo-able in one step. Both sit next to the existing
+      manual **Sync** button on the project page (plus a "Force sync" button)
+      and the dashboard's **Sync all** (plus a new "Force sync all").
 - [x] **Custom metadata fields, first-class** _(2026-07-02)_: a typed schema
       editor (Settings → Custom fields) lets you define fields — Text, Number,
       URL, Date, or a fixed Select list — once, shared across the whole fleet.

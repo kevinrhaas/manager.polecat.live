@@ -3,7 +3,7 @@ import { Store, STATUSES } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
-import { fetchChangelog, parseChangelogSource, guessChangelogUrl } from '../ingest.js';
+import { fetchChangelog, parseChangelogSource, guessChangelogUrl, forceSyncProject } from '../ingest.js';
 
 export function renderProject(root, ctx, params){
   const p = Store.project(params?.id);
@@ -54,6 +54,7 @@ export function renderProject(root, ctx, params){
   th.innerHTML=`<span style="color:var(--brand-b);display:inline-flex">${icon('sparkle')}</span><h2>What’s new</h2>`;
   th.append(el('span',{class:'sp'}));
   th.append(el('button',{class:'btn sm', html:`${icon('refresh')} Sync`, title:'Pull real releases from the project’s deployed changelog', onclick:()=>openSync(p, ctx)}));
+  th.append(el('button',{class:'btn sm', html:`${icon('bolt')} Force sync`, title:'Fully reconcile local releases to the source — overwrites drifted rows and removes synced releases no longer published there', onclick:()=>runForceSync(p, ctx)}));
   th.append(el('button',{class:'btn sm primary', html:`${icon('plus')} Add release`, onclick:()=>addRelease(p.id, ctx)}));
   main.append(th);
 
@@ -82,6 +83,7 @@ export function renderProject(root, ctx, params){
   ];
   health.innerHTML=`<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Health</h2></div>`;
   rows.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${k}</span><span class="v">${v}</span>`; health.append(r); });
+  health.append(autoSyncRow(p, ctx));
   side.append(health);
 
   // custom metadata — typed per the fleet's field schema, plus any legacy
@@ -108,6 +110,36 @@ function formatFieldValue(d, val){
   if(d.type==='select') return `<span class="tag">${escapeHtml(val)}</span>`;
   if(d.type==='number') return `<span class="mono">${escapeHtml(val)}</span>`;
   return escapeHtml(val);
+}
+
+// Per-project opt-in for the quiet, on-a-cadence auto-sync (also needs the
+// global switch in Settings → Auto-sync). Toggling here never fires a fetch
+// itself — it just marks the project eligible for the next scheduled pass.
+function autoSyncRow(p, ctx){
+  const r=el('div',{class:'row'});
+  r.innerHTML=`<span class="k">Auto-sync</span>`;
+  const v=el('span',{class:'v', style:'display:inline-flex;align-items:center;gap:8px;font-weight:400'});
+  v.append(el('span',{class:'tiny muted', text: p.autoSync ? (p.lastAutoSyncAt?`Last ${fmtCT(p.lastAutoSyncAt)}`:'Due now') : 'Off'}));
+  v.append(el('button',{class:'toggle'+(p.autoSync?' on':''), role:'switch', 'aria-checked':String(!!p.autoSync), 'aria-label':'Auto-sync this project’s changelog',
+    onclick:()=>{ Store.updateProject(p.id, { autoSync:!p.autoSync }, { silent:true }); ctx.go('project',{id:p.id}); }}));
+  r.append(v);
+  return r;
+}
+
+// Force sync: no preview — a full reconcile is deterministic (the source is
+// the source of truth), so it's a fetch + confirm, not a fetch + pick-and-choose.
+async function runForceSync(p, ctx){
+  const url = p.changelogUrl || guessChangelogUrl(p.site);
+  if(!url){ toast('Nothing to sync from', { kind:'warn', body:'Add a site or changelog URL from Edit first.' }); return; }
+  const proceed = await confirmDialog('Force sync', `This fully reconciles ${p.name}’s releases to ${url} — any local edits to a matching version are overwritten, and previously-synced releases no longer published there are removed. Releases you added by hand are left alone.`, { danger:true, okLabel:'Force sync' });
+  if(!proceed) return;
+  const res = await forceSyncProject(p);
+  if(res.status==='ok'){
+    toast(`Force synced ${p.name}`, { kind:'ok', body:`${res.added} added, ${res.updated} updated, ${res.removed} removed.` });
+    ctx.go('project',{id:p.id});
+  }else{
+    toast('Force sync failed', { kind:'err', body: res.reason||res.message||'Could not reach that source.' });
+  }
 }
 
 function linkBtn(href, ic, label, cls=''){
