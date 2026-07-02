@@ -4,6 +4,7 @@ import { Store, STATUSES } from '../store.js';
 import { el, escapeHtml, toast, modal, confirmDialog, fmtCT, avatarColor, slugify } from '../ui.js';
 import { icon } from '../icons.js';
 import { editFieldDef } from './settings.js';
+import { openSyncAll } from './home.js';
 
 const VIEW_KEY = 'manager.lib.view';   // { q, status, sort, dir, field, fieldValue }
 const DEFAULT_STATE = { q:'', status:'all', sort:'activity', dir:'desc', field:'', fieldValue:'' };
@@ -27,6 +28,7 @@ export function renderProjects(root, ctx){
   const head=el('div',{class:'section-title'});
   head.innerHTML=`<h2>Projects</h2>`;
   head.append(el('span',{class:'sp'}));
+  head.append(el('button',{class:'btn sm', html:`${icon('refresh')} Sync all`, title:'Pull real changelogs for every connected project now', onclick:()=>openSyncAll(ctx)}));
   head.append(el('button',{class:'btn primary sm', html:`${icon('plus')} Add project`, onclick:()=>openProjectEditor(null, ctx)}));
   wrap.append(head);
 
@@ -181,8 +183,10 @@ function projectRow(p, ctx){
     <div style="min-width:0"><b>${escapeHtml(p.name)}</b><div class="tiny mono muted" style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.repo||'')}</div></div></div>`;
   // status
   const stTd=el('td',{html:`<span class="status ${st.cls}"><span class="dot"></span>${st.label}</span>`});
-  // version
-  const vTd=el('td',{class:'mono', html: rel?`<span class="vchip">v${rel.v}</span>`:'<span class="muted">—</span>'});
+  // version + when that version shipped (CT)
+  const vTd=el('td',{class:'mono', html: rel
+    ? `<span class="vchip">v${rel.v}</span><div class="tiny muted" style="margin-top:4px;font-family:var(--font)">${escapeHtml(fmtCT(rel.ts))}</div>`
+    : '<span class="muted">—</span>'});
   // updated
   const upTd=el('td',{class:'tiny muted', text:fmtCT(Store.lastActivity(p.id))});
   // tags

@@ -127,7 +127,7 @@ function linkOut(href, ic, label, cls=''){
 // a nudge to sync that one project individually, which offers the paste-in
 // fallback) rather than derailing the whole run.
 // -------------------------------------------------------------------------
-function openSyncAll(ctx){
+export function openSyncAll(ctx){
   const all=Store.projects();
   const targets=all.filter(p=>p.changelogUrl||p.site);
   const skipped=all.length-targets.length;

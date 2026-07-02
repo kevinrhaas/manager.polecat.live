@@ -86,6 +86,17 @@ try {
   console.log('Projects library');
   await openSec('projects');
   await check('library renders a table of projects', async () => (await count('.lib-table tbody tr')) >= 5);
+  await check('Latest column shows the version\'s ship time in CT', async () => {
+    // a project with releases (relay is seeded with real ones) shows a CT date under its version chip
+    const cell = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('.lib-table tbody tr')];
+      const relay = rows.find((r) => /relay/i.test(r.textContent));
+      const vcell = relay && relay.querySelector('td:nth-child(4)');
+      return vcell ? vcell.textContent.trim() : '';
+    });
+    return /v\d+/.test(cell) && /\bCT$/.test(cell);
+  });
+  await check('projects header has a "Sync all" button', async () => !!(await page.$('#view .section-title button:has-text("Sync all")')));
   await check('search filters the list', async () => {
     await page.fill('.toolbar .search input', 'relay'); await page.waitForTimeout(300);
     const n = await count('.lib-table tbody tr');
