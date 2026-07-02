@@ -387,6 +387,16 @@ table.data tbody tr:last-child td{border-bottom:0}
 .tag.sync-upd{color:var(--warning);background:color-mix(in srgb,var(--warning) 14%,transparent)}
 .sync-err{color:var(--danger)}
 
+/* sync-all modal (dashboard) */
+.sync-all-list{display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;
+  border:1px solid var(--border);border-radius:var(--radius);padding:4px}
+.sync-all-row{display:flex;align-items:center;gap:10px;padding:8px 8px}
+.sync-all-row .saa{width:24px;height:24px;flex:0 0 auto;border-radius:7px;color:#05121a;
+  display:flex;align-items:center;justify-content:center}
+.sync-all-row .saa svg{width:13px;height:13px}
+.sync-all-row .name{font-size:13px;font-weight:560;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sync-all-row .status{flex:0 0 auto;text-align:right}
+
 .health .row{display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:9px 0;border-bottom:1px solid var(--border);font-size:12.5px}
 .health .row:last-child{border-bottom:0}

@@ -1,8 +1,9 @@
 // Dashboard — a live wall of project tiles + fleet stats + quick actions.
 import { Store, STATUSES } from '../store.js';
-import { el, escapeHtml, fmtCT, ago, avatarColor, toast } from '../ui.js';
+import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
+import { syncProject } from '../ingest.js';
 
 function greeting(){
   const h = new Date().toLocaleString('en-US',{ timeZone:'America/Chicago', hour:'numeric', hour12:false });
@@ -58,9 +59,11 @@ export function renderHome(root, ctx){
   const qa=el('div',{class:'grid quick'});
   const act=(ic,color,title,desc,fn)=>{ const c=el('div',{class:'card qa hover', onclick:fn});
     c.innerHTML=`<div class="qicon" style="background:${color}">${icon(ic)}</div><div><b>${title}</b><p>${desc}</p></div>`; return c; };
+  const syncable=projects.filter(p=>p.changelogUrl||p.site).length;
   qa.append(
     act('plus','linear-gradient(135deg,var(--brand-b),var(--consensus))','Add a project','Track a new repo or site in the fleet.',()=>openProjectEditor(null,ctx)),
     act('grid','linear-gradient(135deg,var(--consensus),#7c3aed)','Open the library','Filter, sort, and edit every project.',()=>ctx.go('projects')),
+    act('refresh','linear-gradient(135deg,#0891b2,var(--brand-b))','Sync all', syncable?`Pull real changelogs for all ${syncable} synced project${syncable===1?'':'s'} in one pass.`:'Add a site or changelog URL to a project to enable this.', ()=>openSyncAll(ctx)),
     act('book','linear-gradient(135deg,var(--brand-a),var(--brand-b))','Read the docs','New here? Start with the guide.',()=>ctx.go('docs')),
     act('sparkle','linear-gradient(135deg,var(--brand-c),#65a30d)','What’s new','See what shipped in Manager.',()=>ctx.openWhatsNew()),
   );
@@ -111,4 +114,76 @@ export function tile(p, ctx){
 function linkOut(href, ic, label, cls=''){
   return el('a',{class:'linkbtn stopnav '+cls, href, target:'_blank', rel:'noopener', html:`${icon(ic)} ${label}`,
     onclick:(e)=>e.stopPropagation()});
+}
+
+// -------------------------------------------------------------------------
+// Fleet-wide sync — run the same live changelog ingestion as the project
+// page's Sync button, once per project, and show a per-project result
+// summary. Skips projects with no site and no changelog URL to fetch from.
+// Cross-origin fetches that CORS blocks show up as a per-row failure (with
+// a nudge to sync that one project individually, which offers the paste-in
+// fallback) rather than derailing the whole run.
+// -------------------------------------------------------------------------
+function openSyncAll(ctx){
+  const all=Store.projects();
+  const targets=all.filter(p=>p.changelogUrl||p.site);
+  const skipped=all.length-targets.length;
+
+  const body=el('div');
+  body.append(el('p',{class:'muted', style:'margin:0 0 14px;font-size:13px', text:
+    targets.length
+      ? `Fetching each project’s real changelog and importing anything new or changed.${skipped?` ${skipped} project${skipped===1?'':'s'} skipped — no site or changelog URL.`:''}`
+      : 'No projects have a site or changelog URL to sync from yet. Add one from the project editor.'}));
+
+  const rows=new Map();
+  if(targets.length){
+    const list=el('div',{class:'sync-all-list'});
+    targets.forEach(p=>{
+      const row=el('div',{class:'sync-all-row'});
+      row.innerHTML=`<span class="saa" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span>
+        <span class="name">${escapeHtml(p.name)}</span>
+        <span class="status tiny muted">Waiting…</span>`;
+      rows.set(p.id, row.querySelector('.status'));
+      list.append(row);
+    });
+    body.append(list);
+  }
+  const summary=el('div',{class:'tiny', style:'margin-top:14px;min-height:16px'});
+  body.append(summary);
+
+  const closeBtn=el('button',{class:'btn primary', text:targets.length?'Close':'OK', onclick:()=>hide()});
+  const {hide}=modal({ title:'Sync all changelogs', icon:'refresh', body, foot:[closeBtn] });
+  if(!targets.length) return;
+
+  (async()=>{
+    let added=0, updated=0, ok=0, failed=0;
+    for(const p of targets){
+      const statusEl=rows.get(p.id);
+      statusEl.textContent='Fetching…';
+      const res=await syncProject(p);
+      if(res.status==='ok'){
+        ok++; added+=res.added; updated+=res.updated;
+        const changed=res.added||res.updated;
+        statusEl.className='status tiny'+(changed?'':' muted');
+        statusEl.style.color=changed?'var(--success)':'';
+        statusEl.textContent=changed?`${res.added?`${res.added} new`:''}${res.added&&res.updated?', ':''}${res.updated?`${res.updated} updated`:''}`:'up to date';
+      }else{
+        failed++;
+        statusEl.className='status tiny sync-err';
+        statusEl.textContent=res.message||'failed';
+      }
+    }
+    summary.className='tiny '+(failed?'muted':'');
+    summary.innerHTML=`Done — <b>${ok}</b> synced${failed?`, <b>${failed}</b> failed`:''}${skipped?`, ${skipped} skipped`:''}. `+
+      `<b>${added}</b> new release${added===1?'':'s'}, <b>${updated}</b> updated.`;
+    if(added||updated){
+      Store.logRun({ mode:'manual', note:`Fleet-wide sync — ${added} new, ${updated} updated across ${ok} project${ok===1?'':'s'}` });
+      toast('Fleet sync complete', { kind:'ok', body:`${added} new, ${updated} updated across ${ok} project${ok===1?'':'s'}.` });
+      ctx.go('home');
+    }else if(ok){
+      toast('Fleet sync complete', { kind:'info', body:'Everything was already up to date.' });
+    }else{
+      toast('Fleet sync failed', { kind:'warn', body:`Couldn’t reach ${failed} project${failed===1?'':'s'} — try syncing them individually.` });
+    }
+  })();
 }

@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 3,
+    title: 'Fleet-wide sync',
+    kind: 'feature',
+    ts: '2026-07-02T18:57:47.666Z',
+    items: [
+      'A "Sync all" quick action on the dashboard pulls every project\'s real changelog in one pass — no more clicking Sync on each project one at a time.',
+      'Shows a live per-project checklist as it runs: fetching, new/updated release counts, or a clear failure reason, plus a fleet-wide summary when it\'s done.',
+      'Projects with no site or changelog URL are skipped and called out, not silently ignored.',
+      'The run is logged to Activity so the fleet\'s cadence log shows when a bulk sync happened.',
+    ],
+  },
+  {
     v: 2,
     title: 'Live changelog sync',
     kind: 'feature',

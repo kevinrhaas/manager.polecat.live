@@ -19,9 +19,6 @@ with new, ambitious, fun ideas.
       library filters and the detail health panel. (Free-form key/value fields
       already exist on the project editor/detail page — this is about typing
       them and wiring them into filters/sort.)
-- [ ] **Fleet-wide sync** — a "Sync all" action from the dashboard that runs
-      changelog ingestion (see Done, below) across every project with a
-      changelog URL, with a per-project result summary.
 
 ## Next (discovered / queued)
 
@@ -36,9 +33,21 @@ with new, ambitious, fun ideas.
 - [ ] Saved views: let a user save a *custom* filter+sort combo as a new named
       chip (today's saved views are a fixed, useful set — All/Live/Recent/
       Pinned — but they aren't user-definable yet).
+- [ ] Scheduled/automatic fleet sync (not just on-demand from the dashboard) —
+      e.g. re-sync on app load if a project's last sync is >N hours old, with a
+      quiet badge rather than a modal.
+- [ ] Surface a "sync all" entry point from the projects library toolbar too,
+      not just the dashboard quick action, for people who live in that view.
 
 ## Done
 
+- [x] **Fleet-wide sync** _(2026-07-02)_: a "Sync all" quick action on the
+      dashboard runs the same live changelog ingestion as the per-project Sync
+      button across every project that has a site or changelog URL, in one
+      pass. A modal shows a live per-project checklist (fetching → new/updated
+      counts or a failure reason) and a fleet-wide summary when done; projects
+      with nothing to sync from are skipped and called out. A successful run
+      is logged to Activity so the cadence log reflects bulk syncs too.
 - [x] **Live "what's new" ingestion** _(2026-07-02)_: a "Sync" button on the
       project page fetches a project's real `changelog.js` from its deployed
       site, safely parses the `CHANGELOG` array as data (never executes remote

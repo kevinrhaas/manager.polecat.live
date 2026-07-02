@@ -160,6 +160,41 @@ try {
     return hasError && pasteShown;
   });
 
+  // ---------- Fleet-wide sync ----------
+  console.log('Fleet-wide sync');
+  await check('dashboard "Sync all" ingests every project\'s changelog with a per-project summary', async () => {
+    await openSec('home');
+    const changelogUrl = `${base}/js/changelog.js`;
+    // isolate: make 'games' the only reachable sync target (same-origin), so this
+    // check never depends on real network/CORS access to the other projects' sites
+    const saved = await store(`(S)=>{
+      const snap={};
+      S.projects().forEach(p=>{
+        snap[p.id]={site:p.site,changelogUrl:p.changelogUrl};
+        S.put('projects', Object.assign({}, p, p.id==='games'?{changelogUrl:'${changelogUrl}'}:{site:'',changelogUrl:''}), {silent:true});
+      });
+      return snap;
+    }`);
+    const before = await store(`(S)=>S.releasesFor('games').length`);
+    await page.click('.qa:has-text("Sync all")'); await page.waitForTimeout(300);
+    await page.waitForTimeout(700); // let the single same-origin fetch resolve
+    const rowOk = await page.$eval('.sync-all-row .status', (e) => e.textContent.trim() !== 'Waiting…' && !e.classList.contains('sync-err')).catch(() => false);
+    const after = await store(`(S)=>S.releasesFor('games').length`);
+    const loggedRun = await store(`(S)=>S.runs().some(r=>r.mode==='manual' && (r.note||'').indexOf('Fleet-wide sync')===0)`);
+    await page.click('.modal button:has-text("Close")').catch(() => {});
+    await page.waitForTimeout(200);
+    // restore
+    await store(`(S)=>{
+      const snap=${JSON.stringify(saved)};
+      Object.keys(snap).forEach(id=>{ const p=S.project(id); if(p) S.put('projects', Object.assign({}, p, snap[id]), {silent:true}); });
+      S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
+      const g=S.project('games'); if(g) S.put('projects', Object.assign({}, g, {lastSyncAt:0}), {silent:true});
+      const badRun=S.runs().find(r=>r.mode==='manual' && (r.note||'').indexOf('Fleet-wide sync')===0);
+      if(badRun) S.remove('runs', badRun.id, {silent:true});
+    }`);
+    return rowOk && after > before && loggedRun;
+  });
+
   // ---------- Credentials ----------
   console.log('Credentials');
   await openSec('credentials');

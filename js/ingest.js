@@ -13,6 +13,8 @@
 // would allow it — so failures here are expected and handled gracefully by
 // the caller, which offers a paste-to-import fallback.
 
+import { Store } from './store.js';
+
 export function guessChangelogUrl(site){
   if(!site) return '';
   return site.replace(/\/+$/,'') + '/js/changelog.js';
@@ -76,4 +78,20 @@ export async function fetchChangelog(url){
   if(!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
   return parseChangelogSource(text);
+}
+
+// Sync one project against its (explicit or guessed) changelog URL and write
+// straight into the releases table — used by both the per-project Sync
+// button and the dashboard's fleet-wide "Sync all". Never throws: failures
+// and "nothing to sync" both come back as a result the caller can render.
+export async function syncProject(p){
+  const url = p.changelogUrl || guessChangelogUrl(p.site);
+  if(!url) return { status:'skipped', reason:'no site or changelog URL' };
+  try{
+    const entries = await fetchChangelog(url);
+    const { added, updated } = Store.syncReleases(p.id, entries, url);
+    return { status:'ok', added, updated, url };
+  }catch(e){
+    return { status:'error', message:e.message||'sync failed' };
+  }
 }
