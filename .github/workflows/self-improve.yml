@@ -1,0 +1,131 @@
+name: Hourly self-improvement
+
+# Runs Claude Code on a schedule to build the next roadmap item (or, every 5th
+# feature run, do a design/feature SWEEP across the app + public site), gate it
+# behind the Playwright smoke battery, then commit to main and deploy to
+# production automatically. Pause any time by disabling this workflow or
+# removing the CLAUDE_CODE_OAUTH_TOKEN secret.
+#
+# Note: a push to main by the built-in GITHUB_TOKEN does NOT trigger the normal
+# deploy workflow (GitHub blocks that to avoid loops), so this job deploys Pages
+# itself after committing.
+on:
+  schedule:
+    # Off-peak minutes: GitHub heavily delays/drops scheduled jobs at :00.
+    # Two runs/hour improves the odds of a roughly-hourly cadence; the
+    # concurrency lock keeps them from overlapping.
+    - cron: '17,47 * * * *'
+  workflow_dispatch: {}    # run manually from the Actions tab
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: manager-pages
+  cancel-in-progress: false
+
+jobs:
+  improve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code + test browser
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          npm install -D playwright
+          npx playwright install --with-deps chromium
+
+      # Cadence: 1 in every 5 runs is a design/feature SWEEP (polish across the
+      # whole app + public site); the other 4 are feature runs. The run counter
+      # lives in .github/run-count so the ratio holds across dispatches.
+      - name: Pick mode
+        id: mode
+        run: |
+          COUNT=$(cat .github/run-count 2>/dev/null || echo 0)
+          COUNT=$((COUNT + 1))
+          echo "$COUNT" > .github/run-count
+          if [ $(( COUNT % 5 )) -eq 0 ]; then
+            echo "mode=sweep"   >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=feature" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Run #$COUNT — mode $(tail -c 40 "$GITHUB_OUTPUT")"
+
+      - name: Run Claude Code
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          MODE: ${{ steps.mode.outputs.mode }}
+        run: |
+          PROMPT="$(cat .github/self-improve-prompt.md)
+          ---
+          This run's mode is: ${MODE}"
+          claude -p "$PROMPT" \
+            --dangerously-skip-permissions \
+            --max-turns 120 \
+            --allowedTools "Bash,Edit,Write,Read,Glob,Grep" || echo "claude exited non-zero (continuing to smoke test)"
+
+      # Stamp the newest changelog entry with the real ship time. The agent
+      # leaves `ts: ''` on any new top entry; we fill it here so timestamps
+      # reflect when the change actually shipped and can never be fabricated.
+      - name: Stamp changelog timestamp
+        run: |
+          if git diff --name-only | grep -q '^js/changelog.js$'; then
+            node -e "const fs=require('fs');const f='js/changelog.js';let s=fs.readFileSync(f,'utf8');const ts=new Date().toISOString();s=s.replace(/ts:\s*''/, \"ts: '\"+ts+\"'\");fs.writeFileSync(f,s);console.log('Stamped top changelog entry: '+ts);"
+          else
+            echo "changelog.js unchanged; nothing to stamp."
+          fi
+
+      - name: Smoke test (app must load + function with no errors)
+        run: node .github/smoke-test.mjs
+
+      - name: Commit + push to main
+        id: commit
+        env:
+          MODE: ${{ steps.mode.outputs.mode }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes produced this run."
+            echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          git config user.name  "manager-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -A
+          git commit -m "auto: self-improvement (${MODE})" \
+            -m "Automated hourly improvement; passed the smoke battery and auto-deployed."
+          git push origin HEAD:main
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # Deploy Pages ourselves (the bot's push to main won't trigger deploy.yml).
+      # Strip untracked build junk so only the site is published.
+      - name: Prepare artifact
+        if: steps.commit.outputs.changed == 'true'
+        run: rm -rf node_modules package.json package-lock.json
+
+      - name: Configure Pages
+        if: steps.commit.outputs.changed == 'true'
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        if: steps.commit.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
+
+      - name: Deploy to GitHub Pages
+        if: steps.commit.outputs.changed == 'true'
+        id: deploy
+        uses: actions/deploy-pages@v4

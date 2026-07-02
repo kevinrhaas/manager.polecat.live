@@ -1,0 +1,255 @@
+// -----------------------------------------------------------------------
+// store.js — the relational data layer.
+//
+// Everything is modeled as SQLite-shaped tables: each table is a map of
+// id -> row, and every row carries an `updatedAt`. That means this whole
+// module can be swapped for a real SQLite/IndexedDB backend later without
+// changing a single view. For now it persists to one localStorage blob.
+//
+// Tables:
+//   projects     the fleet — one row per managed repo/site
+//   releases     per-project "what's new" entries (a project's changelog)
+//   credentials  shared (scope 'global') or per-project config/secrets
+//   runs         the self-improvement cadence log (feature / sweep / …)
+//
+// Plus `settings` (app preferences) and a bounded `history` stack for undo.
+// -----------------------------------------------------------------------
+
+import { uuid, slugify } from './ui.js';
+
+const LS_KEY   = 'manager.workspace.v1';
+const HIST_KEY = 'manager.history.v1';
+const TABLES   = ['projects', 'releases', 'credentials', 'runs'];
+const HIST_MAX = 40;
+
+export const STATUSES = {
+  live:     { label:'Live',     cls:'s-live' },
+  active:   { label:'Active',   cls:'s-active' },
+  building: { label:'Building', cls:'s-building' },
+  paused:   { label:'Paused',   cls:'s-paused' },
+  idea:     { label:'Idea',     cls:'s-idea' },
+  archived: { label:'Archived', cls:'s-archived' },
+};
+
+const DEFAULT_SETTINGS = {
+  simpleMode: false,
+  tourDone: false,
+  wnTracked: { version:true, date:true, kind:true, items:true },
+  wnSort: 'newest',
+};
+
+// ---- reactive core -------------------------------------------------------
+export const Store = new (class {
+  constructor(){
+    this._listeners = {};
+    this._db = this._load();
+    this._history = this._loadHistory();
+  }
+
+  // ---- persistence -------------------------------------------------------
+  _blank(){
+    const db = { settings:{...DEFAULT_SETTINGS}, meta:{ seededAt:0 } };
+    TABLES.forEach(t=>db[t]={});
+    return db;
+  }
+  _load(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(LS_KEY)||'null');
+      if(raw && raw.projects){
+        raw.settings = { ...DEFAULT_SETTINGS, ...(raw.settings||{}) };
+        TABLES.forEach(t=>raw[t]=raw[t]||{});
+        raw.meta = raw.meta||{};
+        return raw;
+      }
+    }catch{}
+    const db = this._blank();
+    seed(db);
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(db)); }catch{}
+    return db;
+  }
+  _save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(this._db)); }catch{} }
+  _loadHistory(){ try{ return JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); }catch{ return []; } }
+  _saveHistory(){ try{ localStorage.setItem(HIST_KEY, JSON.stringify(this._history.slice(-HIST_MAX))); }catch{} }
+
+  // ---- events ------------------------------------------------------------
+  on(evt, fn){ (this._listeners[evt]||=[]).push(fn); return ()=>{ this._listeners[evt]=this._listeners[evt].filter(f=>f!==fn); }; }
+  emit(evt, payload){ (this._listeners[evt]||[]).forEach(f=>{ try{ f(payload); }catch(e){ console.error(e); } }); (this._listeners['*']||[]).forEach(f=>f(evt,payload)); }
+
+  // ---- generic table ops -------------------------------------------------
+  all(table){ return Object.values(this._db[table]||{}); }
+  get(table, id){ return (this._db[table]||{})[id] || null; }
+
+  // Upsert a row. Records an inverse op for undo unless {silent}. Returns the row.
+  put(table, row, { silent=false, label='' }={}){
+    if(!row.id) row.id = uuid();
+    const prev = this._db[table][row.id] || null;
+    row.updatedAt = Date.now();
+    if(!row.createdAt) row.createdAt = prev?.createdAt || row.updatedAt;
+    this._db[table][row.id] = row;
+    if(!silent) this._pushHistory({ table, id:row.id, prev, label: label || (prev?'Edit':'Add') });
+    this._save();
+    this.emit('change', { table, id:row.id });
+    this.emit(table, { id:row.id });
+    return row;
+  }
+  remove(table, id, { silent=false, label='Delete' }={}){
+    const prev = this._db[table][id];
+    if(!prev) return;
+    delete this._db[table][id];
+    // cascade: deleting a project removes its releases + scoped credentials
+    const cascade = [];
+    if(table==='projects'){
+      for(const t of ['releases','credentials']){
+        for(const r of Object.values(this._db[t])){
+          if(r.projectId===id || r.scope===id){ cascade.push({ table:t, row:r }); delete this._db[t][r.id]; }
+        }
+      }
+    }
+    if(!silent) this._pushHistory({ table, id, prev, cascade, label });
+    this._save();
+    this.emit('change', { table, id });
+    this.emit(table, { id });
+  }
+
+  // ---- history / undo ----------------------------------------------------
+  _pushHistory(op){ this._history.push({ ...op, at:Date.now() }); if(this._history.length>HIST_MAX) this._history=this._history.slice(-HIST_MAX); this._saveHistory(); this.emit('history'); }
+  canUndo(){ return this._history.length>0; }
+  lastLabel(){ const o=this._history[this._history.length-1]; return o?o.label:''; }
+  undo(){
+    const op = this._history.pop();
+    if(!op) return null;
+    this._saveHistory();
+    // reverse: restore prev (or delete if there was none)
+    if(op.prev) this._db[op.table][op.id] = op.prev;
+    else delete this._db[op.table][op.id];
+    (op.cascade||[]).forEach(c=>{ this._db[c.table][c.row.id]=c.row; });
+    this._save();
+    this.emit('change', { table:op.table, id:op.id });
+    this.emit(op.table, { id:op.id });
+    this.emit('history');
+    return op;
+  }
+
+  // ---- settings ----------------------------------------------------------
+  settings(){ return this._db.settings; }
+  setSetting(key, val){ this._db.settings[key]=val; this._save(); this.emit('settings', { key }); }
+
+  // ---- projects ----------------------------------------------------------
+  projects(){ return this.all('projects'); }
+  project(id){ return this.get('projects', id); }
+  projectBySlug(slug){ return this.projects().find(p=>p.slug===slug) || null; }
+  addProject(data){
+    const slug = data.slug || slugify(data.name||'project');
+    const row = { id:slug, slug, status:'idea', tags:[], icon:'grid', pinned:false, fields:{},
+      name:'', repo:'', site:'', sessionUrl:'', description:'', assessment:'', cadence:'', ...data };
+    row.id = row.slug = data.slug || slugify(row.name||slug);
+    return this.put('projects', row, { label:'Add project' });
+  }
+  updateProject(id, patch){ const p=this.project(id); if(!p) return; return this.put('projects', { ...p, ...patch }, { label:'Edit project' }); }
+  togglePin(id){ const p=this.project(id); if(!p) return; return this.put('projects', { ...p, pinned:!p.pinned }, { silent:true }); }
+
+  // ---- releases (per-project "what's new") -------------------------------
+  releasesFor(projectId){ return this.all('releases').filter(r=>r.projectId===projectId).sort((a,b)=>(b.v||0)-(a.v||0)); }
+  latestRelease(projectId){ return this.releasesFor(projectId)[0] || null; }
+  addRelease(projectId, data){
+    const v = data.v ?? ((this.latestRelease(projectId)?.v||0)+1);
+    return this.put('releases', { projectId, v, title:'', kind:'feature', items:[], ts:new Date().toISOString(), ...data, v }, { label:'Add release' });
+  }
+  // The "last updated" signal for a project = its newest release, else its own updatedAt.
+  lastActivity(projectId){
+    const r = this.latestRelease(projectId);
+    const p = this.project(projectId);
+    const rt = r?.ts ? +new Date(r.ts) : 0;
+    return Math.max(rt||0, p?.updatedAt||0) || (p?.updatedAt||0);
+  }
+
+  // ---- credentials -------------------------------------------------------
+  credentials(scope){ const all=this.all('credentials'); return scope?all.filter(c=>c.scope===scope):all; }
+  addCredential(data){ return this.put('credentials', { scope:'global', name:'', key:'', value:'', note:'', ...data }, { label:'Add credential' }); }
+
+  // ---- runs (cadence log) ------------------------------------------------
+  runs(){ return this.all('runs').sort((a,b)=>(b.ts||0)-(a.ts||0)); }
+  logRun(data){ return this.put('runs', { mode:'feature', note:'', projectId:'', ts:Date.now(), ...data }, { label:'Log run' }); }
+  featureCount(){ return this.all('runs').filter(r=>r.mode==='feature').length; }
+
+  // ---- import / export / reset ------------------------------------------
+  exportJSON(){ return JSON.stringify(this._db, null, 2); }
+  importJSON(text){
+    const parsed = JSON.parse(text);
+    if(!parsed || !parsed.projects) throw new Error('Not a Manager workspace');
+    parsed.settings = { ...DEFAULT_SETTINGS, ...(parsed.settings||{}) };
+    TABLES.forEach(t=>parsed[t]=parsed[t]||{});
+    this._db = parsed; this._save();
+    this.emit('change', {}); TABLES.forEach(t=>this.emit(t,{}));
+  }
+  reset(){ localStorage.removeItem(LS_KEY); localStorage.removeItem(HIST_KEY); this._db=this._load(); this._history=[]; this.emit('change', {}); }
+})();
+
+// ---- seed ----------------------------------------------------------------
+// The fleet we're actually connecting to — the six repos in scope, INCLUDING
+// Manager itself. Assessments are qualitative summaries (editable); we never
+// fabricate version numbers or ship times for other projects.
+function seed(db){
+  const now = Date.now();
+  db.meta.seededAt = now;
+  const P = [
+    { id:'manager', name:'Manager', repo:'kevinrhaas/manager.polecat.live', site:'https://manager.polecat.live',
+      status:'building', icon:'gauge', pinned:true, cadence:'GitHub Action · hourly',
+      tags:['console','tooling','static'],
+      description:'Mission control for the fleet — the app you are looking at.',
+      assessment:'Mission control for the whole fleet — this very console. Freshly launched (v1) and set to self-improve hourly.' },
+    { id:'relay', name:'Relay', repo:'kevinrhaas/relay.polecat.live', site:'https://relay.polecat.live',
+      status:'live', icon:'chat', pinned:true, cadence:'GitHub Action · hourly',
+      tags:['p2p','webrtc','static'],
+      description:'Serverless, peer-to-peer collaborative tables + chat.',
+      assessment:'Serverless, peer-to-peer collaborative tables and chat — data lives in the browser and syncs directly between trusted peers. Mature and shipping steadily (v16).' },
+    { id:'games', name:'Games', repo:'kevinrhaas/games.polecat.live', site:'https://games.polecat.live',
+      status:'live', icon:'play', pinned:false, cadence:'self-improve loop',
+      tags:['games','arcade','static'],
+      description:'A browser arcade of 8-bit games from public-domain stories.',
+      assessment:'An ever-growing arcade of instantly-playable 8-bit games built from the world’s legendary public-domain stories. New legends added hourly.' },
+    { id:'polecat', name:'Polecat', repo:'kevinrhaas/polecat', site:'https://polecat.live',
+      status:'live', icon:'compass', pinned:false, cadence:'manual',
+      tags:['ai','consensus','landing'],
+      description:'"Ask once. Hear from everyone." The polecat.live front door.',
+      assessment:'“Ask once, hear from everyone.” One prompt to many AI models, synthesized into a consensus answer — all in the browser with your own keys. This repo is the marketing front door.' },
+    { id:'polecat-app', name:'Polecat App', repo:'kevinrhaas/polecat-app', site:'https://app.polecat.live',
+      status:'live', icon:'bolt', pinned:false, cadence:'manual',
+      tags:['ai','app'],
+      description:'The Polecat application — multi-model consensus, free demo.',
+      assessment:'The Polecat application itself: one prompt to every model, one synthesized answer, with a free no-key demo. Where the product actually lives.' },
+    { id:'solution-engineering', name:'Solution Engineering', repo:'kevinrhaas/solution-engineering', site:'',
+      status:'active', icon:'layers', pinned:false, cadence:'manual',
+      tags:['workspace','analytics','ai'],
+      description:'A mixed Pentaho solution-engineering workspace.',
+      assessment:'A mixed engineering workspace: Pentaho solution-engineering assets, analytics and data-catalog content, AI/agentic experiments, demos, and automation. Many self-contained projects, not one deployed site.' },
+  ];
+  P.forEach(p=>{ db.projects[p.id] = { slug:p.id, sessionUrl:'', fields:{}, createdAt:now, updatedAt:now, ...p }; });
+
+  const rel = (projectId, v, title, ts, items, kind='feature')=>{
+    const id = uuid();
+    db.releases[id] = { id, projectId, v, title, ts, items, kind, createdAt:now, updatedAt:now };
+  };
+  // Manager v1 — this build.
+  rel('manager', 1, 'Mission Control launch', new Date(now).toISOString(), [
+    'Dashboard of project tiles: status, last-updated (CT), latest version, an assessment, and links to the live site, what’s new, and your Claude Code session.',
+    'Projects library with filter, sort, search, pin, and full metadata editing.',
+    'Project detail with the complete what’s-new timeline, plus credentials, docs, a welcome tour, simple mode, history + undo, and an invite-only admin gate.',
+  ], 'feature');
+  // Relay — real, recent changelog entries (verified from its js/changelog.js).
+  rel('relay', 16, 'Landing page: sync locations', '2026-07-02T13:28:08.306Z', [
+    'The front page now shows off "bring your own backup" — sync to a local folder, S3-compatible storage, or WebDAV.',
+  ], 'feature');
+  rel('relay', 15, 'Sync locations: WebDAV', '2026-07-02T13:15:04Z', [
+    'Settings → Advanced → "Sync locations" now has a WebDAV option — Nextcloud, ownCloud, or any self-hosted server.',
+    'Enter a server URL, username, and app password; Relay keeps a live snapshot there.',
+  ], 'feature');
+  rel('relay', 14, 'Sync locations: S3-compatible storage', '2026-07-02T12:38:11Z', [
+    'An S3-compatible option — Cloudflare R2, Backblaze B2, AWS S3, MinIO, or anything that speaks the S3 API.',
+    'Relay signs requests itself (no SDK, no server) and keeps a live snapshot in the bucket.',
+  ], 'feature');
+
+  // First cadence entry: this launch counts as feature run #1.
+  const rid = uuid();
+  db.runs[rid] = { id:rid, projectId:'manager', mode:'feature', note:'v1 — Mission Control launch', ts:now, createdAt:now, updatedAt:now };
+}

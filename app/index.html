@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="description" content="Manager — mission control for a fleet of self-improving Claude Code projects. Dashboards, project library, what's-new timelines, and the Claude Code session behind each one."/>
+  <meta name="theme-color" content="#0a0b12"/>
+  <title>Manager · polecat.live</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+  <link rel="stylesheet" href="/css/styles.css"/>
+  <!-- avoid theme flash: apply saved preference before paint -->
+  <script>
+    (function(){try{
+      var p=localStorage.getItem('manager.theme')||'dark';
+      var light=p==='light'||(p==='system'&&matchMedia('(prefers-color-scheme: light)').matches);
+      document.documentElement.setAttribute('data-theme',light?'light':'dark');
+    }catch(e){}})();
+  </script>
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div id="app"></div>
+  <div id="toasts"></div>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

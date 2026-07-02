@@ -1,0 +1,24 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Manager">
+  <defs>
+    <linearGradient id="mgGrad" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22d3ee"/>
+      <stop offset="0.55" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <radialGradient id="mgCore" cx="0.5" cy="0.5" r="0.5">
+      <stop stop-color="#e8faff"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </radialGradient>
+  </defs>
+  <!-- console hexagon -->
+  <path d="M32 5 54 17.5V46.5L32 59 10 46.5V17.5L32 5Z" fill="#0d1018" stroke="url(#mgGrad)" stroke-width="2.4"/>
+  <!-- radar orbit arcs -->
+  <circle cx="32" cy="32" r="16.5" stroke="url(#mgGrad)" stroke-width="2" opacity="0.35"/>
+  <path d="M32 15.5A16.5 16.5 0 0 1 48.5 32" stroke="#a3e635" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M32 48.5A16.5 16.5 0 0 1 15.5 32" stroke="url(#mgGrad)" stroke-width="2.6" stroke-linecap="round"/>
+  <!-- orbiting satellite node -->
+  <circle cx="48.5" cy="32" r="3.4" fill="#a3e635"/>
+  <!-- core -->
+  <circle cx="32" cy="32" r="6.2" fill="url(#mgCore)"/>
+  <circle cx="32" cy="32" r="6.2" stroke="#eafcff" stroke-width="0.8" opacity="0.6"/>
+</svg>
