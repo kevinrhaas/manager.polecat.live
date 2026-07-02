@@ -14,6 +14,14 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
+- [ ] **Auto-sync & force-sync** — make changelog ingestion effortless.
+      **Auto-sync:** an opt-in (global + per-project) that re-pulls each connected
+      project's `changelog.js` automatically — on app open and on a cadence —
+      quietly banking new releases and badging what changed, with a "last
+      auto-synced" time. **Force sync:** a re-fetch that fully reconciles local
+      releases to the source (overwrites drifted/edited rows, not just additive),
+      behind a confirm so it's deliberate. Both sit next to the existing manual
+      **Sync** button on the project page and the dashboard's **Sync all**.
 - [ ] Fleet health score + trend sparklines per project (release velocity).
 
 ## Next (discovered / queued)
