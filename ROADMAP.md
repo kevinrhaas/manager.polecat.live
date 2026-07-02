@@ -18,6 +18,14 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [ ] Generalize the mobile no-overflow smoke check (see Done, 2026-07-02) into
+      a loop over every rail section at 320px, instead of the two spots this
+      sweep happened to catch — cheap insurance against the next `.section-title`
+      -shaped regression anywhere in the app.
+- [ ] Audit modal/sheet content (sync-all list, custom-field editor, admin invite
+      rows) for the same header-row-doesn't-wrap overflow risk on very narrow
+      phones — this sweep fixed the two instances found by screenshot, but
+      didn't exhaustively open every modal at 320px.
 - [ ] Auto-sync retry/backoff signal — a project whose auto-sync keeps
       failing (CORS, 404, dead site) should surface that in its health panel
       instead of silently re-attempting every interval forever.
@@ -47,6 +55,14 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Mobile overflow sweep** _(2026-07-02)_: found and fixed two real
+      horizontal-scroll bugs by screenshotting the real app at phone widths
+      (320–428px) rather than just reading the CSS. The public landing page's
+      top nav and its invite-only CTA button clipped off-screen below ~480px;
+      every app section's header (e.g. project detail's Sync/Force sync/Add
+      release row) could overflow its container because `.section-title` never
+      wrapped. Both are fixed at the shared-component level, and the smoke
+      suite grew two checks — one per page — that fail if either regresses.
 - [x] **Auto-sync & force-sync** _(2026-07-02)_: changelog ingestion effortless
       end to end. **Auto-sync** is a two-layer opt-in — a global switch +
       interval in Settings, plus a per-project toggle on that project's health

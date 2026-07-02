@@ -45,6 +45,11 @@ a{color:inherit;text-decoration:none}
 .nav-links a:not(.btn){color:var(--text-2);font-size:14px;font-weight:500;transition:.15s}
 .nav-links a:not(.btn):hover{color:var(--text)}
 @media(max-width:720px){ .nav-links a:not(.btn){display:none} }
+@media(max-width:480px){
+  .brand small{display:none}
+  .nav-in{gap:12px}
+  .nav .btn.primary{padding:9px 13px;font-size:13px}
+}
 
 .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:11px;
   font-weight:640;font-size:14px;font-family:inherit;cursor:pointer;border:1px solid var(--border);
@@ -161,6 +166,8 @@ section{padding:70px 0;position:relative}
 .band .sm-item .b svg{width:17px;height:17px}
 .band .sm-item b{font-size:14px;display:block}
 .band .sm-item p{font-size:12.5px;margin:2px 0 0}
+@media(max-width:480px){ .band{padding:28px 20px} }
+@media(max-width:360px){ .band .btn.lg{white-space:normal;text-align:center;line-height:1.3} }
 
 /* reveal */
 .reveal{opacity:0;transform:translateY(22px);transition:opacity .6s,transform .6s}

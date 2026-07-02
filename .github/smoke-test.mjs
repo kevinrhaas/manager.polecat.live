@@ -309,9 +309,13 @@ try {
     await page.fill('.sheet .search input', 'zzzznomatch'); await page.waitForTimeout(250);
     const none = (await count('.wn-entry')) === 0;
     await page.fill('.sheet .search input', ''); await page.waitForTimeout(200);
-    // kind filter chip
+    // kind filter chip — compare against the real data so this doesn't assume which kinds exist
+    const expectPolish = await page.evaluate(async () => {
+      const { CHANGELOG } = await import('/js/changelog.js');
+      return CHANGELOG.filter((e) => (e.kind || 'feature') === 'polish').length;
+    });
     await page.click('.sheet-tools .filter-chip:has-text("Polish")'); await page.waitForTimeout(200);
-    const filtered = (await count('.wn-entry')) === 0;   // v1 is a feature, so Polish shows none
+    const filtered = (await count('.wn-entry')) === expectPolish;
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
     return none && filtered;
   });
@@ -409,6 +413,22 @@ try {
     const open = await page.$eval('#rail', (r) => r.classList.contains('open'));
     await page.setViewportSize({ width: 1280, height: 900 });
     return open;
+  });
+  const noHorizOverflow = (sel) => page.$eval(sel, (e) => e.scrollWidth <= e.clientWidth + 1);
+  await check('mobile: project detail has no horizontal overflow (narrow phone)', async () => {
+    await page.setViewportSize({ width: 375, height: 780 }); await page.waitForTimeout(200);
+    await openSec('home');
+    const tile = await $('.tile'); await tile.click(); await page.waitForTimeout(400);
+    const ok = await noHorizOverflow('.view');
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return ok;
+  });
+  await check('mobile: landing page has no horizontal overflow (narrow phone)', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    await page.goto(`${base}/`, { waitUntil: 'networkidle', timeout: 30000 });
+    const ok = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return ok;
   });
 
   if (errors.length) { console.error('\nConsole/page errors:\n' + errors.join('\n')); failed = true; }

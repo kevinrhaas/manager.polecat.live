@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 7,
+    title: 'Mobile polish sweep',
+    kind: 'polish',
+    ts: '2026-07-02T22:07:02.719Z',
+    items: [
+      'Fixed a horizontal-scroll bug on the public landing page on small phones (390px and narrower) — the top nav and the "Enter with your token" button no longer clip off-screen.',
+      'Fixed the same class of overflow on every app section (project detail, dashboard, library, credentials, docs, settings) — a header\'s action buttons now wrap onto their own row instead of running off the edge on narrow screens.',
+      'Grew the smoke suite with two new checks that fail if either page regresses to a horizontal scrollbar on a narrow phone.',
+    ],
+  },
+  {
     v: 6,
     title: 'Faster, safer auto-sync',
     kind: 'feature',
