@@ -416,6 +416,49 @@ try {
     }`);
     return /Auto-sync failing/.test(chipText || '') && popClosed && failCountAfter === 0 && badgeAfter !== before;
   });
+  await check('a "Needs attention" row can be dismissed independently of the underlying condition, undone via the toast, and restored from the "N dismissed" review modal', async () => {
+    const changelogUrl = `${base}/js/changelog.js`;
+    await store(`(S)=>{
+      const p=S.project('games');
+      S.put('projects', {...p, autoSync:true, autoSyncFailCount:3, autoSyncLastError:'HTTP 404', lastAutoSyncAt:Date.now(), changelogUrl:'${changelogUrl}'}, {silent:true});
+    }`);
+    await openSec('home');
+    const rawBefore = await store(`(S)=>S.needsAttention().length`);
+    const activeBefore = await store(`(S)=>S.needsAttentionActive().length`);
+
+    await page.click('.attn-panel .attn-row button:has-text("Dismiss")');
+    await page.waitForTimeout(400);
+    const rawAfterDismiss = await store(`(S)=>S.needsAttention().length`); // the condition itself never changed
+    const activeAfterDismiss = await store(`(S)=>S.needsAttentionActive().length`);
+    const panelRowsAfterDismiss = await count('.attn-panel .attn-row');
+    const badgeAfterDismiss = await page.$eval('.notif-btn .badge', (e) => (e.hidden ? 0 : parseInt(e.textContent, 10))).catch(() => 0);
+
+    await page.click('.toast .undo'); // undo the dismiss
+    await page.waitForTimeout(400);
+    const activeAfterUndo = await store(`(S)=>S.needsAttentionActive().length`);
+
+    await page.click('.attn-panel .attn-row button:has-text("Dismiss")'); // dismiss again, restore via the review modal this time
+    await page.waitForTimeout(400);
+    const dismissedLinkVisible = (await count('.attn-panel .section-title button:has-text("dismissed")')) > 0;
+    await page.click('.attn-panel .section-title button:has-text("dismissed")');
+    await page.waitForTimeout(300);
+    const modalHasRow = (await count('.modal .attn-row')) > 0;
+    await page.click('.modal button:has-text("Restore")');
+    await page.waitForTimeout(300);
+    const activeAfterRestore = await store(`(S)=>S.needsAttentionActive().length`);
+
+    // clean up
+    await store(`(S)=>{
+      S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
+      const p=S.project('games'); S.put('projects', {...p, autoSync:false, changelogUrl:'', lastSyncAt:0, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:''}, {silent:true});
+      S.undismissAttention('games');
+    }`);
+
+    return rawBefore === activeBefore && rawAfterDismiss === rawBefore &&
+      activeAfterDismiss === activeBefore - 1 && panelRowsAfterDismiss === activeAfterDismiss &&
+      badgeAfterDismiss === activeAfterDismiss && activeAfterUndo === activeBefore &&
+      dismissedLinkVisible && modalHasRow && activeAfterRestore === activeBefore;
+  });
 
   // ---------- Credentials ----------
   console.log('Credentials');

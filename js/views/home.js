@@ -32,9 +32,12 @@ export function renderHome(root, ctx){
 
   // needs attention — a callout roll-up of the same health/auto-sync signals
   // that already show as passive badges on each tile, so a slipping project
-  // never gets lost in a big grid.
-  const attn=Store.needsAttention();
-  if(attn.length) wrap.append(attentionPanel(attn, ctx));
+  // never gets lost in a big grid. Dismissed rows (see attentionRow) drop out
+  // of this active set even though the underlying condition may still hold —
+  // Store.dismissedAttention() is how they stay reachable again.
+  const attn=Store.needsAttentionActive();
+  const dismissedCount=Store.dismissedAttention().length;
+  if(attn.length || dismissedCount) wrap.append(attentionPanel(attn, dismissedCount, ctx));
 
   // stats
   const stats=el('div',{class:'grid stats'});
@@ -89,17 +92,23 @@ export function renderHome(root, ctx){
 // Needs-attention callout — a dashboard-level roll-up of every project whose
 // health has slipped or whose auto-sync is failing, worst-off first, with a
 // one-click jump to the project and (when it's a sync failure) a "Retry now"
-// right in the row. Shares Store.needsAttention() with the library's "Needs
-// attention" saved view, so both surfaces always agree on the same set.
+// right in the row. Built from Store.needsAttentionActive() — the same set
+// the bell and the rail badge count — so a row a user has dismissed (see
+// attentionRow below) drops out here too, even while the raw condition
+// persists; the library's "Needs attention" saved view is the one surface
+// that still shows the full Store.needsAttention() picture, dismissed or not.
 // -------------------------------------------------------------------------
-function attentionPanel(attn, ctx){
+function attentionPanel(attn, dismissedCount, ctx){
   const panel=el('div',{class:'card attn-panel', style:'margin-bottom:20px'});
   const head=el('div',{class:'section-title', style:'margin:0 0 6px'});
   head.innerHTML=`<span style="color:var(--danger);display:inline-flex">${icon('warning')}</span><h2>Needs attention</h2>`;
   head.append(el('span',{class:'sp'}));
-  head.append(el('span',{class:'tiny muted', text:`${attn.length} project${attn.length===1?'':'s'}`}));
+  if(dismissedCount) head.append(el('button',{class:'linkbtn tiny', html:`${icon('eyeOff')} ${dismissedCount} dismissed`,
+    title:'Review or restore what you’ve dismissed', onclick:()=>openDismissedModal(ctx)}));
+  if(attn.length) head.append(el('span',{class:'tiny muted', text:`${attn.length} project${attn.length===1?'':'s'}`}));
   panel.append(head);
-  attn.forEach(a=>panel.append(attentionRow(a, ctx)));
+  if(attn.length) attn.forEach(a=>panel.append(attentionRow(a, ctx)));
+  else panel.append(el('div',{class:'notif-pop-empty', style:'padding:16px 4px', html:`${icon('check')}<span>Everything hot right now is already dismissed.</span>`}));
   return panel;
 }
 
@@ -126,8 +135,57 @@ export function attentionRow(a, ctx){
     }}));
   }
   actions.append(el('button',{class:'linkbtn stopnav', html:`${icon('chevron')} Open`, onclick:(e)=>{ e.stopPropagation(); ctx.go('project',{id:p.id}); }}));
+  // Dismiss — mark this exact set of reasons as "seen" so it stops pinging
+  // the bell/rail badge/dashboard callout, without requiring it to actually
+  // be fixed first. If the reasons change (new or worsened problem), the
+  // dismissal no longer matches and the row comes right back.
+  actions.append(el('button',{class:'linkbtn stopnav', title:'Dismiss — stop notifying about this until it changes', html:`${icon('eyeOff')} Dismiss`, onclick:(e)=>{
+    e.stopPropagation();
+    Store.dismissAttention(a);
+    toast('Dismissed', { kind:'info', body:`${p.name} won’t notify again unless the reason changes.`,
+      action:{ label:'Undo', fn:()=>Store.undismissAttention(p.id) } });
+  }}));
   row.append(actions);
   return row;
+}
+
+// -------------------------------------------------------------------------
+// Dismissed notifications — a lightweight review list so dismissing never
+// feels like data loss: every dismissed row is still one click from being
+// restored, from either the dashboard callout or the notification bell.
+// -------------------------------------------------------------------------
+export function openDismissedModal(ctx){
+  const dismissed=Store.dismissedAttention();
+  const body=el('div');
+  if(!dismissed.length){
+    body.append(el('div',{class:'notif-pop-empty', html:`${icon('check')}<span>Nothing dismissed right now.</span>`}));
+  }else{
+    body.append(el('p',{class:'muted', style:'margin:0 0 10px;font-size:13px',
+      text:'These stay quiet until their reason changes. Restore one to let it notify again.'}));
+    dismissed.forEach(a=>{
+      const {project:p, band, reasons}=a;
+      const row=el('div',{class:'attn-row'});
+      row.innerHTML=`<span class="aavatar" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span>
+        <span class="aname">${escapeHtml(p.name)}</span>`;
+      const reasonsWrap=el('span',{class:'areasons'});
+      reasons.forEach(r=>{
+        if(r.kind==='health') reasonsWrap.append(el('span',{class:`hchip ${band.cls}`, html:`${icon('activity')} ${escapeHtml(r.text)}`}));
+        else reasonsWrap.append(el('span',{class:'fail-chip', html:`${icon('warning')} ${escapeHtml(r.text)}`}));
+      });
+      row.append(reasonsWrap);
+      const actions=el('span',{class:'aactions'});
+      actions.append(el('button',{class:'linkbtn', html:`${icon('refresh')} Restore`, onclick:()=>{
+        Store.undismissAttention(p.id);
+        row.remove();
+        toast('Restored', { kind:'ok', body:`${p.name} can notify again.` });
+        if(!body.querySelector('.attn-row')) hide();
+      }}));
+      row.append(actions);
+      body.append(row);
+    });
+  }
+  const closeBtn=el('button',{class:'btn primary', text:'Close', onclick:()=>hide()});
+  const {hide}=modal({ title:'Dismissed notifications', icon:'eyeOff', body, foot:[closeBtn] });
 }
 
 function sectionTitle(text, ic, extra){

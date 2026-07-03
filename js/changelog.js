@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 15,
+    title: 'Dismiss a "Needs attention" notification',
+    kind: 'feature',
+    ts: '2026-07-03T03:39:22.059Z',
+    items: [
+      'Every row in the "Needs attention" list — on the dashboard callout and in the notification bell — now has a Dismiss action, so a problem you\'ve already seen can stop pinging you without needing to be fixed first.',
+      'Dismissal is scoped to the exact reason it was raised for: if a dismissed project gets *worse* or a new problem shows up (say, its auto-sync also starts failing), it comes right back — a dismissal never hides a genuinely new issue.',
+      'Nothing is thrown away — a "N dismissed" link on the dashboard callout and the bell popover opens a review list to restore any of them, and dismissing shows an instant "Undo" toast.',
+      'The rail\'s Dashboard badge and the bell badge now count only active (undismissed) items; the library\'s "Needs attention" saved view is unchanged and still shows everything, dismissed or not.',
+    ],
+  },
+  {
     v: 14,
     title: 'Rail badges Dashboard with the "Needs attention" count',
     kind: 'feature',

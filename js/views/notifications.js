@@ -1,12 +1,14 @@
-// Notification center — a topbar bell that surfaces Store.needsAttention()
+// Notification center — a topbar bell that surfaces Store.needsAttentionActive()
 // from anywhere in the app, not just the dashboard. It renders the exact same
 // rows as the dashboard's "Needs attention" callout (attentionRow, imported
 // from home.js) so the badge count, the popover list, and the dashboard
-// callout can never drift out of sync with each other.
+// callout can never drift out of sync with each other. Dismissed items drop
+// out of the "active" set but stay one click away via the footer's "N
+// dismissed" link (openDismissedModal, also from home.js).
 import { Store } from '../store.js';
 import { el } from '../ui.js';
 import { icon } from '../icons.js';
-import { attentionRow } from './home.js';
+import { attentionRow, openDismissedModal } from './home.js';
 
 let btn=null, pop=null, cleanup=null, ctxFor=null; // ctxFor: the ctx the open popover was built with
 
@@ -20,11 +22,22 @@ export function buildNotifBell(ctx){
 
 export function refreshNotifBadge(){
   if(!btn) return;
-  const n=Store.needsAttention().length;
+  const n=Store.needsAttentionActive().length;
   const badge=btn.querySelector('.badge');
   if(n>0){ badge.textContent = n>99?'99+':String(n); badge.hidden=false; }
   else badge.hidden=true;
-  if(pop) renderList(pop.querySelector('.notif-pop-body'), ctxFor);
+  if(pop){
+    renderList(pop.querySelector('.notif-pop-body'), ctxFor);
+    renderFoot(pop.querySelector('.notif-pop-foot'), ctxFor);
+  }
+}
+
+function renderFoot(foot, ctx){
+  if(!foot) return;
+  foot.innerHTML='';
+  const dismissedCount=Store.dismissedAttention().length;
+  if(dismissedCount) foot.append(el('button',{class:'btn sm ghost', html:`${icon('eyeOff')} ${dismissedCount} dismissed`, onclick:()=>openDismissedModal(ctx)}));
+  foot.append(el('button',{class:'btn sm', html:`${icon('grid')} Open dashboard`, onclick:()=>{ closePanel(); ctx.go('home'); }}));
 }
 
 function openPanel(ctx){
@@ -37,11 +50,11 @@ function openPanel(ctx){
   head.append(el('button',{class:'btn ghost icon sm', title:'Close', 'aria-label':'Close', html:icon('x'), onclick:()=>closePanel()}));
   pop.append(head, body);
   const foot=el('div',{class:'notif-pop-foot'});
-  foot.append(el('button',{class:'btn sm', html:`${icon('grid')} Open dashboard`, onclick:()=>{ closePanel(); ctx.go('home'); }}));
   pop.append(foot);
   document.body.append(pop);
   positionPanel();
   renderList(body, ctx);
+  renderFoot(foot, ctx);
   requestAnimationFrame(()=>pop.classList.add('show'));
 
   const onDoc=(e)=>{ if(pop && !pop.contains(e.target) && e.target!==btn && !btn.contains(e.target)) closePanel(); };
@@ -73,7 +86,7 @@ function positionPanel(){
 function renderList(body, ctx){
   if(!body) return;
   body.innerHTML='';
-  const attn=Store.needsAttention();
+  const attn=Store.needsAttentionActive();
   if(!attn.length){
     body.append(el('div',{class:'notif-pop-empty', html:`${icon('check')}<span>All clear — nothing needs attention.</span>`}));
     return;

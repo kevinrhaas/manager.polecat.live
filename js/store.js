@@ -20,7 +20,7 @@ import { uuid, slugify } from './ui.js';
 
 const LS_KEY   = 'manager.workspace.v1';
 const HIST_KEY = 'manager.history.v1';
-const TABLES   = ['projects', 'releases', 'credentials', 'runs', 'fieldDefs'];
+const TABLES   = ['projects', 'releases', 'credentials', 'runs', 'fieldDefs', 'dismissals'];
 const HIST_MAX = 40;
 
 export const STATUSES = {
@@ -138,10 +138,10 @@ export const Store = new (class {
     const prev = this._db[table][id];
     if(!prev) return;
     delete this._db[table][id];
-    // cascade: deleting a project removes its releases + scoped credentials
+    // cascade: deleting a project removes its releases + scoped credentials + dismissals
     const cascade = [];
     if(table==='projects'){
-      for(const t of ['releases','credentials']){
+      for(const t of ['releases','credentials','dismissals']){
         for(const r of Object.values(this._db[t])){
           if(r.projectId===id || r.scope===id){ cascade.push({ table:t, row:r }); delete this._db[t][r.id]; }
         }
@@ -323,6 +323,33 @@ export const Store = new (class {
       return reasons.length ? { project:p, score, band, reasons } : null;
     }).filter(Boolean).sort((a,b)=>a.score-b.score);
   }
+
+  // ---- per-item dismissal ("mark as read"), independent of the condition --
+  // A dismissal is scoped to the exact reasons it was raised for (its
+  // "signature"), not just the project id — so acknowledging a project
+  // that's merely Slowing doesn't silently swallow a *new* problem (e.g. its
+  // auto-sync starting to fail) that shows up later: the signature changes,
+  // the old dismissal stops matching, and the row comes back. That's what
+  // lets someone say "I've seen this, stop pinging me" for a known, ongoing
+  // issue without it needing to be fixed first — dismissal is independent of
+  // the underlying condition, but a genuinely new or worsened one still gets
+  // through.
+  _attnSignature(a){ return a.reasons.map(r=>`${r.kind}:${r.text}`).join('|'); }
+  isAttentionDismissed(a){
+    const d = this.get('dismissals', a.project.id);
+    return !!d && d.signature===this._attnSignature(a);
+  }
+  dismissAttention(a){
+    this.put('dismissals', { id:a.project.id, projectId:a.project.id, signature:this._attnSignature(a), dismissedAt:Date.now() }, { silent:true });
+  }
+  undismissAttention(projectId){ this.remove('dismissals', projectId, { silent:true }); }
+  // The set passive/ambient surfaces (bell, rail badge, dashboard callout)
+  // should treat as "hot" — needsAttention() minus anything dismissed at its
+  // current signature. needsAttention() itself stays the full, undismissed-
+  // agnostic picture for anything that wants it (e.g. the library's "Needs
+  // attention" saved view — a deliberate query, not a passive notification).
+  needsAttentionActive(){ return this.needsAttention().filter(a=>!this.isAttentionDismissed(a)); }
+  dismissedAttention(){ return this.needsAttention().filter(a=>this.isAttentionDismissed(a)); }
 
   // ---- credentials -------------------------------------------------------
   credentials(scope){ const all=this.all('credentials'); return scope?all.filter(c=>c.scope===scope):all; }

@@ -333,7 +333,7 @@ body{
 .attn-row .aname{font-weight:620;font-size:13px;min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
 .attn-row .areasons{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:120px}
-.attn-row .aactions{display:flex;gap:6px;flex:0 0 auto;margin-left:auto}
+.attn-row .aactions{display:flex;gap:6px;flex:0 0 auto;flex-wrap:wrap;margin-left:auto;justify-content:flex-end}
 .tspark{display:inline-flex;align-items:center}
 .spark{display:block;opacity:.9}
 .spark rect{transition:height .25s ease}
@@ -629,8 +629,9 @@ a.link:hover{text-decoration:underline}
   display:flex;flex-direction:column;align-items:center;gap:8px}
 .notif-pop-empty svg{width:24px;height:24px;color:var(--success)}
 .notif-pop-body .attn-row{padding:9px 4px}
-.notif-pop-foot{padding:10px 14px;border-top:1px solid var(--border)}
-.notif-pop-foot .btn{width:100%;justify-content:center}
+.notif-pop-foot{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border)}
+.notif-pop-foot .btn{justify-content:center}
+.notif-pop-foot .btn:last-child{flex:1}
 
 /* ---- docs -------------------------------------------------------------- */
 .docs{display:grid;grid-template-columns:210px 1fr;gap:28px;align-items:start}

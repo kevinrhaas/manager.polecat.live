@@ -125,7 +125,7 @@ function refreshUndo(){ if(undoBtn) undoBtn.disabled = !Store.canUndo(); }
 // not the other.
 function refreshAttentionBadges(){
   refreshNotifBadge();
-  window.__rail?.setBadge('home', Store.needsAttention().length, 'danger');
+  window.__rail?.setBadge('home', Store.needsAttentionActive().length, 'danger');
 }
 
 // context handed to every view
@@ -195,7 +195,7 @@ function wireEvents(){
   Store.on('change', ()=>{ refreshUndo(); refreshAttentionBadges(); });
   Store.on('history', refreshUndo);
   // re-render when the data behind the current view changes
-  const rerenderOn = { projects:['projects','releases'], home:['projects','releases','runs'],
+  const rerenderOn = { projects:['projects','releases'], home:['projects','releases','runs','dismissals'],
     project:['projects','releases'], activity:['runs'], credentials:['credentials'] };
   Store.on('*', (evt)=>{ if((rerenderOn[currentSection]||[]).includes(evt)) render(); });
 

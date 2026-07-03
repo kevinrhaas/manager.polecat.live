@@ -14,29 +14,21 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Let a notification be dismissed/marked-read independently of the
-      underlying condition (see Next below, promoted) — today the bell and
-      the new rail badge (2026-07-03) both always mirror the live
-      `Store.needsAttention()` set with no per-item read state, so a problem
-      you've already seen keeps re-surfacing everywhere until it's actually
-      fixed.
+- [ ] Let "Needs attention" thresholds be tuned from Settings, same spirit as
+      the fleet health weighting (see Done, 2026-07-02) — today Slowing/Stale
+      and the auto-sync fail threshold are fixed, not configurable per fleet.
 
 ## Next (discovered / queued)
 
-- [ ] Now that three surfaces (bell, rail badge, dashboard callout) all
-      render `Store.needsAttention()`, consider whether the rail badge should
-      dim/deprioritize (rather than disappear) once a user has opened the
-      popover or dashboard this session — right now all three are always
-      "hot", which is correct today but worth revisiting once dismissal
-      (above) exists, so a seen-but-unfixed problem doesn't look identical to
-      a brand-new one.
+- [ ] Now that dismissal exists (see Done, 2026-07-03), consider whether the
+      rail badge should dim/deprioritize (rather than disappear) once a user
+      has opened the popover or dashboard this session but hasn't dismissed
+      anything — a middle ground between "hot" and "gone" for the moment
+      right after you've *seen* something but before you've acted on it.
 - [ ] Group the notification popover by reason (health vs. sync) once the
       list regularly has more than a handful of rows — right now it's a flat
       list sorted worst-score-first, fine at fleet scale today but won't
       stay scannable if the fleet grows a lot.
-- [ ] Let "Needs attention" thresholds be tuned from Settings, same spirit as
-      the fleet health weighting (see Done, 2026-07-02) — today Slowing/Stale
-      and the auto-sync fail threshold are fixed, not configurable per fleet.
 - [ ] Persist a per-project override of the fleet health weighting (see Done,
       2026-07-02) for the rare project whose cadence is intentionally
       different from the fleet norm — today the weights are fleet-wide only.
@@ -72,9 +64,34 @@ with new, ambitious, fun ideas.
       already get.
 - [ ] Reorderable custom fields (drag to set the `order` the schema already
       tracks) so the most-used ones surface first in the editor and health panel.
+- [ ] Auto-expire old dismissals: `Store.dismissals` rows for a project that
+      later becomes healthy (and so drops out of `needsAttention()` entirely)
+      are harmless but never garbage-collected — a low-priority cleanup, not
+      a correctness issue, since `isAttentionDismissed()` only ever matches a
+      row that's still actually flagged.
 
 ## Done
 
+- [x] **Dismiss a "Needs attention" notification** _(2026-07-03)_: the bell,
+      rail badge, and dashboard callout all mirrored the live
+      `Store.needsAttention()` set with no per-item read state, so a problem
+      you'd already seen kept re-surfacing everywhere until it was actually
+      fixed. Every row (`attentionRow`, shared by the bell popover and the
+      dashboard callout) now has a Dismiss action; a new `dismissals` table
+      records it against the *exact signature* of the reasons it was raised
+      for (e.g. `health:Slowing · 42/100`), not just the project id — so
+      dismissing a merely-Slowing project doesn't swallow a genuinely new or
+      worse problem that shows up later (say, its auto-sync starting to fail
+      too), which resurfaces immediately because the signature no longer
+      matches. `Store.needsAttentionActive()` (needsAttention() minus
+      current-signature dismissals) now drives the bell badge, the rail
+      badge, and the dashboard callout; the library's "Needs attention" saved
+      view deliberately keeps showing the full raw set, dismissed or not,
+      since it's a query someone navigated to on purpose rather than a
+      passive notification. Nothing is thrown away — a "N dismissed" link on
+      both the dashboard callout and the bell popover opens a review modal to
+      restore any of them, and dismissing itself shows an instant "Undo"
+      toast.
 - [x] **Rail badges the Dashboard nav item with the live "Needs attention"
       count** _(2026-07-03)_: the bell already proved the shared-signal
       pattern, but it's only visible once you look at the topbar — the rail
