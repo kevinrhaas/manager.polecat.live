@@ -237,6 +237,35 @@ try {
     const undone = (await store(`(S)=>S.project('games').status`)) === beforeGames && (await store(`(S)=>S.project('polecat').status`)) === beforePolecat;
     return archived && undone;
   });
+  await check('bulk "Delete" removes every checked project (+ its releases) behind a confirm, and Undo restores the whole batch together', async () => {
+    await openSec('projects');
+    await store(`(S)=>{
+      S.addProject({ slug:'smoke-bulk-del-1', name:'Smoke Bulk Del 1' });
+      S.addProject({ slug:'smoke-bulk-del-2', name:'Smoke Bulk Del 2' });
+      S.put('releases', { id:'smoke-bulk-del-rel', projectId:'smoke-bulk-del-1', v:1, title:'x', ts:Date.now() }, { silent:true });
+    }`);
+    await page.waitForTimeout(300);
+    await page.click('input.lib-sel[data-pid="smoke-bulk-del-1"]');
+    await page.click('input.lib-sel[data-pid="smoke-bulk-del-2"]');
+    await page.waitForTimeout(150);
+    // Cancel first: confirms the dialog is a real gate, not a no-op.
+    await page.click('.bulkbar button:has-text("Delete")');
+    await page.waitForTimeout(300);
+    await page.click('.modal button:has-text("Cancel")');
+    await page.waitForTimeout(300);
+    const survivedCancel = await store(`(S)=>!!S.project('smoke-bulk-del-1') && !!S.project('smoke-bulk-del-2')`);
+    await page.click('.bulkbar button:has-text("Delete")');
+    await page.waitForTimeout(300);
+    await page.click('.modal button:has-text("Delete")');
+    await page.waitForTimeout(400);
+    const gone = await store(`(S)=>!S.project('smoke-bulk-del-1') && !S.project('smoke-bulk-del-2') && S.releasesFor('smoke-bulk-del-1').length===0`);
+    await page.keyboard.down('Control'); await page.keyboard.press('KeyZ'); await page.keyboard.up('Control');
+    await page.waitForTimeout(350);
+    const restored = await store(`(S)=>!!S.project('smoke-bulk-del-1') && !!S.project('smoke-bulk-del-2') && S.releasesFor('smoke-bulk-del-1').length===1`);
+    // clean up regardless of outcome
+    await store(`(S)=>{ S.remove('projects','smoke-bulk-del-1',{silent:true}); S.remove('projects','smoke-bulk-del-2',{silent:true}); }`);
+    return survivedCancel && gone && restored;
+  });
 
   // ---------- Project detail / releases ----------
   console.log('Project detail');

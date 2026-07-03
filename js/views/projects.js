@@ -158,6 +158,7 @@ function buildBulkBar(ctx){
     toast(n?`${n===1?'1 project':n+' projects'} archived`:'Already archived',{kind:n?'ok':'info', action:n?{label:'Undo', fn:()=>Store.undo()}:undefined});
     ctx.refresh();
   }}));
+  bar.append(el('button',{class:'btn danger sm', title:'Delete every selected project', html:`${icon('trash')} Delete`, onclick:()=>openBulkDeleteConfirm(ctx, ids)}));
   bar.append(el('span',{class:'sp'}));
   bar.append(el('button',{class:'btn ghost icon sm', title:'Clear selection', 'aria-label':'Clear selection', html:icon('x'), onclick:()=>{ selected.clear(); ctx.refresh(); }}));
   return bar;
@@ -179,6 +180,24 @@ function openBulkTagPrompt(ctx, ids){
   input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); add.click(); } });
   const {hide}=modal({ title:'Add tag', icon:'tag', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), add] });
   setTimeout(()=>input.focus(),50);
+}
+
+// Bulk delete needs its own explicit confirm — unlike tag/status/archive
+// (all easily reversible via a status or tag change even without Undo),
+// this removes rows outright, so it gets the same "are you sure" as a
+// single project's Delete button, just scoped to the whole selection.
+async function openBulkDeleteConfirm(ctx, ids){
+  const names = ids.map(id=>Store.project(id)?.name).filter(Boolean);
+  const ok = await confirmDialog(
+    `Delete ${ids.length} project${ids.length===1?'':'s'}`,
+    `Remove ${names.slice(0,3).map(n=>`"${n}"`).join(', ')}${names.length>3?`, and ${names.length-3} more`:''} and their releases from Manager? You can undo this.`,
+    { danger:true, okLabel:'Delete' }
+  );
+  if(!ok) return;
+  selected.clear();
+  const n=Store.bulkRemove('projects', ids);
+  toast(n?`${n===1?'1 project':n+' projects'} deleted`:'Already gone',{kind:n?'ok':'info', action:n?{label:'Undo', fn:()=>Store.undo()}:undefined});
+  ctx.refresh();
 }
 
 function buildList(ctx, renderBulk){

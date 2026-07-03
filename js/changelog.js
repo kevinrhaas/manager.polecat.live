@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 24,
+    title: 'Bulk delete in the projects library',
+    kind: 'feature',
+    ts: '2026-07-03T15:37:08.386Z',
+    items: [
+      'The library\'s bulk action bar (select rows, then act on all of them at once) now has a Delete button alongside Add tag / Set status / Archive.',
+      'Deleting removes every checked project — and its releases — behind an explicit "are you sure" confirm, since it\'s the one bulk action that isn\'t just a status/tag flip.',
+      'One click on "Undo" restores the whole deleted batch together, same as every other bulk action.',
+    ],
+  },
+  {
     v: 23,
     title: 'Safer workspace import',
     kind: 'feature',

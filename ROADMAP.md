@@ -14,17 +14,18 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Bulk **delete** in the projects library, behind a confirm — bulk actions
-      today cover tag/status/archive (see Done, 2026-07-03), all three easily
-      reversible via a status/tag change; delete removes rows outright and
-      deserves its own explicit "are you sure" even though it's still undoable.
-
-## Next (discovered / queued)
-
 - [ ] A "merge" import mode alongside today's replace-everything import (see
       Done, 2026-07-03) — add rows from the file that don't exist locally
       instead of always wiping the current workspace, for combining a backup
       from one browser into another rather than always overwriting.
+
+## Next (discovered / queued)
+
+- [ ] Now that bulk delete exists (see Done, 2026-07-03), consider a
+      lightweight "Recently deleted" tray (last N removed projects, past the
+      single-slot undo stack) — undo covers the "oops, right after" case, but
+      once a few more actions have happened since a bulk delete, a project is
+      gone with no path back short of restoring a JSON export.
 - [ ] Bulk "remove tag" (today's bulk tag action only adds) — for cleaning up
       a tag that was applied too broadly, or retiring one across the fleet.
 - [ ] Now that dismissal exists (see Done, 2026-07-03), consider whether the
@@ -71,6 +72,31 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Bulk delete in the projects library, behind a confirm** _(2026-07-03)_:
+      the bulk action bar (select rows via checkbox, act on all of them at
+      once) covered tag/set-status/archive — all three easily reversible via
+      another status or tag change — but deleting rows outright had no bulk
+      path, only the single-project editor's Delete button. A new "Delete"
+      button in the bulk bar removes every checked project (and, via the same
+      cascade `remove()` already used for a single project, their releases,
+      scoped credentials, and dismissals) behind an explicit confirm dialog
+      naming up to three of the selected projects by name (`"Relay", "Games",
+      and 2 more`) so it's clear what's about to disappear — the one bulk
+      action that gets its own "are you sure" rather than firing immediately,
+      since a status/tag flip is trivially reversible by eye but a delete
+      isn't. Under the hood, `Store.remove()`'s cascade logic was factored
+      into a shared `_cascadeFor()` so a new `Store.bulkRemove(table, ids)`
+      could reuse it per-row while still recording the *whole batch* as one
+      undo step, matching `bulkUpdate()`'s shape; `Store.undo()` was
+      generalized to restore each item's own cascade (not just a single
+      op-level one), so undoing a bulk delete brings back every deleted
+      project's releases along with it, in one click, exactly like undoing a
+      single project's delete already did. A new smoke check drives the real
+      UI end to end: seeds two temporary projects (one with a release),
+      selects both, opens the confirm, Cancels it and verifies nothing was
+      touched, reopens it, confirms, verifies both projects and the release
+      are gone, then Undoes and verifies the whole batch — project rows and
+      the release — comes back together.
 - [x] **Import/export the whole workspace as JSON, hardened + round-trip tested**
       _(2026-07-03)_: `Store.exportJSON()`/`importJSON()` and their Settings →
       Data buttons already shipped in v1, but nothing in the suite proved a

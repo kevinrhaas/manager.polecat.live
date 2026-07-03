@@ -176,11 +176,10 @@ export const Store = new (class {
     items.forEach(({id})=>{ this.emit('change',{table,id}); this.emit(table,{id}); });
     return items.length;
   }
-  remove(table, id, { silent=false, label='Delete' }={}){
-    const prev = this._db[table][id];
-    if(!prev) return;
-    delete this._db[table][id];
-    // cascade: deleting a project removes its releases + scoped credentials + dismissals
+  // Cascade helper for deleting a project: also removes its releases, scoped
+  // credentials, and dismissals. Returns the removed rows so the caller can
+  // both delete them and record them for undo.
+  _cascadeFor(table, id){
     const cascade = [];
     if(table==='projects'){
       for(const t of ['releases','credentials','dismissals']){
@@ -189,10 +188,37 @@ export const Store = new (class {
         }
       }
     }
+    return cascade;
+  }
+  remove(table, id, { silent=false, label='Delete' }={}){
+    const prev = this._db[table][id];
+    if(!prev) return;
+    delete this._db[table][id];
+    const cascade = this._cascadeFor(table, id);
     if(!silent) this._pushHistory({ table, id, prev, cascade, label });
     this._save();
     this.emit('change', { table, id });
     this.emit(table, { id });
+  }
+  // Delete many rows at once, recorded as ONE undo step — mirrors
+  // bulkUpdate()'s single-history-entry shape, but each item also carries its
+  // own cascade (bulkUpdate's patch-based items have no cascade of their own,
+  // since patching a row never deletes related rows). Returns the count of
+  // rows actually removed.
+  bulkRemove(table, ids){
+    const items=[];
+    ids.forEach(id=>{
+      const prev=this._db[table][id];
+      if(!prev) return;
+      delete this._db[table][id];
+      const cascade=this._cascadeFor(table, id);
+      items.push({ id, prev, cascade });
+    });
+    if(!items.length) return 0;
+    this._pushHistory({ table, items, label:'Delete' });
+    this._save();
+    items.forEach(({id})=>{ this.emit('change',{table,id}); this.emit(table,{id}); });
+    return items.length;
   }
 
   // ---- history / undo ----------------------------------------------------
@@ -204,14 +230,17 @@ export const Store = new (class {
     if(!op) return null;
     this._saveHistory();
     // reverse: restore prev (or delete if there was none) for every row the
-    // op touched — `items` (bulk ops, see bulkUpdate) or the single id/prev
-    // shape every other op uses.
-    const rows = op.items || [{ id:op.id, prev:op.prev }];
-    rows.forEach(({id,prev})=>{
+    // op touched — `items` (bulk ops, see bulkUpdate/bulkRemove) or the
+    // single id/prev/cascade shape every other op uses. Cascade rows (a
+    // deleted row's releases/credentials/dismissals) restore alongside their
+    // owning row, whether the cascade lives on the op itself (single remove)
+    // or per-item (bulkRemove).
+    const rows = op.items || [{ id:op.id, prev:op.prev, cascade:op.cascade }];
+    rows.forEach(({id,prev,cascade})=>{
       if(prev) this._db[op.table][id] = prev;
       else delete this._db[op.table][id];
+      (cascade||[]).forEach(c=>{ this._db[c.table][c.row.id]=c.row; });
     });
-    (op.cascade||[]).forEach(c=>{ this._db[c.table][c.row.id]=c.row; });
     this._save();
     rows.forEach(({id})=>{ this.emit('change', { table:op.table, id }); this.emit(op.table, { id }); });
     this.emit('history');
