@@ -743,6 +743,54 @@ try {
     return !overlap;
   });
 
+  // Three more `align-items:center`-around-a-wrapping-text-column bugs found by
+  // hand this sweep (see ROADMAP: a real audit of every such row is still
+  // queued) — each verified to actually fail against the pre-fix CSS first.
+  await check('mobile (320px): credential row with a long unbroken env-var key stays inside the viewport with Reveal/Copy/Edit still reachable', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    await store(`(S)=>S.addCredential({name:'Smoke Test Long Key Credential', key:'SOME_REALLY_LONG_UNBROKEN_ENV_VARIABLE_NAME', value:'x', scope:'global'})`);
+    await openSecMobile('credentials');
+    const info = await page.evaluate(() => {
+      const row = [...document.querySelectorAll('.cred-row')].find((r) => r.textContent.includes('Smoke Test Long Key Credential'));
+      if (!row) return null;
+      const right = row.getBoundingClientRect().right;
+      const btns = [...row.querySelectorAll('button')].map((b) => b.getBoundingClientRect());
+      return { right, btnsVisible: btns.length === 3 && btns.every((b) => b.right <= 320 && b.left >= 0) };
+    });
+    await store(`(S)=>{const c=S.credentials('global').find(x=>x.name==='Smoke Test Long Key Credential'); if(c) S.remove('credentials', c.id, {silent:true});}`);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return !!info && info.right <= 320 && info.btnsVisible;
+  });
+  await check('mobile (320px): Settings toggle switch stays aligned with its title instead of floating mid-paragraph when the description wraps', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    await openSecMobile('settings');
+    const info = await page.evaluate(() => {
+      const row = [...document.querySelectorAll('.opt-row')].find((r) => r.querySelector('b')?.textContent === 'Simple mode');
+      if (!row) return null;
+      const b = row.querySelector('b').getBoundingClientRect();
+      const toggle = row.querySelector('.toggle').getBoundingClientRect();
+      const p = row.querySelector('p')?.getBoundingClientRect();
+      return { aligned: Math.abs(b.top - toggle.top) < 2, wrapped: (p?.height || 0) > 24 };
+    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return !!info && info.wrapped && info.aligned;
+  });
+  await check('mobile (320px): Run log icon stays aligned with the top of a long wrapped run note instead of floating mid-column', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    await store(`(S)=>S.logRun({mode:'feature', note:'This is a deliberately long run note used to force the run-row text column to wrap across several lines for this smoke check', projectId:''})`);
+    await openSecMobile('activity');
+    const info = await page.evaluate(() => {
+      const row = [...document.querySelectorAll('.run-row')].find((r) => r.textContent.includes('deliberately long run note'));
+      if (!row) return null;
+      const sp = row.querySelector('.sp').getBoundingClientRect();
+      const ric = row.querySelector('.ric').getBoundingClientRect();
+      return { aligned: Math.abs(sp.top - ric.top) < 2, wrapped: sp.height > 50 };
+    });
+    await store(`(S)=>{const r=S.all('runs').find(x=>(x.note||'').includes('deliberately long run note')); if(r) S.remove('runs', r.id, {silent:true});}`);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return !!info && info.wrapped && info.aligned;
+  });
+
   if (errors.length) { console.error('\nConsole/page errors:\n' + errors.join('\n')); failed = true; }
 } catch (e) {
   console.error('SUITE CRASH: ' + e.message); failed = true;

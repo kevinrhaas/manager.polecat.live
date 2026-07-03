@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 17,
+    title: 'Sweep: fixed a real overflow bug + two floating-icon alignment bugs',
+    kind: 'polish',
+    ts: '2026-07-03T06:52:27.053Z',
+    items: [
+      'Credentials with a long, unbroken key name (e.g. a real env var like SOME_VERY_LONG_ENV_VARIABLE_NAME) used to push the Reveal/Copy/Edit buttons completely off-screen on a narrow phone — fixed by letting monospace text break instead of forcing the whole row wider than the viewport.',
+      'On a narrow phone, the toggle switch on a Settings row (e.g. "Simple mode") and the run-mode icon in the Activity log used to float vertically centered against the middle of a wrapped, multi-line description or note instead of sitting beside its first line — both now stay pinned to the top.',
+      'Grew the smoke suite with three checks that reproduce all three bugs against real content, verified to fail on the old code and pass on the fix.',
+    ],
+  },
+  {
     v: 16,
     title: 'Tunable "Needs attention" thresholds',
     kind: 'feature',

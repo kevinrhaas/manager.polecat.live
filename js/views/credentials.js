@@ -41,18 +41,20 @@ function credGroup(list, ctx, emptyMsg){
 
 function credRow(c, ctx){
   let shown=false;
-  const row=el('div',{class:'card', style:'display:flex;align-items:center;gap:12px'});
+  const row=el('div',{class:'card cred-row'});
   const val=el('span',{class:'mono tiny', style:'color:var(--text-2)'});
   const setVal=()=>{ val.textContent = shown ? (c.value||'—') : '•'.repeat(Math.min(14,(c.value||'').length||6)); };
   setVal();
   row.innerHTML=`<span class="qicon" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--brand-b),var(--consensus));color:#05121a">${icon('key')}</span>`;
-  const mid=el('div',{style:'flex:1;min-width:0'});
+  const mid=el('div',{class:'cred-row-mid'});
   mid.innerHTML=`<b>${escapeHtml(c.name||c.key||'Credential')}</b> ${c.key?`<span class="tiny mono muted">${escapeHtml(c.key)}</span>`:''}${c.note?`<div class="tiny muted">${escapeHtml(c.note)}</div>`:''}`;
   const valWrap=el('div',{style:'margin-top:2px'}); valWrap.append(val); mid.append(valWrap);
   row.append(mid);
-  row.append(el('button',{class:'btn ghost icon sm', title:'Reveal', 'aria-label':'Reveal value', html:icon('eye'), onclick:()=>{ shown=!shown; setVal(); }}));
-  row.append(el('button',{class:'btn ghost icon sm', title:'Copy', 'aria-label':'Copy value', html:icon('copy'), onclick:()=>navigator.clipboard?.writeText(c.value||'').then(()=>toast('Copied',{kind:'ok'}))}));
-  row.append(el('button',{class:'btn ghost icon sm', title:'Edit', 'aria-label':'Edit credential', html:icon('edit'), onclick:()=>editCred(c.id, ctx)}));
+  const actions=el('div',{class:'cred-row-actions'});
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Reveal', 'aria-label':'Reveal value', html:icon('eye'), onclick:()=>{ shown=!shown; setVal(); }}));
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Copy', 'aria-label':'Copy value', html:icon('copy'), onclick:()=>navigator.clipboard?.writeText(c.value||'').then(()=>toast('Copied',{kind:'ok'}))}));
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Edit', 'aria-label':'Edit credential', html:icon('edit'), onclick:()=>editCred(c.id, ctx)}));
+  row.append(actions);
   return row;
 }
 

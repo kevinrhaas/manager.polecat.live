@@ -42,12 +42,13 @@ with new, ambitious, fun ideas.
       see Done) — the fail threshold that decides *when* a project counts as
       "failing" is now tunable, but how much its retry cadence backs off
       while it stays that way still isn't.
-- [ ] Sweep the rest of the app's `display:flex;align-items:center` rows (this
-      sweep, 2026-07-03) for the same wrap-then-center anti-pattern — anywhere
-      a fixed-size icon/actions sibling sits next to a text column that *can*
-      wrap to multiple lines is a candidate. Only three instances were found by
-      hand this run; a real audit would grep every `.card`-with-inline-flex
-      and every row class for the shape and check each at 320px.
+- [ ] One more pass on the wrap-then-center anti-pattern: this sweep
+      (2026-07-03, see Done) grepped every `align-items:center` rule in
+      `css/styles.css` plus every inline-styled row in `js/views/*.js` and
+      fixed the three real hits, but a handful of header-shaped rows
+      (`.modal-head`, `.sheet-head`, `.notif-pop-head`) were skipped because
+      their titles are short static strings today — if any of those ever grow
+      a dynamic, potentially-long title, re-check them at 320px too.
 - [ ] Bulk actions in the library (tag, set status, archive) with undo.
 - [ ] Import/export the whole workspace as JSON; round-trip test in the suite.
 - [ ] Per-project "notes" markdown scratchpad with autosave + history.
@@ -78,6 +79,30 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Sweep: a real horizontal-overflow bug + two floating-icon alignment
+      bugs, hunted by grepping every `align-items:center` row** _(2026-07-03)_:
+      following up the previous sweep's flex-wrap fixes to `.field-row` and
+      `.invite-row`, this pass grepped every `align-items:center` rule in
+      `css/styles.css` and every inline-flex row in `js/views/*.js` looking for
+      the same shape (a fixed-size icon/actions sibling next to a text column
+      that can wrap) and verified each candidate at 320px with real long
+      content rather than reading the CSS and guessing. Found and fixed three:
+      (1) the credentials row was the worst — a long, unbroken key name (real
+      env vars like `NEXT_PUBLIC_SUPABASE_ANON_KEY` routinely are) forced the
+      *entire row* wider than the viewport, pushing Reveal/Copy/Edit
+      completely off-screen; fixed by giving `.mono` `overflow-wrap:anywhere`
+      (so unbreakable tokens wrap instead of forcing width) and giving the
+      credential row its own `.cred-row`/`.cred-row-mid`/`.cred-row-actions`
+      classes (mirroring `.field-row`) so actions wrap onto their own line
+      when needed. (2) Settings toggle rows (`.opt-row`, e.g. "Simple mode")
+      and (3) the Activity run log (`.run-row`) both centered their
+      switch/icon against the *whole* multi-line wrapped description or note
+      instead of aligning it with the first line — both fixed with
+      `align-items:flex-start`, same fix shape as last sweep's field/invite
+      rows. All three were verified to actually fail against the pre-fix code
+      before being kept, and the smoke suite grew a check per bug that seeds
+      real long content (a long env-var key, a long run note) and asserts the
+      specific failure mode (overflow / floating mid-column) is gone.
 - [x] **Tunable "Needs attention" thresholds** _(2026-07-03)_: the health-score
       cutoff and the auto-sync fail count behind `Store.needsAttention()` were
       fixed constants — Slowing/Stale (score below the Steady band's floor of
