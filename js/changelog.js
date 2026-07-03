@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 26,
+    title: 'Scroll hints on the projects table + a dead-code sweep',
+    kind: 'polish',
+    ts: '2026-07-03T17:15:01.228Z',
+    items: [
+      'The projects library table scrolls horizontally on narrow phones (Status/Latest/Updated/Tags sit off-screen) with nothing telling you more columns exist — it now shows a soft edge fade on whichever side has more to scroll to, and the fade moves as you scroll, in both themes.',
+      'Swept out CSS and JS left behind by earlier redesigns: an old "monitor log" panel style, a handful of unused classes (.chip, .crumb, .rail-foot, .token-box), and four JS helper functions nothing called anymore.',
+    ],
+  },
+  {
     v: 25,
     title: 'Merge JSON — a non-destructive import mode',
     kind: 'feature',

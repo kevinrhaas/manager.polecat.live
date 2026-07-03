@@ -275,6 +275,12 @@ function buildList(ctx, renderBulk){
   rows.forEach(p=>tb.append(projectRow(p, ctx, onRowToggle)));
   table.append(tb);
   box.append(table);
+  const updateScrollHints=()=>{
+    box.classList.toggle('can-scroll-l', box.scrollLeft>1);
+    box.classList.toggle('can-scroll-r', box.scrollLeft+box.clientWidth<box.scrollWidth-1);
+  };
+  box.addEventListener('scroll', updateScrollHints, {passive:true});
+  new ResizeObserver(updateScrollHints).observe(box);
   return box;
 }
 

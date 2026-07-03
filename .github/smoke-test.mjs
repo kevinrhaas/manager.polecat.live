@@ -1045,6 +1045,17 @@ try {
     await page.setViewportSize({ width: 1280, height: 900 });
     return allOk;
   });
+  await check('mobile (320px): projects library table shows a scroll-right hint that clears once fully scrolled, and a scroll-left hint appears', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    await openSecMobile('projects');
+    await page.waitForTimeout(150);
+    const before = await page.$eval('.lib-table', (e) => e.className);
+    await page.$eval('.lib-table', (e) => { e.scrollLeft = e.scrollWidth; });
+    await page.waitForTimeout(150);
+    const after = await page.$eval('.lib-table', (e) => e.className);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return /can-scroll-r/.test(before) && !/can-scroll-r/.test(after) && /can-scroll-l/.test(after);
+  });
   await check('mobile (320px): notification popover stays within the viewport regardless of how many topbar buttons sit to its right', async () => {
     await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
     await openSecMobile('home');

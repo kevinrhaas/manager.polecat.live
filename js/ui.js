@@ -2,7 +2,6 @@
 import { icon } from './icons.js';
 
 export const $  = (s, r=document) => r.querySelector(s);
-export const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 
 export function el(tag, attrs={}, children){
   const n = document.createElement(tag);
@@ -52,9 +51,6 @@ export function avatarColor(id){
   const base = 160 + (hue(id) % 150);
   return `linear-gradient(135deg,hsl(${base} 78% 62%),hsl(${(base+40)%360} 70% 52%))`;
 }
-export function initials(name){
-  return String(name||'?').trim().split(/[\s.\-]+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
-}
 
 // ---- time --------------------------------------------------------------
 export function ago(ts){
@@ -79,15 +75,12 @@ export function fmtCT(ts, {withTime=true}={}){
     return d.toLocaleString('en-US', opts) + ' CT';
   }catch{ return d.toISOString(); }
 }
-export function clock(ts=Date.now()){ return new Date(ts).toTimeString().slice(0,8); }
 export function uuid(){
   if(crypto?.randomUUID) return crypto.randomUUID();
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
     const r=Math.random()*16|0, v=c==='x'?r:(r&0x3|0x8); return v.toString(16);
   });
 }
-export function shortId(id){ return String(id).slice(0,8); }
-
 // ---- tiny inline bar-chart (release-velocity trend) ---------------------
 export function sparkline(data, { width=64, height=20, color='var(--brand-b)', gap=2 }={}){
   const n = data.length || 1;

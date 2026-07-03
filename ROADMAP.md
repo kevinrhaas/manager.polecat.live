@@ -23,6 +23,14 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [ ] The new scroll-direction fade (see Done, 2026-07-03) only wired up
+      `.lib-table` — the docs sidebar's mobile table-of-contents strip
+      (`.docs-toc`, `overflow-x:auto` under 760px) has the exact same
+      "scrolls but gives no hint" shape and would benefit from the same
+      `can-scroll-l`/`can-scroll-r` treatment if a third horizontally-
+      scrolling strip shows up, worth promoting the pair of pseudo-elements
+      + `ResizeObserver` snippet into a tiny shared helper rather than a
+      third hand-copy.
 - [ ] Merge import intentionally skips any incoming row whose id already
       exists locally (see Done, 2026-07-03) — it never overwrites, only adds.
       A future "merge & update" variant could let a user opt into also
@@ -80,6 +88,31 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Sweep: scroll-direction hints on the projects table + a dead-code pass**
+      _(2026-07-03)_: the projects library table (`.lib-table`) scrolls
+      horizontally on narrow phones — Status/Latest/Updated/Tags all sit
+      off-screen with nothing but a bare scrollbar hinting they exist, easy to
+      miss since the mobile scrollbar itself is thin and often auto-hidden.
+      It now shows a soft edge-fade overlay on whichever side has more
+      content to scroll to (right on load, left once scrolled, both if
+      scrolled to the middle), built as two `::before`/`::after` pseudo-
+      elements absolutely positioned inside the `position:relative;
+      overflow:auto` wrapper — since an absolutely positioned child's
+      placement is computed from the container's padding box rather than its
+      scrolled content, the fades stay pinned to the visible edges with zero
+      JS positioning math, only a `ResizeObserver` + `scroll` listener toggling
+      `can-scroll-l`/`can-scroll-r` classes. Verified in both themes (the fade
+      gradient is built from `var(--surface-2)`, so it auto-adapts). Also did
+      a grep-verified dead-code pass — every CSS selector checked against
+      actual usage in the HTML/JS before removal, not guessed: an entire
+      leftover "monitor log" panel style block (`.monitor`, `.log-line` and
+      its five `.t-*` tag-color variants) from a pre-Activity-view design,
+      plus `.chip`, `.topbar .crumb`, `.rail-foot`, and `.token-box` (each
+      superseded by a more specific class elsewhere), and four JS functions in
+      `js/ui.js` (`$$`, `initials`, `clock`, `shortId`) with zero call sites
+      anywhere in the app. New smoke check drives the real table at 320px:
+      confirms the right-hint is present on load, scrolling to the end clears
+      it and raises the left-hint instead.
 - [x] **A "merge" import mode alongside replace-everything import** _(2026-07-03)_:
       the existing Import JSON always wiped the current workspace and replaced
       it wholesale — fine for restoring a backup, but no good for combining a
