@@ -8,7 +8,7 @@ import { icon } from './icons.js';
 import { renderHome } from './views/home.js';
 import { renderProjects, openProjectEditor } from './views/projects.js';
 import { renderProject } from './views/project.js';
-import { renderReleases } from './views/releases.js';
+import { renderReleases, unreadReleasesCount, markReleasesSeen } from './views/releases.js';
 import { renderActivity } from './views/activity.js';
 import { renderCredentials } from './views/credentials.js';
 import { renderDocs } from './views/docs.js';
@@ -112,12 +112,17 @@ function go(section, params={}){
   window.__rail.setActive(section);
   if(window.innerWidth<=720) window.__rail.setOpen(false);
   render();
+  // mark the fleet-wide release feed "read" only once the user has actually
+  // landed on it — a live re-render triggered by an auto-sync elsewhere in
+  // the app must not silently clear the "new since you looked" marker.
+  if(section==='releases'){ markReleasesSeen(); refreshReleasesBadge(); }
 }
 function render(){
   view.scrollTop=0;
   RENDERERS[currentSection](view, ctx, currentParams);
   refreshUndo();
   refreshAttentionBadges();
+  refreshReleasesBadge();
 }
 function refresh(){ rebuildRail(); render(); }
 function refreshUndo(){ if(undoBtn) undoBtn.disabled = !Store.canUndo(); }
@@ -127,6 +132,9 @@ function refreshUndo(){ if(undoBtn) undoBtn.disabled = !Store.canUndo(); }
 function refreshAttentionBadges(){
   refreshNotifBadge();
   window.__rail?.setBadge('home', Store.needsAttentionActive().length, 'danger');
+}
+function refreshReleasesBadge(){
+  window.__rail?.setBadge('releases', unreadReleasesCount(), 'brand');
 }
 
 // context handed to every view
@@ -193,7 +201,7 @@ function openPalette(){
 
 // ---- live glue -----------------------------------------------------------
 function wireEvents(){
-  Store.on('change', ()=>{ refreshUndo(); refreshAttentionBadges(); });
+  Store.on('change', ()=>{ refreshUndo(); refreshAttentionBadges(); refreshReleasesBadge(); });
   Store.on('history', refreshUndo);
   // re-render when the data behind the current view changes
   const rerenderOn = { projects:['projects','releases','savedViews'], home:['projects','releases','runs','dismissals'],

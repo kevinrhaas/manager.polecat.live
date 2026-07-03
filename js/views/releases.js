@@ -6,9 +6,30 @@ import { el, escapeHtml, fmtCT, avatarColor } from '../ui.js';
 import { icon } from '../icons.js';
 
 const VIEW_KEY = 'manager.releases.view';
-const DEFAULT = { q:'', project:'all', range:'all', kind:'all' };
+const DEFAULT = { q:'', project:'all', range:'all', kind:'all', group:'day' };
 function state(){ try{ return { ...DEFAULT, ...(JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')) }; }catch{ return { ...DEFAULT }; } }
 function save(s){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify(s)); }catch{} }
+
+// ---- "since you last looked" — a fleet-wide unread marker -----------------
+// Mirrors js/views/whatsnew.js's seen-version idea, but for the whole fleet's
+// release feed rather than just Manager's own changelog: a single timestamp
+// of the last time this feed was actually opened. A brand-new workspace (or
+// one upgrading to this feature) shouldn't suddenly show years of history as
+// "unread", so the first-ever check quietly adopts "now" as the baseline
+// instead of leaving the key unset (which would otherwise count as "since
+// the beginning of time").
+const SEEN_KEY = 'manager.releases.seenTs';
+function ensureSeenTs(){
+  let raw; try{ raw = localStorage.getItem(SEEN_KEY); }catch{ return Date.now(); }
+  if(raw==null){ raw=String(Date.now()); try{ localStorage.setItem(SEEN_KEY, raw); }catch{} }
+  return parseInt(raw,10)||0;
+}
+export function releasesSeenTs(){ return ensureSeenTs(); }
+export function markReleasesSeen(){ try{ localStorage.setItem(SEEN_KEY, String(Date.now())); }catch{} }
+export function unreadReleasesCount(){
+  const seen = ensureSeenTs();
+  return Store.all('releases').filter(r=>r.ts && +new Date(r.ts) > seen).length;
+}
 
 const RANGES = { all:Infinity, '7':7, '30':30, '90':90 };
 
@@ -30,6 +51,9 @@ export function renderReleases(root, ctx){
   root.innerHTML='';
   const wrap=el('div',{class:'wrap view-in'});
   const s=state();
+  // the last time this feed was actually opened, captured *before* app.js
+  // marks it seen post-render — this is what drives each card's "new" tag.
+  const sinceTs=releasesSeenTs();
 
   // gather every release + its project, newest first
   const all = Store.all('releases')
@@ -90,7 +114,17 @@ export function renderReleases(root, ctx){
       onclick:()=>{ const ns={...state(),kind:k}; save(ns); rerender(); }});
     kinds.append(c);
   });
-  bar.append(search, projSel, rangeSel, kinds);
+  const groupLabel=(g)=>g==='project'?'By project':'By day';
+  const groupIcon=(g)=>g==='project'?'layers':'calendar';
+  const groupBtn=el('button',{class:'btn sm', title:'Toggle how the feed is grouped',
+    html:`${icon(groupIcon(s.group))} <span>${groupLabel(s.group)}</span>`,
+    onclick:()=>{
+      const ns={...state(), group: state().group==='project'?'day':'project'};
+      save(ns);
+      groupBtn.innerHTML=`${icon(groupIcon(ns.group))} <span>${groupLabel(ns.group)}</span>`;
+      rerender();
+    }});
+  bar.append(search, projSel, rangeSel, kinds, groupBtn);
   wrap.append(bar);
 
   const shippedHost=el('div');
@@ -127,37 +161,54 @@ export function renderReleases(root, ctx){
       shippedHost.append(chips);
     }
 
-    // grouped feed
+    // grouped feed — either day-by-day (default) or clustered by project
     listHost.innerHTML='';
     if(!rows.length){
       listHost.append(el('div',{class:'card empty', html:`${icon('sparkle')}<div>No releases match.<br><span class="tiny">Sync a project (or clear filters) to populate the timeline.</span></div>`}));
       return;
     }
-    let lastDay=null;
-    rows.forEach(x=>{
-      const day=ctDayKey(x.r.ts);
-      if(day!==lastDay){
-        lastDay=day;
-        const dayRows=rows.filter(y=>ctDayKey(y.r.ts)===day);
-        const lab=ctDayLabel(x.r.ts);
+    if(cur.group==='project'){
+      const byProj=new Map();
+      rows.forEach(x=>{ const arr=byProj.get(x.p.id)||[]; arr.push(x); byProj.set(x.p.id, arr); });
+      // most recently active project first — each bucket is already newest-first
+      const order=[...byProj.keys()].sort((a,b)=> new Date(byProj.get(b)[0].r.ts) - new Date(byProj.get(a)[0].r.ts));
+      order.forEach(pid=>{
+        const group=byProj.get(pid);
+        const p=group[0].p;
         const d=el('div',{class:'feed-day'});
-        d.innerHTML=`<h3>${escapeHtml(lab.lead)}${lab.rest?` <span class="cnt" style="font-weight:400">· ${escapeHtml(lab.rest)}</span>`:''}</h3><span class="ln"></span><span class="cnt">${dayRows.length} release${dayRows.length!==1?'s':''}</span>`;
+        d.innerHTML=`<h3><span class="mini-av" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span> ${escapeHtml(p.name)}</h3><span class="ln"></span><span class="cnt">${group.length} release${group.length!==1?'s':''}</span>`;
         listHost.append(d);
-      }
-      listHost.append(relCard(x, ctx));
-    });
+        group.forEach(x=>listHost.append(relCard(x, ctx, sinceTs)));
+      });
+    } else {
+      let lastDay=null;
+      rows.forEach(x=>{
+        const day=ctDayKey(x.r.ts);
+        if(day!==lastDay){
+          lastDay=day;
+          const dayRows=rows.filter(y=>ctDayKey(y.r.ts)===day);
+          const lab=ctDayLabel(x.r.ts);
+          const d=el('div',{class:'feed-day'});
+          d.innerHTML=`<h3>${escapeHtml(lab.lead)}${lab.rest?` <span class="cnt" style="font-weight:400">· ${escapeHtml(lab.rest)}</span>`:''}</h3><span class="ln"></span><span class="cnt">${dayRows.length} release${dayRows.length!==1?'s':''}</span>`;
+          listHost.append(d);
+        }
+        listHost.append(relCard(x, ctx, sinceTs));
+      });
+    }
   }
   rerender();
 }
 
-function relCard(x, ctx){
+function relCard(x, ctx, sinceTs){
   const { r, p } = x;
-  const card=el('div',{class:'rel-card', tabindex:'0', role:'button', 'aria-label':`${p.name} v${r.v}: ${r.title}`,
+  const isNew = sinceTs!=null && +new Date(r.ts) > sinceTs;
+  const card=el('div',{class:'rel-card'+(isNew?' is-new':''), tabindex:'0', role:'button', 'aria-label':`${p.name} v${r.v}: ${r.title}${isNew?' — new since your last visit':''}`,
     onclick:()=>ctx.go('project',{id:p.id}),
     onkeydown:(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); ctx.go('project',{id:p.id}); } }});
   const av=el('span',{class:'rc-av', style:`background:${avatarColor(p.id)}`, html:icon(p.icon||'grid')});
   const main=el('div',{class:'rc-main'});
   main.innerHTML=`<div class="rc-top">
+      ${isNew ? `<span class="tag sync-new">new</span>` : ''}
       <span class="rc-proj">${escapeHtml(p.name)}</span>
       <span class="vchip mono">v${r.v}</span>
       ${r.kind && r.kind!=='feature' ? `<span class="wn-kind">${escapeHtml(r.kind)}</span>` : ''}

@@ -14,15 +14,14 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Grow the Releases timeline** — the fleet-wide "what shipped" feed
-      (rail → Releases) just landed: a time-grouped, cross-project release feed
-      with summary stats and filters. Take it further, highest-value first:
-      a **"group by project" toggle** alongside the by-day grouping; a
-      **"since you last looked" unread marker** across the whole fleet (mirror
-      the per-app What's-new seen-version idea, but fleet-wide); a compact
-      **digest / density** option; **jump-to-date**; and an optional
-      **weekly rollup** ("this week across the suite: N releases, M projects").
-      Add smoke coverage for each and a Docs mention.
+- [ ] **Grow the Releases timeline, continued** — the "by day / by project"
+      toggle and the fleet-wide "since you last looked" unread marker (see
+      Done, 2026-07-03) cover the top two asks; take it further, highest-value
+      first: a compact **digest / density** option (collapse each day/project
+      group to a one-line summary you can expand); **jump-to-date** (a small
+      calendar/date-picker affordance that scrolls the feed to a given day);
+      and an optional **weekly rollup** stat ("this week across the suite: N
+      releases, M projects"). Add smoke coverage for each and a Docs mention.
 
 ## Next (discovered / queued)
 
@@ -30,6 +29,21 @@ with new, ambitious, fun ideas.
       JSON/RSS export of the combined recent-releases feed) so a top-level
       "what improved across the suite this week" can be pasted into a status
       update or subscribed to.
+- [ ] The new fleet-wide "since you last looked" unread marker (see Done,
+      2026-07-03) is deliberately coarse — one `seenTs` for the whole feed,
+      re-armed only on an actual rail-click navigation into Releases (not on
+      every live re-render while already there), mirroring how
+      `js/views/whatsnew.js` treats "seen" as a single version number rather
+      than per-entry read state. Worth revisiting only if someone wants
+      per-project or per-release read-tracking (e.g. "mark this one as read"
+      independent of the rest) — no evidence yet that the coarse version
+      isn't enough.
+- [ ] The "by project" grouping (see Done, 2026-07-03) orders project buckets
+      by their most recent release, same spirit as the existing "who shipped"
+      chip row's count-desc order — if the feed ever grows enough projects
+      that scanning becomes a chore, consider letting the grouped view also
+      sort alphabetically as a secondary option, the same way the projects
+      library lets you pick a sort field rather than only one fixed order.
 
 - [ ] The merge-review's new "also remove" opt-in (see Done, 2026-07-03) is
       per-merge, not per-table — if a file is a full export of `projects` but
@@ -126,6 +140,38 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Releases: "by project" grouping + a fleet-wide "since you last looked"
+      unread marker** _(2026-07-03)_: the fleet-wide Releases feed (just
+      shipped this cadence) only ever grouped by day. A new toolbar toggle —
+      "By day" / "By project", `layers`/`calendar` icon, same single-button
+      toggle-in-place pattern the What's-new sheet's sort button already
+      uses — switches the same filtered row set into per-project clusters,
+      each project's releases still newest-first inside its own group,
+      clusters themselves ordered by whichever project shipped most
+      recently. Reuses the existing `.feed-day` header component for both
+      modes (a day label in one, a project avatar + name in the other) rather
+      than a second header style. Separately, the feed now tracks "since you
+      last looked" fleet-wide — mirroring `js/views/whatsnew.js`'s
+      seen-version idea, but for every project's releases rather than just
+      Manager's own changelog: a single `manager.releases.seenTs` timestamp,
+      re-armed only when the user actually navigates into Releases (a rail
+      click), not on every live re-render that happens to touch the section
+      while they're already there (so an auto-sync landing a new release
+      mid-visit doesn't silently swallow its own "new" tag). A brand-new
+      workspace (or one upgrading into this feature) doesn't get flooded with
+      "unread" history — the very first check quietly adopts "now" as the
+      baseline instead of treating an unset key as "since the beginning of
+      time". Releases newer than the marker get a quiet green `new` tag plus
+      a soft left accent on the card (not a loud badge — a feed full of
+      unread items shouldn't read as an alarm), and the Releases rail item
+      gets its own unread-count badge — the same `setBadge()` plumbing the
+      Dashboard's "Needs attention" badge already uses, just without the
+      danger tone, so it reads as "new content" rather than "something's
+      wrong". Two new smoke checks: the grouping toggle end-to-end (day
+      headers carry no avatar, project headers do, toggling back returns to
+      day mode), and the unread marker end-to-end (wind the marker back,
+      seed a fresh release, confirm the rail badge and the card's `new` tag
+      both appear, then confirm opening Releases clears the badge).
 - [x] **User-definable saved views in the projects library** _(2026-07-03)_: the
       library's saved-view chips — All / Live only / Recently active / Pinned /
       Needs attention — were a fixed, hardcoded set; a filter someone reached

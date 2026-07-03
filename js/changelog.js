@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 34,
+    title: 'Releases: group by project + "since you last looked"',
+    kind: 'feature',
+    ts: '2026-07-03T22:49:36.414Z',
+    items: [
+      'A new "By day / By project" toggle on the fleet-wide Releases feed clusters every release under its own project (most recently active first) instead of always by date.',
+      'The feed now remembers when you last looked: anything shipped since then gets a quiet "new" tag and a soft accent, and the Releases rail item shows an unread count that clears the moment you open it.',
+    ],
+  },
+  {
     v: 33,
     title: 'Releases — a fleet-wide “what shipped” timeline',
     kind: 'feature',

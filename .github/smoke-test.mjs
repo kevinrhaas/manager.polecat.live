@@ -94,6 +94,34 @@ try {
     await page.selectOption('.toolbar select', 'all'); await page.waitForTimeout(200);
     return filtered <= before && allRelay;
   });
+  await check('releases feed toggles "by day" vs. "by project" grouping', async () => {
+    await openSec('releases');
+    const dayHeaderAvatars = await count('.feed-day h3 .mini-av');   // day headers carry no project avatar
+    const groupBtn = 'button[title="Toggle how the feed is grouped"]';
+    await page.click(groupBtn); await page.waitForTimeout(250);
+    const projHeaderAvatars = await count('.feed-day h3 .mini-av');  // project headers do
+    const cardsStillShow = (await count('.rel-card')) > 0;
+    await page.click(groupBtn); await page.waitForTimeout(250);      // toggle back
+    const backToDay = await count('.feed-day h3 .mini-av');
+    return dayHeaderAvatars === 0 && projHeaderAvatars > 0 && cardsStillShow && backToDay === 0;
+  });
+  await check('releases feed flags releases shipped since your last visit as "new" and the rail badge clears on open', async () => {
+    // wind the fleet-wide "seen" marker back so a freshly-seeded release reads as unread
+    await page.evaluate(() => localStorage.setItem('manager.releases.seenTs', String(Date.now() - 999999999)));
+    await store(`(S)=>{
+      S.addProject({ slug:'smoke-unread-proj', name:'Smoke Unread' });
+      S.put('releases', { id:'smoke-unread-rel', projectId:'smoke-unread-proj', v:1, title:'Smoke unread release', ts:new Date().toISOString() }, { silent:true });
+    }`);
+    await openSec('home');   // navigate away first so the rail badge reflects the fresh unread count, not a stale one
+    await page.waitForTimeout(250);
+    const badgeText = await page.$eval('.rail-item[data-sec="releases"] .badge', (e) => (e.hidden ? null : e.textContent)).catch(() => null);
+    const hadUnreadBadge = badgeText != null && parseInt(badgeText, 10) > 0;
+    await openSec('releases');
+    const hasNewCard = (await count('.rel-card.is-new')) > 0;
+    const badgeAfter = await page.$eval('.rail-item[data-sec="releases"] .badge', (e) => (e.hidden ? null : e.textContent)).catch(() => null);
+    await store(`(S)=>S.remove('projects','smoke-unread-proj',{silent:true})`);   // cascades the seeded release too
+    return hadUnreadBadge && hasNewCard && badgeAfter == null;
+  });
 
   // ---------- Dashboard ----------
   console.log('Dashboard');
