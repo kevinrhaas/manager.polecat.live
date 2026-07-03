@@ -195,7 +195,7 @@ function wireEvents(){
   Store.on('change', ()=>{ refreshUndo(); refreshAttentionBadges(); });
   Store.on('history', refreshUndo);
   // re-render when the data behind the current view changes
-  const rerenderOn = { projects:['projects','releases'], home:['projects','releases','runs','dismissals'],
+  const rerenderOn = { projects:['projects','releases','savedViews'], home:['projects','releases','runs','dismissals'],
     project:['projects','releases'], activity:['runs'], credentials:['credentials'] };
   Store.on('*', (evt)=>{ if((rerenderOn[currentSection]||[]).includes(evt)) render(); });
 

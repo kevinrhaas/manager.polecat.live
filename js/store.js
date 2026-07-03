@@ -12,6 +12,7 @@
 //   credentials  shared (scope 'global') or per-project config/secrets
 //   runs         the self-improvement cadence log (feature / sweep / …)
 //   fieldDefs    the fleet-wide schema for custom project metadata fields
+//   savedViews   user-defined library filter+sort combos, shown as chips
 //
 // Plus `settings` (app preferences) and a bounded `history` stack for undo.
 // -----------------------------------------------------------------------
@@ -20,7 +21,7 @@ import { uuid, slugify } from './ui.js';
 
 const LS_KEY   = 'manager.workspace.v1';
 const HIST_KEY = 'manager.history.v1';
-const TABLES   = ['projects', 'releases', 'credentials', 'runs', 'fieldDefs', 'dismissals'];
+const TABLES   = ['projects', 'releases', 'credentials', 'runs', 'fieldDefs', 'savedViews', 'dismissals'];
 // Tables a merge import (see mergeImport() below) will add new rows to —
 // everything except `dismissals`, which is local per-browser notification
 // state that doesn't mean anything ported from someone else's workspace.
@@ -328,6 +329,21 @@ export const Store = new (class {
   }
   updateFieldDef(id, patch){ const f=this.fieldDef(id); if(!f) return; return this.put('fieldDefs', { ...f, ...patch }, { label:'Edit field' }); }
   removeFieldDef(id, opts={}){ return this.remove('fieldDefs', id, { label:'Remove field', ...opts }); }
+
+  // ---- saved views (user-defined library filter+sort combos) -------------
+  // The built-in views (All/Live/Recent/Pinned/Needs attention) are a fixed
+  // set defined in js/views/projects.js; these are ones a user has saved
+  // themselves — a name plus the exact `state` (status/sort/dir/field/
+  // fieldValue) the library was showing at save time — so a filter someone
+  // reaches for often gets its own one-click chip instead of being rebuilt
+  // by hand every time.
+  savedViews(){ return this.all('savedViews').sort((a,b)=>(a.order??0)-(b.order??0)); }
+  savedView(id){ return this.get('savedViews', id); }
+  addSavedView(data){
+    const order = this.savedViews().length;
+    return this.put('savedViews', { label:'', icon:'star', state:{}, order, ...data }, { label:'Save view' });
+  }
+  removeSavedView(id, opts={}){ return this.remove('savedViews', id, { label:'Delete saved view', ...opts }); }
 
   // ---- releases (per-project "what's new") -------------------------------
   releasesFor(projectId){ return this.all('releases').filter(r=>r.projectId===projectId).sort((a,b)=>(b.v||0)-(a.v||0)); }

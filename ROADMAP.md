@@ -82,9 +82,17 @@ with new, ambitious, fun ideas.
 - [ ] Keyboard-first navigation everywhere; focus rings audited.
 - [ ] Public site: an animated live "fleet" showcase driven by demo data.
 - [ ] SQLite adapter behind the same Store interface (design already relational).
-- [ ] Saved views: let a user save a *custom* filter+sort combo as a new named
-      chip (today's saved views are a fixed, useful set — All/Live/Recent/
-      Pinned — but they aren't user-definable yet).
+- [ ] Now that saved views are user-definable (see Done, 2026-07-03), consider
+      letting one be marked "default" — opened automatically the next time the
+      library loads, instead of always falling back to whatever `manager.lib.view`
+      last held. Low priority: today's chips already restore last-used state per
+      browser, so this only matters for someone who wants the library to always
+      *start* on a specific curated view regardless of what they last did.
+- [ ] Saved views only capture status/sort/dir/field — worth revisiting if a
+      free-text search (`q`) ever becomes something worth pinning to a saved
+      view too (e.g. "everything mentioning 'webrtc'"); left out deliberately
+      for now since search reads as transient, matching the built-in chips'
+      same choice not to touch it.
 - [ ] Scheduled/automatic fleet sync (not just on-demand from the dashboard) —
       e.g. re-sync on app load if a project's last sync is >N hours old, with a
       quiet badge rather than a modal.
@@ -106,6 +114,35 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **User-definable saved views in the projects library** _(2026-07-03)_: the
+      library's saved-view chips — All / Live only / Recently active / Pinned /
+      Needs attention — were a fixed, hardcoded set; a filter someone reached
+      for often (say, "Building projects, sorted by version") had to be rebuilt
+      by hand from the toolbar every time. A new `savedViews` Store table
+      (`Store.savedViews()` / `addSavedView()` / `removeSavedView()`, following
+      the exact same `{id, …, updatedAt}` + undo-via-history shape every other
+      table already uses) lets a user capture the current status/sort/direction/
+      custom-field filter — deliberately *not* the free-text search box, which
+      reads as transient, same choice the built-in chips already made — under a
+      name of their choosing. The library's saved-views strip now renders these
+      right alongside the fixed set, as its own visual style: a `star`-icon pill
+      built from two real `<button>`s (apply + a small "×" delete) rather than a
+      button nested inside a button, so both halves stay independently keyboard-
+      and screen-reader-operable. A chip highlights ("on") exactly when the live
+      filter matches every dimension it captured, mirroring how the built-in
+      chips already detect their own active state. Deleting a saved view is a
+      single click with no confirm dialog — consistent with how bulk tag/status/
+      archive actions in the same view already rely on the toast's "Undo" action
+      rather than an "are you sure" gate, since nothing about it is hard to
+      reverse. Wired into the fleet-wide reactive re-render (`rerenderOn.projects`
+      in `app.js`) and the Merge JSON preview/review flow (`savedViews` joins the
+      other mergeable tables in `settings.js`'s `MERGE_ROW_LABELS`/`mergeRowHtml`)
+      so a saved view behaves like every other piece of Manager data — it syncs,
+      merges, and undoes exactly the way a project or credential does. One new
+      smoke check drives the real UI end to end: dial in a distinctive filter,
+      save it, confirm the chip is highlighted while that filter is active and
+      not once you switch away, click the chip's apply half to restore the exact
+      filter, then delete it and Undo to bring it back.
 - [x] **"Merge & remove": opt in to deleting rows missing from the merge
       file, for genuine two-way sync** _(2026-07-03)_: the last gap in Merge
       JSON was deletes — a merge could add and (as of the item above) update,

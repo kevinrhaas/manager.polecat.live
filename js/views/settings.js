@@ -312,7 +312,7 @@ export function importJSON(ctx){
 // from the file that don't already exist here (by id) and leaves every
 // existing row untouched — for combining a backup made in one browser into
 // a different browser's workspace, rather than always overwriting it.
-const MERGE_ROW_LABELS = { projects:'project', releases:'release', credentials:'credential', runs:'run', fieldDefs:'custom field' };
+const MERGE_ROW_LABELS = { projects:'project', releases:'release', credentials:'credential', runs:'run', fieldDefs:'custom field', savedViews:'saved view' };
 // Names one incoming row for the merge review list — the same "list what's
 // new by name, not just a count" idea as the per-project sync preview (see
 // `<b>v${e.v}</b> ${escapeHtml(e.title)}` in openSync(), views/project.js).
@@ -328,6 +328,7 @@ function mergeRowHtml(table, row, incomingProjects){
     case 'credentials': return `${escapeHtml(row.scope==='global'?'Global':projectName(row.scope))} · ${escapeHtml(row.name||row.key||'(unnamed)')}`;
     case 'runs': return escapeHtml(row.note || `${row.mode||'run'} run`);
     case 'fieldDefs': return escapeHtml(row.label || '(untitled field)');
+    case 'savedViews': return escapeHtml(row.label || '(untitled view)');
     default: return escapeHtml(row.id);
   }
 }

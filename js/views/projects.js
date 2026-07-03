@@ -27,6 +27,35 @@ const SAVED_VIEWS = [
   { id:'attention', label:'Needs attention', icon:'warning', apply:s=>({...s,status:'attention'}) },
 ];
 
+// A user-saved view is "on" (highlighted) when the live filter state matches
+// every dimension it captured — status, sort, direction, and any custom-field
+// filter (search text isn't part of a saved view, same as the built-ins above).
+function customViewMatches(v, s){
+  const vs=v.state||{};
+  return s.status===vs.status && s.sort===vs.sort && s.dir===vs.dir &&
+    (s.field||'')===(vs.field||'') && (s.fieldValue||'')===(vs.fieldValue||'');
+}
+
+// "Save view": name the current status/sort/field filter and it joins the
+// saved-views strip as its own chip, right alongside the built-in ones.
+function openSaveViewPrompt(s, ctx){
+  const input=el('input',{class:'input', placeholder:'e.g. Building, by version', autocomplete:'off', maxlength:'40'});
+  const body=el('div',{class:'field'});
+  body.append(el('label',{text:'Name this view'}), input,
+    el('span',{class:'tiny muted', text:'Saves the current status, sort, and field filter as a one-click chip.'}));
+  const save=el('button',{class:'btn primary', text:'Save view', onclick:()=>{
+    const label=input.value.trim();
+    if(!label){ input.focus(); return; }
+    hide();
+    Store.addSavedView({ label, icon:'star', state:{ status:s.status, sort:s.sort, dir:s.dir, field:s.field||'', fieldValue:s.fieldValue||'' } });
+    toast(`Saved view "${label}"`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
+    ctx.refresh();
+  }});
+  input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); save.click(); } });
+  const {hide}=modal({ title:'Save current view', icon:'star', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
+  setTimeout(()=>input.focus(),50);
+}
+
 export function renderProjects(root, ctx){
   root.innerHTML='';
   const wrap=el('div',{class:'wrap view-in'});
@@ -40,7 +69,7 @@ export function renderProjects(root, ctx){
   head.append(el('button',{class:'btn primary sm', html:`${icon('plus')} Add project`, onclick:()=>openProjectEditor(null, ctx)}));
   wrap.append(head);
 
-  // saved views
+  // saved views — the fixed built-in set, plus any the user has saved
   const views=el('div',{class:'saved-views'});
   SAVED_VIEWS.forEach(v=>{
     const on = (v.id==='pinned'&&s.status==='pinned') || (v.id==='live'&&s.status==='live') ||
@@ -49,6 +78,21 @@ export function renderProjects(root, ctx){
     views.append(el('button',{class:'filter-chip'+(on?' on':''), html:`${icon(v.icon)} ${v.label}`,
       onclick:()=>{ const ns=v.apply(state()); saveState(ns); renderProjects(root,ctx); }}));
   });
+  Store.savedViews().forEach(v=>{
+    const on = customViewMatches(v, s);
+    const chip=el('span',{class:'filter-chip-custom'+(on?' on':'')});
+    chip.append(el('button',{class:'fc-apply', type:'button', html:`${icon(v.icon||'star')} ${escapeHtml(v.label)}`, title:`Apply saved view "${v.label}"`,
+      onclick:()=>{ const ns={ ...state(), status:v.state.status, sort:v.state.sort, dir:v.state.dir, field:v.state.field||'', fieldValue:v.state.fieldValue||'' }; saveState(ns); renderProjects(root,ctx); }}));
+    chip.append(el('button',{class:'fc-del', type:'button', title:`Delete saved view "${v.label}"`, 'aria-label':`Delete saved view "${v.label}"`, html:icon('x'),
+      onclick:()=>{
+        Store.removeSavedView(v.id);
+        toast(`Deleted "${v.label}"`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
+        ctx.refresh();
+      }}));
+    views.append(chip);
+  });
+  views.append(el('button',{class:'filter-chip filter-chip-add', title:'Save the current status/sort/field filter as a named view',
+    html:`${icon('plus')} Save view`, onclick:()=>openSaveViewPrompt(state(), ctx)}));
   wrap.append(views);
 
   // toolbar: search + status filter + sort

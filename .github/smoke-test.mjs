@@ -271,6 +271,49 @@ try {
     return survivedCancel && gone && restored;
   });
 
+  // ---------- Saved views (user-defined) ----------
+  console.log('Saved views');
+  await check('Save the current filter as a named view — it highlights while active, reapplies exactly, and deletes with Undo', async () => {
+    await openSec('projects');
+    const beforeCount = await store(`(S)=>S.savedViews().length`);
+    // dial in a distinctive, non-default combo directly (the status/sort controls
+    // that write this state are already covered by other checks above)
+    await page.evaluate(() => localStorage.setItem('manager.lib.view', JSON.stringify({ q: '', status: 'live', sort: 'name', dir: 'asc', field: '', fieldValue: '' })));
+    await openSec('projects');
+    await page.click('.saved-views button:has-text("Save view")');
+    await page.waitForTimeout(300);
+    await page.fill('.modal input.input', 'Smoke View');
+    await page.click('.modal button:has-text("Save view")');
+    await page.waitForTimeout(350);
+    const created = await store(`(S)=>S.savedViews().some(v=>v.label==='Smoke View' && v.state.status==='live' && v.state.sort==='name' && v.state.dir==='asc')`);
+    const chipOnWhenActive = await page.$eval('.filter-chip-custom:has-text("Smoke View")', (c) => c.classList.contains('on')).catch(() => false);
+
+    // switching to a different built-in view un-highlights the custom chip
+    await page.click('.saved-views .filter-chip:has-text("All")');
+    await page.waitForTimeout(200);
+    const chipOffAfterSwitch = await page.$eval('.filter-chip-custom:has-text("Smoke View")', (c) => c.classList.contains('on')).catch(() => true);
+
+    // clicking the chip's apply half restores its exact saved filter
+    await page.click('.filter-chip-custom:has-text("Smoke View") .fc-apply');
+    await page.waitForTimeout(250);
+    const reapplied = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem('manager.lib.view') || '{}'); return v.status === 'live' && v.sort === 'name' && v.dir === 'asc'; });
+
+    // its delete half removes the chip, and Undo brings it back
+    await page.click('.filter-chip-custom:has-text("Smoke View") .fc-del');
+    await page.waitForTimeout(300);
+    const deleted = !(await page.$('.filter-chip-custom:has-text("Smoke View")')) && !(await store(`(S)=>S.savedViews().some(v=>v.label==='Smoke View')`));
+    await page.keyboard.down('Control'); await page.keyboard.press('KeyZ'); await page.keyboard.up('Control');
+    await page.waitForTimeout(350);
+    const undone = await store(`(S)=>S.savedViews().some(v=>v.label==='Smoke View')`);
+
+    // clean up regardless of outcome
+    await store(`(S)=>{const v=S.savedViews().find(x=>x.label==='Smoke View'); if(v) S.removeSavedView(v.id,{silent:true});}`);
+    await page.evaluate(() => localStorage.removeItem('manager.lib.view'));
+    const restoredCount = (await store(`(S)=>S.savedViews().length`)) === beforeCount;
+
+    return created && chipOnWhenActive && !chipOffAfterSwitch && reapplied && deleted && undone && restoredCount;
+  });
+
   // ---------- Project detail / releases ----------
   console.log('Project detail');
   await page.evaluate(() => { location.hash = 'project/relay'; });

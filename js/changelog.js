@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 32,
+    title: 'User-defined saved views',
+    kind: 'feature',
+    ts: '2026-07-03T21:38:09.632Z',
+    items: [
+      'The projects library’s saved-view chips (All/Live/Recent/Pinned/Needs attention) are no longer a fixed set — dial in a status, sort, and field filter, then "Save view" to turn it into your own named chip.',
+      'A saved chip highlights whenever its exact filter is active, and one click reapplies it later.',
+      'Delete a saved view with its own × button; Undo brings it right back, same as every other change in Manager.',
+    ],
+  },
+  {
     v: 31,
     title: 'Merge & remove, for real two-way sync',
     kind: 'feature',
