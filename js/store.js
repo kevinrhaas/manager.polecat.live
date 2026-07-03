@@ -21,6 +21,10 @@ import { uuid, slugify } from './ui.js';
 const LS_KEY   = 'manager.workspace.v1';
 const HIST_KEY = 'manager.history.v1';
 const TABLES   = ['projects', 'releases', 'credentials', 'runs', 'fieldDefs', 'dismissals'];
+// Tables a merge import (see mergeImport() below) will add new rows to —
+// everything except `dismissals`, which is local per-browser notification
+// state that doesn't mean anything ported from someone else's workspace.
+const MERGE_TABLES = TABLES.filter(t=>t!=='dismissals');
 const HIST_MAX = 40;
 
 export const STATUSES = {
@@ -230,19 +234,21 @@ export const Store = new (class {
     if(!op) return null;
     this._saveHistory();
     // reverse: restore prev (or delete if there was none) for every row the
-    // op touched — `items` (bulk ops, see bulkUpdate/bulkRemove) or the
-    // single id/prev/cascade shape every other op uses. Cascade rows (a
-    // deleted row's releases/credentials/dismissals) restore alongside their
-    // owning row, whether the cascade lives on the op itself (single remove)
-    // or per-item (bulkRemove).
-    const rows = op.items || [{ id:op.id, prev:op.prev, cascade:op.cascade }];
-    rows.forEach(({id,prev,cascade})=>{
-      if(prev) this._db[op.table][id] = prev;
-      else delete this._db[op.table][id];
-      (cascade||[]).forEach(c=>{ this._db[c.table][c.row.id]=c.row; });
+    // op touched — `items` (bulk ops, see bulkUpdate/bulkRemove), `tables`
+    // (a merge import spanning several tables at once, see mergeImport()),
+    // or the single id/prev/cascade shape every other op uses. Cascade rows
+    // (a deleted row's releases/credentials/dismissals) restore alongside
+    // their owning row, whether the cascade lives on the op itself (single
+    // remove) or per-item (bulkRemove).
+    const perTable = op.tables || { [op.table]: op.items || [{ id:op.id, prev:op.prev, cascade:op.cascade }] };
+    Object.entries(perTable).forEach(([table, rows])=>{
+      rows.forEach(({id,prev,cascade})=>{
+        if(prev) this._db[table][id] = prev;
+        else delete this._db[table][id];
+        (cascade||[]).forEach(c=>{ this._db[c.table][c.row.id]=c.row; });
+      });
+      rows.forEach(({id})=>{ this.emit('change', { table, id }); this.emit(table, { id }); });
     });
-    this._save();
-    rows.forEach(({id})=>{ this.emit('change', { table:op.table, id }); this.emit(op.table, { id }); });
     this.emit('history');
     return op;
   }
@@ -585,6 +591,53 @@ export const Store = new (class {
     this._save();
     this._history = []; this._saveHistory();
     this.emit('change', {}); TABLES.forEach(t=>this.emit(t,{})); this.emit('history');
+  }
+  // A dry-run per-table {add, skip} count for a merge import: `add` is rows in
+  // the file whose id doesn't exist in this workspace yet (would be inserted),
+  // `skip` is rows whose id already exists locally (merge never overwrites —
+  // that's what importJSON()'s replace mode is for). Excludes `dismissals`:
+  // that table is local "have I already seen this" state scoped to whichever
+  // browser raised it, and porting someone else's doesn't mean anything here.
+  previewMerge(text){
+    const parsed = this._parseWorkspace(text);
+    const counts = {};
+    MERGE_TABLES.forEach(t=>{
+      const local = this._db[t];
+      const incoming = Object.values(parsed[t]);
+      const add = incoming.filter(r=>!local[r.id]).length;
+      counts[t] = { add, skip: incoming.length - add };
+    });
+    return counts;
+  }
+  // Adds rows from `text` that don't already exist locally (by id) across
+  // every MERGE_TABLES table, leaving every existing row untouched — for
+  // combining a backup from one browser into another instead of always
+  // wiping the current workspace (see importJSON() for that replace mode).
+  // Recorded as one undo step spanning every table it touched, via the same
+  // `{table, items}` grouped shape bulkUpdate()/bulkRemove() use, generalized
+  // to `{tables: {table: items}}` so a single Undo removes everything a
+  // merge added — however many tables it landed rows in — in one click.
+  mergeImport(text){
+    const parsed = this._parseWorkspace(text);
+    const tables = {};
+    MERGE_TABLES.forEach(t=>{
+      const local = this._db[t];
+      const added = [];
+      Object.values(parsed[t]).forEach(row=>{
+        if(local[row.id]) return;
+        local[row.id] = row;
+        added.push({ id:row.id, prev:null });
+      });
+      if(added.length) tables[t]=added;
+    });
+    const total = Object.values(tables).reduce((n,items)=>n+items.length, 0);
+    if(!total) return 0;
+    this._pushHistory({ tables, label:'Merge import' });
+    this._save();
+    Object.entries(tables).forEach(([table,items])=>{
+      items.forEach(({id})=>{ this.emit('change',{table,id}); this.emit(table,{id}); });
+    });
+    return total;
   }
   reset(){ localStorage.removeItem(LS_KEY); localStorage.removeItem(HIST_KEY); this._db=this._load(); this._history=[]; this.emit('change', {}); }
 })();

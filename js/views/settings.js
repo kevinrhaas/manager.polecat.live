@@ -176,10 +176,11 @@ export function renderSettings(root, ctx){
 
   // ---- Data ----
   const data=card('Data', 'db');
-  data.append(el('p',{class:'muted tiny', style:'margin:0 0 10px', text:'Everything lives in this browser. Export a JSON backup, import it elsewhere, or reset to the seeded fleet.'}));
+  data.append(el('p',{class:'muted tiny', style:'margin:0 0 10px', text:'Everything lives in this browser. Export a JSON backup, import it elsewhere (replacing everything or merging in just the new rows), or reset to the seeded fleet.'}));
   const dataBtns=el('div',{style:'display:flex;gap:8px;flex-wrap:wrap'});
   dataBtns.append(el('button',{class:'btn sm', html:`${icon('download')} Export JSON`, onclick:exportJSON}));
   dataBtns.append(el('button',{class:'btn sm', html:`${icon('upload')} Import JSON`, onclick:()=>importJSON(ctx)}));
+  dataBtns.append(el('button',{class:'btn sm', html:`${icon('layers')} Merge JSON`, onclick:()=>mergeImportFile(ctx)}));
   dataBtns.append(el('button',{class:'btn sm', html:`${icon('undo')} Undo last change`, onclick:()=>{ if(Store.canUndo()){ const o=Store.undo(); toast('Undone: '+(o?.label||''),{kind:'ok'}); ctx.render&&ctx.render(); } else toast('Nothing to undo',{kind:'info'}); }}));
   dataBtns.append(el('button',{class:'btn sm danger', html:`${icon('trash')} Reset workspace`, onclick:async()=>{ if(await confirmDialog('Reset workspace','This wipes your local Manager data and restores the seeded fleet. This cannot be undone.',{danger:true,okLabel:'Reset'})){ Store.reset(); toast('Workspace reset',{kind:'ok'}); ctx.go('home'); } }}));
   data.append(dataBtns);
@@ -293,6 +294,40 @@ export function importJSON(ctx){
       if(!go) return;
       try{ Store.importJSON(text); toast('Workspace imported',{kind:'ok'}); ctx.go('home'); }
       catch(e){ toast('Import failed',{body:e.message,kind:'err'}); }
+    };
+    rd.readAsText(file); };
+  inp.click();
+}
+// "Merge" mode alongside importJSON()'s replace-everything mode: adds rows
+// from the file that don't already exist here (by id) and leaves every
+// existing row untouched — for combining a backup made in one browser into
+// a different browser's workspace, rather than always overwriting it.
+const MERGE_ROW_LABELS = { projects:'project', releases:'release', credentials:'credential', runs:'run', fieldDefs:'custom field' };
+export function mergeImportFile(ctx){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json';
+  inp.onchange=()=>{ const file=inp.files[0]; if(!file) return; const rd=new FileReader();
+    rd.onload=async()=>{
+      const text=rd.result;
+      let counts;
+      try{ counts=Store.previewMerge(text); }
+      catch(e){ toast('Merge failed',{body:e.message,kind:'err'}); return; }
+      let totalAdd=0, totalSkip=0;
+      const parts=[];
+      Object.entries(counts).forEach(([t,{add,skip}])=>{
+        totalAdd+=add; totalSkip+=skip;
+        if(add) parts.push(`${add} new ${MERGE_ROW_LABELS[t]}${add===1?'':'s'}`);
+      });
+      if(!totalAdd){ toast('Nothing new to merge — every row in that file already exists here',{kind:'info'}); return; }
+      const summary=`This file has ${parts.join(', ')}`
+        +(totalSkip?` (plus ${totalSkip} row${totalSkip===1?'':'s'} that already exist here, which will be left untouched)`:'')
+        +`. Merging only adds the new rows — nothing already in this workspace is changed.`;
+      const go=await confirmDialog('Merge workspace', summary, {okLabel:'Merge in'});
+      if(!go) return;
+      try{
+        const n=Store.mergeImport(text);
+        toast(`Merged ${n} new row${n===1?'':'s'}`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
+        ctx.go('home');
+      }catch(e){ toast('Merge failed',{body:e.message,kind:'err'}); }
     };
     rd.readAsText(file); };
   inp.click();

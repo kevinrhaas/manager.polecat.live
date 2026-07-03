@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 25,
+    title: 'Merge JSON — a non-destructive import mode',
+    kind: 'feature',
+    ts: '2026-07-03T16:36:06.520Z',
+    items: [
+      'Settings → Data has a new "Merge JSON" button alongside Import JSON: it adds rows from a backup file that don\'t already exist in this browser, and leaves everything already here untouched.',
+      'A confirm dialog previews exactly what will be added — "3 new projects, 5 new releases" — before anything changes.',
+      'One click on "Undo" removes everything the merge added, even when it landed rows in more than one table at once.',
+      'Use this to combine a backup from one browser into another; the existing Import JSON still fully replaces your workspace when that\'s what you want.',
+    ],
+  },
+  {
     v: 24,
     title: 'Bulk delete in the projects library',
     kind: 'feature',

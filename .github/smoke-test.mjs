@@ -881,6 +881,74 @@ try {
     } finally { fs.unlinkSync(tmpFile); }
   });
 
+  // ---------- Data: merge import ----------
+  console.log('Data (merge import)');
+  await check('Store.previewMerge counts new-vs-already-here rows per table without mutating the live store', async () => {
+    const merged = await store(`(S)=>{ const db=JSON.parse(S.exportJSON()); db.projects['smoke-merge-preview']={id:'smoke-merge-preview',slug:'smoke-merge-preview',name:'Smoke Merge Preview',status:'idea',tags:[],fields:{},createdAt:Date.now(),updatedAt:Date.now()}; return JSON.stringify(db); }`);
+    const liveBefore = await store(`(S)=>S.projects().length`);
+    const counts = await store(`(S)=>S.previewMerge(${JSON.stringify(merged)})`);
+    const liveAfter = await store(`(S)=>S.projects().length`);
+    return counts.projects.add === 1 && counts.projects.skip === liveBefore && liveBefore === liveAfter;
+  });
+  await check('Store.mergeImport adds only new rows, spanning two tables, as one grouped Undo step', async () => {
+    const merged = await store(`(S)=>{
+      const db=JSON.parse(S.exportJSON());
+      db.projects['smoke-merge-proj']={id:'smoke-merge-proj',slug:'smoke-merge-proj',name:'Smoke Merge Proj',status:'idea',tags:[],fields:{},createdAt:Date.now(),updatedAt:Date.now()};
+      db.releases['smoke-merge-rel']={id:'smoke-merge-rel',projectId:'games',v:'v999.0.0',title:'Smoke merge release',kind:'feature',items:['test'],ts:new Date().toISOString(),createdAt:Date.now(),updatedAt:Date.now()};
+      return JSON.stringify(db);
+    }`);
+    const gamesAssessmentBefore = await store(`(S)=>S.project('games').assessment`);
+    const n = await store(`(S)=>S.mergeImport(${JSON.stringify(merged)})`);
+    const hasProj = await store(`(S)=>!!S.project('smoke-merge-proj')`);
+    const hasRel = await store(`(S)=>!!S.get('releases','smoke-merge-rel')`);
+    const gamesUntouched = (await store(`(S)=>S.project('games').assessment`)) === gamesAssessmentBefore;
+    await store(`(S)=>S.undo()`);
+    const projGone = !(await store(`(S)=>!!S.project('smoke-merge-proj')`));
+    const relGone = !(await store(`(S)=>!!S.get('releases','smoke-merge-rel')`));
+    return n === 2 && hasProj && hasRel && gamesUntouched && projGone && relGone;
+  });
+  await check('Merge JSON: file picker → confirm dialog previews new-row counts; Cancel leaves the workspace untouched', async () => {
+    await openSec('settings');
+    const merged = await store(`(S)=>{ const db=JSON.parse(S.exportJSON()); db.projects['smoke-merge-ui']={id:'smoke-merge-ui',slug:'smoke-merge-ui',name:'Smoke Merge UI',status:'idea',tags:[],fields:{},createdAt:Date.now(),updatedAt:Date.now()}; return JSON.stringify(db); }`);
+    const tmpFile = path.join(ROOT, '.smoke-merge-tmp.json');
+    fs.writeFileSync(tmpFile, merged);
+    try {
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.click('button:has-text("Merge JSON")'),
+      ]);
+      await chooser.setFiles(tmpFile);
+      await page.waitForTimeout(300);
+      const dialogText = await page.$eval('.modal-body', (b) => b.textContent).catch(() => '');
+      const mentionsNew = /new project/i.test(dialogText);
+      await page.click('.modal button:has-text("Cancel")');
+      await page.waitForTimeout(200);
+      const stillAbsent = !(await store(`(S)=>!!S.project('smoke-merge-ui')`));
+      return mentionsNew && stillAbsent;
+    } finally { fs.unlinkSync(tmpFile); }
+  });
+  await check('Merge JSON: confirming adds only the new rows (existing project left untouched), and Undo removes them together', async () => {
+    await openSec('settings');
+    const merged = await store(`(S)=>{ const db=JSON.parse(S.exportJSON()); db.projects['smoke-merge-ui2']={id:'smoke-merge-ui2',slug:'smoke-merge-ui2',name:'Smoke Merge UI 2',status:'idea',tags:[],fields:{},createdAt:Date.now(),updatedAt:Date.now()}; return JSON.stringify(db); }`);
+    const tmpFile = path.join(ROOT, '.smoke-merge-tmp2.json');
+    fs.writeFileSync(tmpFile, merged);
+    try {
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.click('button:has-text("Merge JSON")'),
+      ]);
+      await chooser.setFiles(tmpFile);
+      await page.waitForTimeout(300);
+      await page.click('.modal button:has-text("Merge in")');
+      await page.waitForTimeout(400);
+      const added = await store(`(S)=>!!S.project('smoke-merge-ui2')`);
+      const canUndo = await store(`(S)=>S.canUndo()`);
+      await store(`(S)=>S.undo()`);
+      const goneAfterUndo = !(await store(`(S)=>!!S.project('smoke-merge-ui2')`));
+      return added && canUndo && goneAfterUndo;
+    } finally { fs.unlinkSync(tmpFile); }
+  });
+
   await check('welcome tour starts and can finish', async () => {
     await openSec('settings');
     await page.click('button:has-text("Start tour")'); await page.waitForTimeout(400);

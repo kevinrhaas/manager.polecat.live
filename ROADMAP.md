@@ -14,13 +14,21 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] A "merge" import mode alongside today's replace-everything import (see
-      Done, 2026-07-03) — add rows from the file that don't exist locally
-      instead of always wiping the current workspace, for combining a backup
-      from one browser into another rather than always overwriting.
+- [ ] Now that a rows-only "merge" import mode exists (see Done, 2026-07-03),
+      consider a merge dry-run "review" step — today's confirm dialog only
+      shows per-table add/skip counts; for a big cross-browser combine it'd be
+      nice to expand and see *which* rows are new before committing, the same
+      way the per-project sync preview already lists new/changed releases by
+      name rather than just a count.
 
 ## Next (discovered / queued)
 
+- [ ] Merge import intentionally skips any incoming row whose id already
+      exists locally (see Done, 2026-07-03) — it never overwrites, only adds.
+      A future "merge & update" variant could let a user opt into also
+      refreshing rows that exist in both places but differ (e.g. a release
+      edited on one machine after the backup was made on another), with a
+      diff-style preview so it's clear what would change before committing.
 - [ ] Now that bulk delete exists (see Done, 2026-07-03), consider a
       lightweight "Recently deleted" tray (last N removed projects, past the
       single-slot undo stack) — undo covers the "oops, right after" case, but
@@ -72,6 +80,37 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **A "merge" import mode alongside replace-everything import** _(2026-07-03)_:
+      the existing Import JSON always wiped the current workspace and replaced
+      it wholesale — fine for restoring a backup, but no good for combining a
+      backup made in one browser into a *different* browser's workspace
+      without losing whatever was already there. Settings → Data now has a
+      second button, "Merge JSON", next to Import JSON: it walks every row in
+      the chosen file and adds only the ones whose id doesn't already exist in
+      this workspace (`projects`, `releases`, `credentials`, `runs`,
+      `fieldDefs` — deliberately excluding `dismissals`, which is local
+      per-browser "have I seen this" state that doesn't mean anything ported
+      from someone else's workspace), leaving every existing row completely
+      untouched — never an overwrite, unlike Import JSON's full replace. A new
+      `Store.previewMerge()` dry-runs the same per-table id-diff Import JSON's
+      `previewImport()` already used the pattern of, so the confirm dialog
+      shows exactly what's about to land ("3 new projects, 5 new releases")
+      before anything changes; `Store.mergeImport()` does the actual write and
+      returns the total rows added. The one genuinely new piece of plumbing:
+      a merge can land new rows in *several* tables in one action (a new
+      project plus a release for an existing one, say), but the undo stack's
+      history entries had only ever tracked a single table per op (even
+      bulkUpdate/bulkRemove's grouped entries are one table, many rows). Op
+      shape grew a `{tables: {table: items}}` alternative to the existing
+      `{table, items}`, and `Store.undo()` was generalized to iterate
+      whichever shape is present — so one click on "Undo" removes everything a
+      merge added, however many tables it touched, exactly like every other
+      grouped undo in the app. Four new smoke checks cover
+      `previewMerge()`'s counts in isolation, `mergeImport()` adding rows
+      across two tables and undoing both together while proving an existing
+      project's data is untouched, and the real file-picker → confirm →
+      Cancel / → Merge in paths end to end (Playwright driving an actual
+      native file chooser, not just calling the Store methods directly).
 - [x] **Bulk delete in the projects library, behind a confirm** _(2026-07-03)_:
       the bulk action bar (select rows via checkbox, act on all of them at
       once) covered tag/set-status/archive — all three easily reversible via
