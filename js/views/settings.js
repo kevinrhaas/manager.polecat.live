@@ -66,7 +66,7 @@ export function renderSettings(root, ctx){
   auto.append(intervalRow);
   const optedIn=Store.projects().filter(p=>p.autoSync);
   auto.append(el('div',{class:'tiny muted', style:'margin-top:4px', text: optedIn.length?`Opted in: ${optedIn.map(p=>p.name).join(', ')}.`:'No projects opted in yet.'}));
-  const failing=optedIn.filter(p=>(p.autoSyncFailCount||0)>=Store.attentionThresholds().autoSyncFails);
+  const failing=optedIn.filter(p=>(p.autoSyncFailCount||0)>=Store.attentionThresholdsFor(p.id).autoSyncFails);
   if(failing.length){
     auto.append(el('div',{class:'tiny', style:'margin-top:6px;color:var(--danger)',
       html:`${icon('warning','warn-ic')} ${failing.length} failing: ${failing.map(p=>escapeHtml(p.name)).join(', ')} — see each project’s health panel.`}));

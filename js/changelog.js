@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 19,
+    title: 'Per-project "needs attention" threshold override',
+    kind: 'feature',
+    ts: '2026-07-03T09:32:06.641Z',
+    items: [
+      'The health-score cutoff and auto-sync fail count behind "needs attention" were fleet-wide only — a project on a deliberately different cadence (e.g. one that should never be flagged just for being slow) had no escape hatch.',
+      'A project\'s health panel now has an "Attention" row next to its weighting, with the same "Customize" pattern: its own health-score cutoff and auto-sync fail count, scoped to just that project.',
+      'Turning the override off (or resetting it) falls straight back to the live fleet-wide thresholds — the dialed-in numbers stick around even while disabled.',
+    ],
+  },
+  {
     v: 18,
     title: 'Per-project health weighting override',
     kind: 'feature',

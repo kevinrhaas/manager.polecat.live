@@ -1,5 +1,5 @@
 // Project detail — the full what's-new timeline + health panel + links.
-import { Store, STATUSES, healthBand, DEFAULT_HEALTH_WEIGHTS } from '../store.js';
+import { Store, STATUSES, healthBand, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
@@ -85,7 +85,7 @@ export function renderProject(root, ctx, params){
     ['Changelog sync', p.lastSyncAt?`Synced ${escapeHtml(fmtCT(p.lastSyncAt))}`:'<span class="muted">Not connected</span>'],
   ];
   health.innerHTML=`<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Health</h2></div>`;
-  rows.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${k}</span><span class="v">${v}</span>`; health.append(r); if(k==='Health score') health.append(weightingRow(p, ctx)); });
+  rows.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${k}</span><span class="v">${v}</span>`; health.append(r); if(k==='Health score'){ health.append(weightingRow(p, ctx)); health.append(attentionRow(p, ctx)); } });
   const velRow=el('div',{class:'row'});
   velRow.innerHTML=`<span class="k">Velocity · 10w</span>`;
   velRow.append(el('span',{class:'v', title:'Releases per week, oldest to newest', html:sparkline(Store.releaseVelocity(p.id), {width:100, height:24, color:band.color})}));
@@ -198,6 +198,95 @@ function openHealthWeightingModal(p, ctx){
   const {hide}=modal({ title:`Health weighting — ${p.name}`, icon:'gauge', body, foot:[el('button',{class:'btn primary', text:'Done', onclick:()=>{ hide(); ctx.go('project',{id:p.id}); }})] });
 }
 
+// Every project's "needs attention" flagging normally rides the fleet-wide
+// cutoffs from Settings → "Needs attention" — but a project on a
+// deliberately different cadence (say, one that's expected to ship rarely,
+// or a "manual cadence" project that should never be flagged just for being
+// slow) can override just its own health-score cutoff and auto-sync fail
+// count. This row shows which mode is active; the modal it opens is where
+// that gets dialed in, scoped to this project only.
+function attentionRow(p, ctx){
+  const ov=Store.projectAttentionThresholdsOverride(p.id);
+  const r=el('div',{class:'row'});
+  r.innerHTML=`<span class="k">Attention</span>`;
+  const v=el('span',{class:'v', style:'display:inline-flex;align-items:center;gap:8px;font-weight:400'});
+  if(ov.enabled){
+    const t=Store.attentionThresholdsFor(p.id);
+    v.append(el('span',{class:'tiny muted', title:'Custom "needs attention" cutoffs for this project only', text:`Custom · <${t.healthMax} / ×${t.autoSyncFails}`}));
+  }else{
+    v.append(el('span',{class:'tiny muted', text:'Fleet default'}));
+  }
+  v.append(el('button',{class:'btn ghost sm', text:'Customize', onclick:()=>openAttentionThresholdsModal(p, ctx)}));
+  r.append(v);
+  return r;
+}
+
+// Per-project override of the fleet "needs attention" thresholds — same two
+// sliders as Settings → "Needs attention", scoped to just this project.
+// Disabled (the default) falls straight back to the live fleet-wide
+// thresholds; the dialed-in numbers persist even while disabled, so flipping
+// it back on restores what was there rather than resetting to the shipped
+// default.
+function openAttentionThresholdsModal(p, ctx){
+  const ov=Store.projectAttentionThresholdsOverride(p.id);
+  const body=el('div');
+  body.append(el('p',{class:'muted tiny', style:'margin:0 0 12px', text:`${p.name} is flagged "needs attention" using the fleet-wide cutoffs from Settings by default. Turn this on to dial in a different health-score cutoff or auto-sync fail count just for this project.`}));
+
+  const toggleRow=el('div',{class:'opt-row', style:'padding:0 0 14px'});
+  toggleRow.innerHTML=`<div class="sp"><b>Override fleet thresholds</b><p>Only affects ${escapeHtml(p.name)}.</p></div>`;
+  const t=el('button',{class:'toggle'+(ov.enabled?' on':''), role:'switch', 'aria-checked':String(!!ov.enabled), 'aria-label':'Override fleet thresholds for this project'});
+  toggleRow.append(t);
+  body.append(toggleRow);
+
+  const fRow=el('div',{style:'display:flex;flex-direction:column;gap:12px'});
+
+  const hCur=ov.healthMax ?? DEFAULT_ATTENTION_THRESHOLDS.healthMax;
+  const hRow=el('div',{class:'field', style:'margin:0'});
+  const hHead=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
+  hHead.innerHTML=`<label style="margin:0">Health score</label><span class="tiny muted mono" style="min-width:120px;text-align:right"></span>`;
+  const hVal=hHead.lastElementChild;
+  const renderHVal=(v)=>{ const b=healthBand(Math.max(0,v-1)); hVal.textContent=`below ${v} (${b.label})`; };
+  const hSlider=el('input',{type:'range', min:'1', max:'100', step:'1', value:String(hCur), class:'proj-attn-slider', 'data-attn':'health'});
+  hSlider.addEventListener('input',()=>{ const val=parseInt(hSlider.value,10); renderHVal(val); Store.setProjectAttentionThresholds(p.id, { healthMax:val }); });
+  renderHVal(hCur);
+  hRow.append(hHead, hSlider, el('span',{class:'tiny muted', text:'Flag this project once its health score falls below this line.'}));
+  fRow.append(hRow);
+
+  const sCur=ov.autoSyncFails ?? DEFAULT_ATTENTION_THRESHOLDS.autoSyncFails;
+  const sRow=el('div',{class:'field', style:'margin:0'});
+  const sHead=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
+  sHead.innerHTML=`<label style="margin:0">Auto-sync failures</label><span class="tiny muted mono" style="min-width:70px;text-align:right"></span>`;
+  const sVal=sHead.lastElementChild;
+  const renderSVal=(v)=>{ sVal.textContent=`×${v} in a row`; };
+  const sSlider=el('input',{type:'range', min:'1', max:'10', step:'1', value:String(sCur), class:'proj-attn-slider', 'data-attn':'sync'});
+  sSlider.addEventListener('input',()=>{ const val=parseInt(sSlider.value,10); renderSVal(val); Store.setProjectAttentionThresholds(p.id, { autoSyncFails:val }); });
+  renderSVal(sCur);
+  sRow.append(sHead, sSlider, el('span',{class:'tiny muted', text:'Flag this project once its auto-sync has failed this many times in a row.'}));
+  fRow.append(sRow);
+
+  fRow.style.opacity = ov.enabled?'1':'.45';
+  fRow.style.pointerEvents = ov.enabled?'':'none';
+  body.append(fRow);
+
+  t.addEventListener('click',()=>{
+    const now=!t.classList.contains('on');
+    t.classList.toggle('on', now); t.setAttribute('aria-checked',String(now));
+    Store.setProjectAttentionThresholds(p.id, { enabled:now });
+    fRow.style.opacity = now?'1':'.45';
+    fRow.style.pointerEvents = now?'':'none';
+  });
+
+  const resetBtn=el('button',{class:'btn sm', html:`${icon('refresh')} Reset to fleet default`, onclick:()=>{
+    Store.setProjectAttentionThresholds(p.id, { ...DEFAULT_ATTENTION_THRESHOLDS });
+    hSlider.value=String(DEFAULT_ATTENTION_THRESHOLDS.healthMax); renderHVal(DEFAULT_ATTENTION_THRESHOLDS.healthMax);
+    sSlider.value=String(DEFAULT_ATTENTION_THRESHOLDS.autoSyncFails); renderSVal(DEFAULT_ATTENTION_THRESHOLDS.autoSyncFails);
+    toast('Thresholds reset to fleet default',{kind:'ok'});
+  }});
+  body.append(resetBtn);
+
+  const {hide}=modal({ title:`Needs-attention thresholds — ${p.name}`, icon:'warning', body, foot:[el('button',{class:'btn primary', text:'Done', onclick:()=>{ hide(); ctx.go('project',{id:p.id}); }})] });
+}
+
 // Per-project opt-in for the quiet, on-a-cadence auto-sync (also needs the
 // global switch in Settings → Auto-sync). Toggling here never fires a fetch
 // itself — it just marks the project eligible for the next scheduled pass.
@@ -210,7 +299,7 @@ function autoSyncRow(p, ctx){
   r.innerHTML=`<span class="k">Auto-sync</span>`;
   const v=el('span',{class:'v', style:'display:inline-flex;align-items:center;gap:8px;font-weight:400'});
   const failCount=p.autoSyncFailCount||0;
-  const failing = p.autoSync && failCount>=Store.attentionThresholds().autoSyncFails;
+  const failing = p.autoSync && failCount>=Store.attentionThresholdsFor(p.id).autoSyncFails;
   if(failing){
     v.append(el('span',{class:'fail-chip', title:`${p.autoSyncLastError||'Sync failed'} — last attempt ${fmtCT(p.lastAutoSyncAt)}. Retrying less often the longer it fails.`,
       html:`${icon('warning')} Failing ×${failCount}`}));

@@ -14,12 +14,15 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Now that per-project health weighting exists (see Done, 2026-07-03),
-      build the matching per-project override for the "Needs attention"
-      cutoffs (health-score cutoff, auto-sync fail count) — today those are
-      still fleet-wide only, so a "manual cadence" project that should never
-      be flagged just for being slow has no escape hatch there yet, even
-      though its health *score* can now be weighted differently.
+- [ ] Now that both the health-weighting override and the "Needs attention"
+      threshold override exist (see Done, 2026-07-03) and share the exact
+      same shape — a toggle + sliders on the project row, "Fleet default" vs.
+      "Custom · …" summary, Customize link, Reset to fleet default — consider
+      factoring the shared plumbing (the row-summary builder, the
+      enable/disable toggle + opacity dance, the modal chrome) into one small
+      helper in `js/views/project.js` so a *third* per-project override
+      (e.g. a future auto-sync backoff override, see Next) doesn't have to
+      hand-copy the pattern a third time.
 
 ## Next (discovered / queued)
 
@@ -75,6 +78,35 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Per-project "needs attention" threshold override** _(2026-07-03)_: the
+      two cutoffs behind `Store.needsAttention()` — how low a health score has
+      to sink, and how many auto-sync failures in a row — were fleet-wide
+      only, even after the per-project *health-weighting* override shipped
+      earlier this cadence gave a project a way to be *scored* differently.
+      That left a gap: a "manual cadence" project that should never be
+      flagged just for shipping slowly had no way to opt out of the flag
+      itself. A project's health panel now has an "Attention" row right next
+      to "Weighting" — "Fleet default" or a "Custom · <N / ×N" summary — with
+      the same "Customize" link opening the same two sliders as Settings →
+      "Needs attention", scoped to just that project.
+      `Store.attentionThresholdsFor(projectId)` is the new single source
+      `needsAttention()` reads (per-project, inside its own `.map()`, instead
+      of computing the thresholds once for the whole fleet), and every other
+      call site that was checking a *specific* project's auto-sync fail count
+      against the fleet-wide cutoff (the dashboard tile's "Failing" chip, the
+      project health panel's own auto-sync row, and the Settings → Auto-sync
+      roll-up) now reads the same per-project-aware helper, so a project
+      can't be called "failing" under one cutoff on its own page and a
+      different one on the dashboard. Same non-destructive shape as the
+      weighting override: the row is stored on the project
+      (`attentionThresholdsOverride: {enabled, healthMax, autoSyncFails}`),
+      disabling it falls straight back to the live fleet-wide thresholds, and
+      the dialed-in numbers persist even while disabled. A new smoke check
+      drives the real modal end to end — enables the override, cranks the
+      health cutoff to 100 (which must flag the project, since no project
+      scores 100), confirms a *different* project's flagged state is
+      untouched (isolation), resets, disables, and confirms the effective
+      thresholds land back exactly on the live fleet default.
 - [x] **Per-project health weighting override** _(2026-07-03)_: the three
       health-score dimensions (recency/velocity/status) were fleet-wide only
       — every project was scored with the exact same weighting, even one

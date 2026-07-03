@@ -216,7 +216,7 @@ export function tile(p, ctx){
   health.innerHTML=`<span class="hchip ${band.cls}" title="Health score: ${score}/100 — ${band.label} (recency + release velocity + status)">${icon('activity')} ${score} · ${band.label}</span>`;
   health.append(el('span',{class:'sp'}));
   health.append(el('span',{class:'tspark', title:'Release velocity — last 10 weeks', html:sparkline(Store.releaseVelocity(p.id), {width:56, height:20, color:band.color})}));
-  if(p.autoSync && (p.autoSyncFailCount||0)>=Store.attentionThresholds().autoSyncFails){
+  if(p.autoSync && (p.autoSyncFailCount||0)>=Store.attentionThresholdsFor(p.id).autoSyncFails){
     health.append(el('span',{class:'fail-chip', title:`Auto-sync failing ×${p.autoSyncFailCount}: ${p.autoSyncLastError||'sync failed'}`, html:`${icon('warning')} sync failing`}));
   }
   c.append(health);

@@ -321,6 +321,36 @@ export const Store = new (class {
   attentionThresholds(){ return { ...DEFAULT_ATTENTION_THRESHOLDS, ...(this.settings().attentionThresholds||{}) }; }
   setAttentionThresholds(patch){ this.setSetting('attentionThresholds', { ...this.settings().attentionThresholds, ...patch }); }
 
+  // ---- per-project "needs attention" threshold override ------------------
+  // Same escape hatch as the health-weighting override above, for the other
+  // half of what decides a project is flagged: the fleet-wide cutoffs behind
+  // needsAttention() are usually right, but a project on a deliberately
+  // different cadence (e.g. one that's expected to ship rarely, or a
+  // "manual cadence" project that should never be flagged just for being
+  // slow) can dial in its own health-score cutoff and auto-sync fail count.
+  // Stored on the project row as `attentionThresholdsOverride`; disabled (the
+  // default) means "use the live fleet-wide thresholds", and the dialed-in
+  // numbers persist even while disabled so re-enabling restores them instead
+  // of resetting to the shipped default.
+  projectAttentionThresholdsOverride(projectId){
+    const p = this.project(projectId);
+    return p?.attentionThresholdsOverride || { enabled:false, ...DEFAULT_ATTENTION_THRESHOLDS };
+  }
+  // The thresholds actually used to flag this project — its own override
+  // when enabled, else whatever the fleet is currently set to.
+  attentionThresholdsFor(projectId){
+    const ov = this.projectAttentionThresholdsOverride(projectId);
+    if(!ov.enabled) return this.attentionThresholds();
+    return {
+      healthMax: ov.healthMax ?? DEFAULT_ATTENTION_THRESHOLDS.healthMax,
+      autoSyncFails: ov.autoSyncFails ?? DEFAULT_ATTENTION_THRESHOLDS.autoSyncFails,
+    };
+  }
+  setProjectAttentionThresholds(projectId, patch){
+    const cur = this.projectAttentionThresholdsOverride(projectId);
+    this.updateProject(projectId, { attentionThresholdsOverride:{ ...cur, ...patch } }, { silent:true });
+  }
+
   // ---- fleet health (recency + release velocity + status), 0-100 --------
   healthScore(projectId){
     const p = this.project(projectId);
@@ -353,14 +383,16 @@ export const Store = new (class {
   // A project "needs attention" when its health score has sunk below the
   // tunable `healthMax` cutoff (Settings → Needs attention; defaults to the
   // Steady band's floor, i.e. Slowing/Stale) or its auto-sync has failed at
-  // least `autoSyncFails` times in a row. One shared definition so the
-  // dashboard callout and the library's saved view always agree on exactly
-  // the same set of projects, sorted worst-off first. Each reason is
-  // `{ kind:'health'|'sync', text }` so callers can render the right chip
-  // style without recomputing the logic themselves.
+  // least `autoSyncFails` times in a row — both read per-project via
+  // attentionThresholdsFor(), which falls back to the live fleet-wide
+  // thresholds unless that project has its own override enabled. One shared
+  // definition so the dashboard callout and the library's saved view always
+  // agree on exactly the same set of projects, sorted worst-off first. Each
+  // reason is `{ kind:'health'|'sync', text }` so callers can render the
+  // right chip style without recomputing the logic themselves.
   needsAttention(){
-    const t = this.attentionThresholds();
     return this.projects().map(p=>{
+      const t = this.attentionThresholdsFor(p.id);
       const score = this.healthScore(p.id);
       const band = healthBand(score);
       const reasons = [];

@@ -170,6 +170,32 @@ try {
       && Math.abs(afterReset.recency - 40) < 0.01 && Math.abs(afterReset.velocity - 40) < 0.01 && Math.abs(afterReset.status - 20) < 0.01
       && disabledMatchesFleet && /Fleet default/.test(rowAfter);
   });
+  await check('project health panel: per-project "needs attention" threshold override is isolated to that project and resettable', async () => {
+    await openSec('projects');
+    await page.evaluate(() => { location.hash = 'project/polecat'; });
+    await page.waitForTimeout(400);
+    const rowBefore = await page.$eval('.row:has-text("Attention") .v', (e) => e.textContent).catch(() => '');
+    const otherBefore = await store(`(S)=>S.needsAttention().some(a=>a.project.id==='games')`);
+    await page.click('.row:has-text("Attention") button:has-text("Customize")'); await page.waitForTimeout(300);
+    await page.click('.modal .opt-row .toggle'); await page.waitForTimeout(150);
+    // cranking this project's own health cutoff to 100 must flag it (no project scores 100)
+    // without touching any other project's flagged state
+    await page.$eval('.proj-attn-slider[data-attn="health"]', (s) => { s.value = '100'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(150);
+    const overridden = await store(`(S)=>({...S.attentionThresholdsFor('polecat')})`);
+    const flaggedNow = await store(`(S)=>S.needsAttention().some(a=>a.project.id==='polecat')`);
+    const otherAfter = await store(`(S)=>S.needsAttention().some(a=>a.project.id==='games')`);
+    await page.click('.modal button:has-text("Reset to fleet default")'); await page.waitForTimeout(150);
+    const afterReset = await store(`(S)=>({...S.attentionThresholdsFor('polecat')})`);
+    await page.click('.modal .opt-row .toggle'); await page.waitForTimeout(150); // back off — should now mirror the fleet
+    const disabledMatchesFleet = await store(`(S)=>{const f=S.attentionThresholds(); const p=S.attentionThresholdsFor('polecat'); return f.healthMax===p.healthMax && f.autoSyncFails===p.autoSyncFails;}`);
+    await page.click('.modal button:has-text("Done")'); await page.waitForTimeout(300);
+    const rowAfter = await page.$eval('.row:has-text("Attention") .v', (e) => e.textContent).catch(() => '');
+    return /Fleet default/.test(rowBefore) && overridden.healthMax === 100 && flaggedNow
+      && otherAfter === otherBefore
+      && afterReset.healthMax === 35 && afterReset.autoSyncFails === 2
+      && disabledMatchesFleet && /Fleet default/.test(rowAfter);
+  });
 
   // ---------- Live changelog sync ----------
   console.log('Changelog sync');
