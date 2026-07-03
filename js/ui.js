@@ -22,6 +22,21 @@ export function el(tag, attrs={}, children){
   return n;
 }
 
+// A non-button element (card, tile, table row) that acts like a button —
+// wires it up for keyboard users: focusable, announced as a button, and
+// activatable with Enter/Space, without hijacking Enter/Space presses meant
+// for a nested real button/link/input the row happens to contain.
+export function makeRowClickable(node, fn, label){
+  node.tabIndex = 0;
+  node.setAttribute('role', 'button');
+  if(label) node.setAttribute('aria-label', label);
+  node.addEventListener('keydown', (e)=>{
+    if(e.target !== node) return;
+    if(e.key==='Enter' || e.key===' '){ e.preventDefault(); fn(e); }
+  });
+  return node;
+}
+
 export function escapeHtml(s){
   return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }

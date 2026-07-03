@@ -1,6 +1,6 @@
 // Dashboard — a live wall of project tiles + fleet stats + quick actions.
 import { Store, STATUSES, healthBand } from '../store.js';
-import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline } from '../ui.js';
+import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline, makeRowClickable } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
 import { syncProject, forceSyncProject, attemptAutoSync } from '../ingest.js';
@@ -71,7 +71,8 @@ export function renderHome(root, ctx){
   wrap.append(sectionTitle('Quick actions', 'bolt'));
   const qa=el('div',{class:'grid quick'});
   const act=(ic,color,title,desc,fn)=>{ const c=el('div',{class:'card qa hover', onclick:fn});
-    c.innerHTML=`<div class="qicon" style="background:${color}">${icon(ic)}</div><div><b>${title}</b><p>${desc}</p></div>`; return c; };
+    c.innerHTML=`<div class="qicon" style="background:${color}">${icon(ic)}</div><div><b>${title}</b><p>${desc}</p></div>`;
+    return makeRowClickable(c, fn, title); };
   const syncable=projects.filter(p=>p.changelogUrl||p.site).length;
   const autoCfg=Store.settings().autoSync||{};
   const autoOn=projects.filter(p=>p.autoSync).length;
@@ -115,6 +116,7 @@ function attentionPanel(attn, dismissedCount, ctx){
 export function attentionRow(a, ctx){
   const {project:p, band, reasons}=a;
   const row=el('div',{class:'attn-row', onclick:()=>ctx.go('project',{id:p.id})});
+  makeRowClickable(row, ()=>ctx.go('project',{id:p.id}), `Open ${p.name}`);
   row.innerHTML=`<span class="aavatar" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span>
     <span class="aname">${escapeHtml(p.name)}</span>`;
   const reasonsWrap=el('span',{class:'areasons'});
@@ -197,6 +199,7 @@ export function tile(p, ctx){
   const rel=Store.latestRelease(p.id);
   const st=STATUSES[p.status]||STATUSES.idea;
   const c=el('div',{class:'card tile hover', onclick:(e)=>{ if(e.target.closest('.stopnav')) return; ctx.go('project',{id:p.id}); }});
+  makeRowClickable(c, ()=>ctx.go('project',{id:p.id}), `Open ${p.name}`);
   const accent=avatarColor(p.id);
   const top=el('div',{class:'tile-top'});
   top.innerHTML=`<span class="tavatar" style="background:${accent}">${icon(p.icon||'grid')}</span>

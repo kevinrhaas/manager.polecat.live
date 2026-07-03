@@ -1,7 +1,7 @@
 // Projects library — the source of truth for the fleet. Filter, sort, search,
 // pin, edit, and add rich metadata (including your own custom fields).
 import { Store, STATUSES } from '../store.js';
-import { el, escapeHtml, toast, modal, confirmDialog, fmtCT, avatarColor, slugify } from '../ui.js';
+import { el, escapeHtml, toast, modal, confirmDialog, fmtCT, avatarColor, slugify, makeRowClickable } from '../ui.js';
 import { icon } from '../icons.js';
 import { editFieldDef } from './settings.js';
 import { openSyncAll } from './home.js';
@@ -156,7 +156,11 @@ function buildList(ctx){
   cols.forEach(([label,key])=>{
     const th=el('th',{class:s.sort===key?'sorted':''});
     th.innerHTML=`${escapeHtml(label)}${['name','status','version','activity'].includes(key)?` <span class="caret">${s.dir==='asc'?'▲':'▼'}</span>`:''}`;
-    if(['name','status','version','activity'].includes(key)) th.onclick=()=>{ const cur=state(); saveState({...cur,sort:key,dir:cur.sort===key&&cur.dir==='desc'?'asc':'desc'}); const root=document.getElementById('view'); renderProjects(root,ctx); };
+    if(['name','status','version','activity'].includes(key)){
+      const sortBy=()=>{ const cur=state(); saveState({...cur,sort:key,dir:cur.sort===key&&cur.dir==='desc'?'asc':'desc'}); const root=document.getElementById('view'); renderProjects(root,ctx); };
+      th.onclick=sortBy;
+      makeRowClickable(th, sortBy, `Sort by ${label}`);
+    }
     thead.append(th);
   });
   table.append(el('thead',{},thead));
@@ -178,6 +182,7 @@ function projectRow(p, ctx){
   const rel=Store.latestRelease(p.id);
   const st=STATUSES[p.status]||STATUSES.idea;
   const tr=el('tr',{onclick:(e)=>{ if(e.target.closest('.rowbtn')) return; ctx.go('project',{id:p.id}); }});
+  makeRowClickable(tr, ()=>ctx.go('project',{id:p.id}), `Open ${p.name}`);
   // pin
   const pinTd=el('td');
   pinTd.append(el('button',{class:'pin-btn rowbtn'+(p.pinned?' on':''), title:p.pinned?'Unpin':'Pin', 'aria-label':p.pinned?'Unpin project':'Pin project',

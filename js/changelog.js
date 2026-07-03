@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 21,
+    title: 'Keyboard access to tiles, rows, and quick actions',
+    kind: 'polish',
+    ts: '2026-07-03T12:43:37.072Z',
+    items: [
+      'Sweep: the dashboard project tiles, quick-action cards, the "Needs attention" rows (dashboard, bell popover), and every library table row were mouse-only — clickable, but with no way to reach or activate them from a keyboard.',
+      'All four are now real tab stops with a visible focus ring, and Enter/Space activates them exactly like a click — without hijacking Enter/Space on a nested button (pin, retry, dismiss, edit) that already has its own action.',
+      'Grew the smoke suite with checks that tab to each one and confirm Enter navigates or activates, and that a nested button\'s own Enter doesn\'t also trigger the row underneath it.',
+    ],
+  },
+  {
     v: 20,
     title: 'Tunable auto-sync backoff cap',
     kind: 'feature',

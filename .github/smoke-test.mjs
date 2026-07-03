@@ -86,6 +86,23 @@ try {
     const fleetStat = await page.$eval('.stats', (s) => /Fleet health/i.test(s.textContent));
     return fleetStat && (await count('.tile .hchip')) >= 5 && (await count('.tile .spark')) >= 5;
   });
+  await check('a project tile is keyboard-focusable and Enter opens it (not just click)', async () => {
+    await openSec('home');
+    const role = await page.$eval('.tile', (t) => t.getAttribute('role'));
+    await page.$eval('.tile', (t) => t.focus());
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(350);
+    return role === 'button' && (await count('.detail-head')) > 0;
+  });
+  await check('a dashboard quick-action card is keyboard-focusable and Enter activates it', async () => {
+    await openSec('home');
+    await page.$eval('.qa', (c) => c.focus());
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+    const overlayOpen = !!(await page.$('.overlay.show'));
+    if (overlayOpen) { await page.keyboard.press('Escape'); await page.waitForTimeout(250); }
+    return overlayOpen;
+  });
 
   // ---------- Projects library ----------
   console.log('Projects library');
@@ -126,6 +143,34 @@ try {
     const after = await store(`(S)=>S.project('games').pinned`);
     await store(`(S)=>S.togglePin('games')`);   // restore
     return before !== after;
+  });
+  await check('a library row is keyboard-focusable — Enter opens it, and a nested pin button\'s own Enter toggles the pin without also navigating away', async () => {
+    await openSec('projects');
+    const role = await page.$eval('.lib-table tbody tr', (t) => t.getAttribute('role'));
+    await page.$eval('.lib-table tbody tr', (t) => t.focus());
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(350);
+    const opened = (await count('.detail-head')) > 0;
+
+    await openSec('projects');
+    const pinBefore = await store(`(S)=>S.project('games').pinned`);
+    await page.$$eval('.lib-table tbody tr', (rows) => rows.find((r) => /games/i.test(r.textContent)).querySelector('.pin-btn').focus());
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(250);
+    const stillOnLibrary = !!(await page.$('.lib-table'));
+    const pinAfter = await store(`(S)=>S.project('games').pinned`);
+    if (pinAfter !== pinBefore) await store(`(S)=>S.togglePin('games')`);   // restore
+    return role === 'button' && opened && stillOnLibrary && pinAfter !== pinBefore;
+  });
+  await check('a sortable library column header is keyboard-focusable and Enter sorts by it', async () => {
+    await openSec('projects');
+    const statusTh = await page.$('th:has-text("Status")');
+    const role = await statusTh.getAttribute('role');
+    await statusTh.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(200);
+    const after = await page.evaluate(() => JSON.parse(localStorage.getItem('manager.lib.view') || '{}').sort);
+    return role === 'button' && after === 'status';
   });
 
   // ---------- Project detail / releases ----------
@@ -407,6 +452,30 @@ try {
       const p=S.project('games'); S.put('projects', {...p, autoSync:false, changelogUrl:'', lastSyncAt:0, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:''}, {silent:true});
     }`);
     return panelBefore && /Auto-sync failing/.test(chipText || '') && failCountAfter === 0 && panelRowsAfter === 0;
+  });
+  await check('a "Needs attention" row is keyboard-focusable — Enter opens the project, and a nested action button\'s own Enter does not', async () => {
+    const changelogUrl = `${base}/js/changelog.js`;
+    await store(`(S)=>{
+      const p=S.project('games');
+      S.put('projects', {...p, autoSync:true, autoSyncFailCount:3, autoSyncLastError:'HTTP 404', lastAutoSyncAt:Date.now(), changelogUrl:'${changelogUrl}'}, {silent:true});
+    }`);
+    await openSec('home');
+    const role = await page.$eval('.attn-row', (r) => r.getAttribute('role'));
+    await page.$eval('.attn-row button:has-text("Dismiss")', (b) => b.focus());
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(250);
+    const stillOnDashboard = !!(await page.$('.attn-panel, .stats'));
+    await store(`(S)=>S.undismissAttention('games')`);
+    await page.$eval('.attn-row', (r) => r.focus());
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(350);
+    const opened = (await count('.detail-head')) > 0;
+    // clean up
+    await store(`(S)=>{
+      S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
+      const p=S.project('games'); S.put('projects', {...p, autoSync:false, changelogUrl:'', lastSyncAt:0, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:''}, {silent:true});
+    }`);
+    return role === 'button' && stillOnDashboard && opened;
   });
   await check('projects library "Needs attention" saved view matches Store.needsAttention()', async () => {
     const changelogUrl = `${base}/js/changelog.js`;

@@ -244,6 +244,12 @@ body{
 }
 .card.hover:hover{border-color:var(--brand-b);transform:translateY(-2px);
   box-shadow:var(--shadow-sm)}
+/* keyboard focus for card/tile/row elements that act as buttons (see
+   ui.js makeRowClickable) — mirrors .btn:focus-visible's ring so tabbing
+   to a project tile or library row is exactly as visible as tabbing to
+   any other control */
+.card[role="button"]:focus-visible,
+.attn-row[role="button"]:focus-visible{outline:none;box-shadow:var(--ring)}
 
 .grid{display:grid;gap:16px}
 .section-title{display:flex;align-items:center;gap:10px;margin:30px 0 14px;flex-wrap:wrap;row-gap:8px}
@@ -386,9 +392,14 @@ table.data th{position:sticky;top:0;background:var(--surface-2);z-index:2;
   color:var(--text-2);cursor:pointer;user-select:none}
 table.data th .caret{opacity:0;font-size:10px;transition:.12s}
 table.data th.sorted .caret{opacity:.8}
+table.data th[role="button"]:focus-visible{outline:2px solid var(--brand-b);outline-offset:-2px;color:var(--text)}
 table.data tbody tr{transition:background .12s;cursor:pointer}
 table.data tbody tr:hover{background:var(--surface-2)}
 table.data tbody tr:last-child td{border-bottom:0}
+/* keyboard focus ring for the row itself (see ui.js makeRowClickable) — a
+   box-shadow ring doesn't paint reliably on <tr>, so this uses an inset
+   outline instead */
+table.data tbody tr[role="button"]:focus-visible{outline:2px solid var(--brand-b);outline-offset:-2px;background:var(--surface-2)}
 .tag{display:inline-block;font-size:10.5px;padding:1px 8px;border-radius:999px;
   background:var(--surface-3);color:var(--text-2);margin:0 4px 0 0}
 
