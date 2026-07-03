@@ -783,6 +783,75 @@ try {
     const restored = await store(`(S)=>S.autoSyncBackoffCap()`);
     return saved === 4 && multAtCap === 4 && restored === 8;
   });
+  // ---------- Data: export / import round-trip ----------
+  console.log('Data (export/import)');
+  await check('export produces a JSON workspace with the seeded fleet', async () => {
+    const parsed = await store(`(S)=>JSON.parse(S.exportJSON())`);
+    return !!parsed.projects && Object.keys(parsed.projects).length >= 5 && !!parsed.settings;
+  });
+  await check('Store.importJSON round-trips: export, mutate, re-import restores the original exactly', async () => {
+    const before = await store(`(S)=>S.exportJSON()`);
+    await store(`(S)=>{ S.addProject({slug:'smoke-roundtrip-temp', name:'Smoke Roundtrip Temp'}); S.updateProject('games', {assessment:'mutated by smoke test'}); }`);
+    const mutatedHasTemp = await store(`(S)=>!!S.project('smoke-roundtrip-temp')`);
+    await page.evaluate(`(async()=>{const{Store}=await import('/js/store.js');Store.importJSON(${JSON.stringify(before)});})()`);
+    const after = await store(`(S)=>S.exportJSON()`);
+    const tempGone = !(await store(`(S)=>!!S.project('smoke-roundtrip-temp')`));
+    const gamesRestored = await store(`(S)=>S.project('games').assessment`);
+    return mutatedHasTemp && tempGone && after === before && !/mutated by smoke test/.test(gamesRestored);
+  });
+  await check('Store.previewImport counts rows without mutating the live store, and rejects garbage JSON', async () => {
+    const liveBefore = await store(`(S)=>S.projects().length`);
+    const counts = await store(`(S)=>S.previewImport(S.exportJSON())`);
+    const liveAfter = await store(`(S)=>S.projects().length`);
+    let rejected = false;
+    try{ await store(`(S)=>S.previewImport('{"nope":true}')`); } catch { rejected = true; }
+    return counts.projects === liveBefore && liveBefore === liveAfter && rejected;
+  });
+  await check('Import JSON: file picker → confirm dialog previews counts; Cancel leaves the workspace untouched', async () => {
+    await openSec('settings');
+    const exported = await store(`(S)=>S.exportJSON()`);
+    const tmpFile = path.join(ROOT, '.smoke-import-tmp.json');
+    fs.writeFileSync(tmpFile, exported);
+    try {
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.click('button:has-text("Import JSON")'),
+      ]);
+      await chooser.setFiles(tmpFile);
+      await page.waitForTimeout(300);
+      const dialogText = await page.$eval('.modal-body', (b) => b.textContent).catch(() => '');
+      const mentionsProjects = /project/i.test(dialogText);
+      await page.click('.modal button:has-text("Cancel")');
+      await page.waitForTimeout(200);
+      const stillOnSettings = await page.evaluate(() => location.hash.includes('settings'));
+      return mentionsProjects && stillOnSettings;
+    } finally { fs.unlinkSync(tmpFile); }
+  });
+  await check('Import JSON: confirming replaces the workspace and clears undo history', async () => {
+    await openSec('settings');
+    // bank an undoable op so we can prove import wipes it, not just the data
+    await store(`(S)=>S.addProject({slug:'smoke-import-undo-temp', name:'Smoke Import Undo Temp'})`);
+    const canUndoBefore = await store(`(S)=>S.canUndo()`);
+    const snapshot = await store(`(S)=>S.exportJSON()`); // captures the temp project too — imports back to a known state
+    const tmpFile = path.join(ROOT, '.smoke-import-tmp2.json');
+    fs.writeFileSync(tmpFile, snapshot);
+    try {
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.click('button:has-text("Import JSON")'),
+      ]);
+      await chooser.setFiles(tmpFile);
+      await page.waitForTimeout(300);
+      await page.click('.modal button:has-text("Import & replace")');
+      await page.waitForTimeout(400);
+      const hasTemp = await store(`(S)=>!!S.project('smoke-import-undo-temp')`);
+      const canUndoAfter = await store(`(S)=>S.canUndo()`);
+      // cleanup: remove the temp project without relying on undo (history is now empty by design)
+      await store(`(S)=>S.remove('projects','smoke-import-undo-temp',{silent:true})`);
+      return canUndoBefore && hasTemp && !canUndoAfter;
+    } finally { fs.unlinkSync(tmpFile); }
+  });
+
   await check('welcome tour starts and can finish', async () => {
     await openSec('settings');
     await page.click('button:has-text("Start tour")'); await page.waitForTimeout(400);

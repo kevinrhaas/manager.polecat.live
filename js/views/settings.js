@@ -281,8 +281,19 @@ export function exportJSON(){
 export function importJSON(ctx){
   const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json';
   inp.onchange=()=>{ const file=inp.files[0]; if(!file) return; const rd=new FileReader();
-    rd.onload=()=>{ try{ Store.importJSON(rd.result); toast('Workspace imported',{kind:'ok'}); ctx.go('home'); }
-      catch(e){ toast('Import failed',{body:e.message,kind:'err'}); } };
+    rd.onload=async()=>{
+      const text=rd.result;
+      let counts;
+      try{ counts=Store.previewImport(text); }
+      catch(e){ toast('Import failed',{body:e.message,kind:'err'}); return; }
+      const summary=`This file has ${counts.projects} project${counts.projects===1?'':'s'}, `
+        +`${counts.releases} release${counts.releases===1?'':'s'}, and ${counts.credentials} credential${counts.credentials===1?'':'s'}. `
+        +`Importing replaces everything in this browser's Manager workspace right now — export a backup first if you want to keep it.`;
+      const go=await confirmDialog('Import workspace', summary, {danger:true, okLabel:'Import & replace'});
+      if(!go) return;
+      try{ Store.importJSON(text); toast('Workspace imported',{kind:'ok'}); ctx.go('home'); }
+      catch(e){ toast('Import failed',{body:e.message,kind:'err'}); }
+    };
     rd.readAsText(file); };
   inp.click();
 }

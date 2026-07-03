@@ -524,13 +524,38 @@ export const Store = new (class {
 
   // ---- import / export / reset ------------------------------------------
   exportJSON(){ return JSON.stringify(this._db, null, 2); }
-  importJSON(text){
-    const parsed = JSON.parse(text);
-    if(!parsed || !parsed.projects) throw new Error('Not a Manager workspace');
+  // Parses + validates a workspace JSON blob without touching the live store —
+  // shared by previewImport() (a dry-run count for the confirm dialog) and
+  // importJSON() itself, so both agree on exactly what counts as a valid file.
+  _parseWorkspace(text){
+    let parsed;
+    try{ parsed = JSON.parse(text); }catch{ throw new Error('That file isn’t valid JSON.'); }
+    if(!parsed || typeof parsed!=='object' || Array.isArray(parsed) || !parsed.projects || typeof parsed.projects!=='object' || Array.isArray(parsed.projects)){
+      throw new Error('That file doesn’t look like a Manager workspace export.');
+    }
     parsed.settings = { ...DEFAULT_SETTINGS, ...(parsed.settings||{}) };
-    TABLES.forEach(t=>parsed[t]=parsed[t]||{});
-    this._db = parsed; this._save();
-    this.emit('change', {}); TABLES.forEach(t=>this.emit(t,{}));
+    TABLES.forEach(t=>parsed[t]=(parsed[t]&&typeof parsed[t]==='object'&&!Array.isArray(parsed[t]))?parsed[t]:{});
+    parsed.meta = parsed.meta||{};
+    return parsed;
+  }
+  // A dry-run row count per table, for showing the user what a file contains
+  // before they commit to replacing their current workspace with it.
+  previewImport(text){
+    const parsed = this._parseWorkspace(text);
+    const counts = {};
+    TABLES.forEach(t=>counts[t]=Object.keys(parsed[t]).length);
+    return counts;
+  }
+  // Replaces the entire live workspace with the parsed file. Also clears the
+  // undo history: an old op's `prev` snapshot belongs to the workspace that
+  // existed before the import, so replaying it afterward would splice stale
+  // rows from a different dataset back in — the same reason reset() below
+  // clears it.
+  importJSON(text){
+    this._db = this._parseWorkspace(text);
+    this._save();
+    this._history = []; this._saveHistory();
+    this.emit('change', {}); TABLES.forEach(t=>this.emit(t,{})); this.emit('history');
   }
   reset(){ localStorage.removeItem(LS_KEY); localStorage.removeItem(HIST_KEY); this._db=this._load(); this._history=[]; this.emit('change', {}); }
 })();

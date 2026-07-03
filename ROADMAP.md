@@ -14,15 +14,17 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Import/export the whole workspace as JSON; round-trip test in the suite.
+- [ ] Bulk **delete** in the projects library, behind a confirm — bulk actions
+      today cover tag/status/archive (see Done, 2026-07-03), all three easily
+      reversible via a status/tag change; delete removes rows outright and
+      deserves its own explicit "are you sure" even though it's still undoable.
 
 ## Next (discovered / queued)
 
-- [ ] Bulk actions currently cover tag/status/archive (see Done, 2026-07-03).
-      A natural next one: bulk **delete**, behind a confirm (unlike the other
-      three, which are all easily reversible via a status/tag change, delete
-      removes rows outright — worth its own explicit "are you sure" even
-      though it's still undoable).
+- [ ] A "merge" import mode alongside today's replace-everything import (see
+      Done, 2026-07-03) — add rows from the file that don't exist locally
+      instead of always wiping the current workspace, for combining a backup
+      from one browser into another rather than always overwriting.
 - [ ] Bulk "remove tag" (today's bulk tag action only adds) — for cleaning up
       a tag that was applied too broadly, or retiring one across the fleet.
 - [ ] Now that dismissal exists (see Done, 2026-07-03), consider whether the
@@ -69,6 +71,31 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Import/export the whole workspace as JSON, hardened + round-trip tested**
+      _(2026-07-03)_: `Store.exportJSON()`/`importJSON()` and their Settings →
+      Data buttons already shipped in v1, but nothing in the suite proved a
+      round trip actually worked, and the import button itself had two real
+      gaps: clicking it replaced your entire workspace with zero warning (the
+      adjacent "Reset workspace" button already had a confirm; import didn't),
+      and old undo-history entries survived an import even though their
+      snapshots belong to the *previous* dataset — clicking "Undo" right after
+      an import could splice stale rows from an unrelated workspace back in.
+      Both are fixed: a shared `Store._parseWorkspace()` now backs both a new
+      `previewImport(text)` (a dry-run row count per table, thrown as a clear
+      error for non-JSON or non-Manager files) and `importJSON()` itself, so
+      Settings' import flow reads the file, shows a confirm dialog previewing
+      "N projects, M releases, K credentials" before touching anything, and
+      only calls `importJSON()` if the user confirms; `importJSON()` now also
+      clears the undo-history stack, the same reasoning `reset()` already used
+      for the same field. Five new smoke checks cover: `exportJSON()` shape,
+      a full round trip (export → mutate → re-import → byte-identical
+      `exportJSON()` output, proving the mutation didn't survive), `previewImport`
+      being read-only and rejecting garbage JSON, the real file-picker → confirm
+      → Cancel path leaving the workspace untouched, and the real
+      file-picker → confirm → Import path replacing the data *and* clearing
+      `canUndo()` — the last two drive an actual native file chooser via
+      Playwright rather than calling `Store.importJSON()` directly, so the UI
+      wiring is proven end to end, not just the Store method.
 - [x] **Bulk actions in the library (tag, set status, archive) with undo**
       _(2026-07-03)_: every row in the projects library now has a checkbox
       (plus a header "select all" for every currently visible row), and

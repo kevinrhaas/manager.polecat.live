@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 23,
+    title: 'Safer workspace import',
+    kind: 'feature',
+    ts: '2026-07-03T14:56:36.506Z',
+    items: [
+      'Importing a JSON workspace (Settings → Data) now previews what\'s in the file — project, release, and credential counts — before you commit, and asks you to confirm since it replaces everything currently in this browser.',
+      'Importing also clears undo history, so "Undo" can never splice old, unrelated data back into a freshly imported workspace.',
+      'Garbage or non-Manager JSON is now rejected with a clear message instead of silently corrupting the workspace.',
+    ],
+  },
+  {
     v: 22,
     title: 'Bulk actions in the projects library',
     kind: 'feature',
