@@ -11,6 +11,7 @@ export const SECTIONS = [
   { group:'Fleet' },
   { key:'home',        label:'Dashboard',   icon:'home',     simple:true },
   { key:'projects',    label:'Projects',    icon:'grid',     simple:true },
+  { key:'releases',    label:'Releases',    icon:'sparkle',  simple:true },
   { key:'activity',    label:'Activity',    icon:'activity' },
   { group:'Setup' },
   { key:'credentials', label:'Credentials', icon:'key' },

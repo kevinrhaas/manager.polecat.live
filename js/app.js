@@ -8,6 +8,7 @@ import { icon } from './icons.js';
 import { renderHome } from './views/home.js';
 import { renderProjects, openProjectEditor } from './views/projects.js';
 import { renderProject } from './views/project.js';
+import { renderReleases } from './views/releases.js';
 import { renderActivity } from './views/activity.js';
 import { renderCredentials } from './views/credentials.js';
 import { renderDocs } from './views/docs.js';
@@ -18,9 +19,9 @@ import { buildNotifBell, refreshNotifBadge } from './views/notifications.js';
 import { startTour, MANAGER_TOUR } from './tour.js';
 import { runAutoSync } from './ingest.js';
 
-const TITLES = { home:'Dashboard', projects:'Projects', project:'Project', activity:'Activity',
+const TITLES = { home:'Dashboard', projects:'Projects', project:'Project', releases:'Releases', activity:'Activity',
   credentials:'Credentials', docs:'Docs', admin:'Admin', settings:'Settings' };
-const RENDERERS = { home:renderHome, projects:renderProjects, project:renderProject, activity:renderActivity,
+const RENDERERS = { home:renderHome, projects:renderProjects, project:renderProject, releases:renderReleases, activity:renderActivity,
   credentials:renderCredentials, docs:renderDocs, admin:renderAdmin, settings:renderSettings };
 
 let rail, view, topTitle, wnBtn, themeBtn, undoBtn;
@@ -196,7 +197,7 @@ function wireEvents(){
   Store.on('history', refreshUndo);
   // re-render when the data behind the current view changes
   const rerenderOn = { projects:['projects','releases','savedViews'], home:['projects','releases','runs','dismissals'],
-    project:['projects','releases'], activity:['runs'], credentials:['credentials'] };
+    project:['projects','releases'], releases:['releases','projects'], activity:['runs'], credentials:['credentials'] };
   Store.on('*', (evt)=>{ if((rerenderOn[currentSection]||[]).includes(evt)) render(); });
 
   window.addEventListener('hashchange',()=>{

@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 33,
+    title: 'Releases — a fleet-wide “what shipped” timeline',
+    kind: 'feature',
+    ts: '2026-07-03T21:46:14.058Z',
+    items: [
+      'A new Releases section in the rail: every project’s releases in one timeline, newest first, grouped by day in CT — the fastest way to see what improved across the whole suite recently.',
+      'Up top: summary stats (releases in the last 7 and 30 days, who shipped, the most recent release) and a per-project “who shipped” chip row for the current filter.',
+      'Filter by project, kind (feature/polish/fix), and time range (7/30/90 days), or search titles and details. Click any release to jump to that project.',
+    ],
+  },
+  {
     v: 32,
     title: 'User-defined saved views',
     kind: 'feature',

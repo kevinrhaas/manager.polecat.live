@@ -14,10 +14,22 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Nothing queued at the top of Now right now — pull the next item from
-      Next below (highest-value first) or from a fresh sweep of the app.
+- [ ] **Grow the Releases timeline** — the fleet-wide "what shipped" feed
+      (rail → Releases) just landed: a time-grouped, cross-project release feed
+      with summary stats and filters. Take it further, highest-value first:
+      a **"group by project" toggle** alongside the by-day grouping; a
+      **"since you last looked" unread marker** across the whole fleet (mirror
+      the per-app What's-new seen-version idea, but fleet-wide); a compact
+      **digest / density** option; **jump-to-date**; and an optional
+      **weekly rollup** ("this week across the suite: N releases, M projects").
+      Add smoke coverage for each and a Docs mention.
 
 ## Next (discovered / queued)
+
+- [ ] Releases feed: a **shareable / exportable digest** (copy-as-markdown or a
+      JSON/RSS export of the combined recent-releases feed) so a top-level
+      "what improved across the suite this week" can be pasted into a status
+      update or subscribed to.
 
 - [ ] The merge-review's new "also remove" opt-in (see Done, 2026-07-03) is
       per-merge, not per-table — if a file is a full export of `projects` but

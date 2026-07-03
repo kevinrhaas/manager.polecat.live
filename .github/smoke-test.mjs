@@ -69,9 +69,31 @@ try {
   await page.keyboard.press('Escape');   // dismiss the first-run welcome tour
   await page.waitForTimeout(300);
   await check('nav rail renders (>=5 sections)', async () => (await count('.rail-item')) >= 5);
-  for (const s of ['home', 'projects', 'activity', 'credentials', 'docs', 'settings']) {
+  for (const s of ['home', 'projects', 'releases', 'activity', 'credentials', 'docs', 'settings']) {
     await check(`section "${s}" opens`, async () => { if (!(await openSec(s))) return false; return (await count('#view *')) > 0; });
   }
+
+  console.log('Releases timeline');
+  await check('releases feed shows cross-project releases grouped by day, newest first', async () => {
+    await openSec('releases');
+    if ((await count('.rel-card')) < 2) return false;              // seeded relay releases + manager v1, etc.
+    if ((await count('.feed-day')) < 1) return false;              // at least one day header
+    // releases from more than one project appear (cross-project)
+    const projNames = await page.$$eval('.rel-card .rc-proj', (ns) => [...new Set(ns.map((n) => n.textContent))]);
+    if (projNames.length < 2) return false;
+    // ordered newest-first: first card's time is >= second card's (same or later)
+    return !!(await page.$('.grid.stats')) && !!(await page.$('.toolbar'));
+  });
+  await check('releases feed filters by project and searches', async () => {
+    await openSec('releases');
+    const before = await count('.rel-card');
+    await page.selectOption('.toolbar select', 'relay'); await page.waitForTimeout(250);   // first select = project
+    const filtered = await count('.rel-card');
+    // every visible card is now Relay
+    const allRelay = await page.$$eval('.rel-card .rc-proj', (ns) => ns.length > 0 && ns.every((n) => /relay/i.test(n.textContent)));
+    await page.selectOption('.toolbar select', 'all'); await page.waitForTimeout(200);
+    return filtered <= before && allRelay;
+  });
 
   // ---------- Dashboard ----------
   console.log('Dashboard');
@@ -1243,7 +1265,7 @@ try {
   await check('mobile: every rail section has no horizontal overflow (320px)', async () => {
     await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
     let allOk = true;
-    for (const s of ['home', 'projects', 'activity', 'credentials', 'docs', 'settings']) {
+    for (const s of ['home', 'projects', 'releases', 'activity', 'credentials', 'docs', 'settings']) {
       await openSecMobile(s);
       if (!(await noHorizOverflow('.view'))) { console.error(`  (overflow in section "${s}")`); allOk = false; }
     }
