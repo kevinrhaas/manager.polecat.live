@@ -61,6 +61,14 @@ export const AUTO_SYNC_FAIL_THRESHOLD = 2;
 // floor of 35, and the auto-sync fail threshold just above).
 export const DEFAULT_ATTENTION_THRESHOLDS = { healthMax: 35, autoSyncFails: AUTO_SYNC_FAIL_THRESHOLD };
 
+// Auto-sync failure backoff cap — a project whose auto-sync keeps failing is
+// retried less often each consecutive failure (doubling the wait), up to this
+// many times the normal interval. Defined here (not ingest.js, which owns the
+// doubling math itself) so it's tunable the same way as the thresholds above:
+// fleet-wide from Settings → Auto-sync, with a per-project override for a
+// source that's deliberately flakier or steadier than the fleet norm.
+export const DEFAULT_AUTO_SYNC_BACKOFF_CAP = 8;
+
 // Typed custom-field schema (`fieldDefs` table) — a project's free-form
 // `fields` map is keyed by a def's `key`, but the def gives it a real type so
 // it can render, filter, and sort correctly instead of always being text.
@@ -84,7 +92,7 @@ const DEFAULT_SETTINGS = {
   tourDone: false,
   wnTracked: { version:true, date:true, kind:true, items:true },
   wnSort: 'newest',
-  autoSync: { enabled:false, intervalHours:6 },
+  autoSync: { enabled:false, intervalHours:6, backoffCap: DEFAULT_AUTO_SYNC_BACKOFF_CAP },
   healthWeights: { ...DEFAULT_HEALTH_WEIGHTS },
   attentionThresholds: { ...DEFAULT_ATTENTION_THRESHOLDS },
 };
@@ -349,6 +357,34 @@ export const Store = new (class {
   setProjectAttentionThresholds(projectId, patch){
     const cur = this.projectAttentionThresholdsOverride(projectId);
     this.updateProject(projectId, { attentionThresholdsOverride:{ ...cur, ...patch } }, { silent:true });
+  }
+
+  // ---- auto-sync failure backoff cap (tunable, Settings → Auto-sync) -----
+  // How many times slower a repeatedly-failing project's auto-sync can be
+  // retried, at most (ingest.js does the doubling; this just caps it).
+  autoSyncBackoffCap(){ return this.settings().autoSync?.backoffCap ?? DEFAULT_AUTO_SYNC_BACKOFF_CAP; }
+  setAutoSyncBackoffCap(v){ this.setSetting('autoSync', { ...this.settings().autoSync, backoffCap:v }); }
+
+  // ---- per-project auto-sync backoff cap override -------------------------
+  // Same escape hatch as the two overrides above: a project on a source
+  // that's deliberately flakier (retry sooner, don't back off as hard) or
+  // steadier (back off harder, don't hammer it) than the fleet norm can dial
+  // in its own cap. Stored on the project row as `autoSyncBackoffCapOverride`;
+  // disabled (the default) means "use the live fleet-wide cap", and the
+  // dialed-in number persists even while disabled.
+  projectAutoSyncBackoffCapOverride(projectId){
+    const p = this.project(projectId);
+    return p?.autoSyncBackoffCapOverride || { enabled:false, backoffCap:DEFAULT_AUTO_SYNC_BACKOFF_CAP };
+  }
+  // The cap actually used for this project's backoff — its own override when
+  // enabled, else whatever the fleet is currently set to.
+  autoSyncBackoffCapFor(projectId){
+    const ov = this.projectAutoSyncBackoffCapOverride(projectId);
+    return ov.enabled ? (ov.backoffCap ?? DEFAULT_AUTO_SYNC_BACKOFF_CAP) : this.autoSyncBackoffCap();
+  }
+  setProjectAutoSyncBackoffCap(projectId, patch){
+    const cur = this.projectAutoSyncBackoffCapOverride(projectId);
+    this.updateProject(projectId, { autoSyncBackoffCapOverride:{ ...cur, ...patch } }, { silent:true });
   }
 
   // ---- fleet health (recency + release velocity + status), 0-100 --------

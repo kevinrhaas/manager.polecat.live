@@ -1,6 +1,6 @@
 // Settings — theme, Simple mode, welcome tour, what's-new preferences,
 // data (export/import/reset), and access.
-import { Store, FIELD_TYPES, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, healthBand } from '../store.js';
+import { Store, FIELD_TYPES, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, DEFAULT_AUTO_SYNC_BACKOFF_CAP, healthBand } from '../store.js';
 import { Access } from '../access.js';
 import { getThemePref, setTheme } from '../theme.js';
 import { el, escapeHtml, toast, modal, confirmDialog } from '../ui.js';
@@ -64,6 +64,21 @@ export function renderSettings(root, ctx){
   intervalSel.addEventListener('change',()=>Store.setSetting('autoSync', { ...Store.settings().autoSync, intervalMinutes:parseInt(intervalSel.value,10) }));
   intervalRow.append(intervalSel);
   auto.append(intervalRow);
+  const bRow=el('div',{class:'field', style:'margin:14px 0 0'});
+  const bHead=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
+  bHead.innerHTML=`<label style="margin:0">Failure backoff cap</label><span class="tiny muted mono" style="min-width:70px;text-align:right"></span>`;
+  const bVal=bHead.lastElementChild;
+  const renderBVal=(v)=>{ bVal.textContent=`${v}× max`; };
+  const bSlider=el('input',{type:'range', min:'1', max:'64', step:'1', value:String(Store.autoSyncBackoffCap()), class:'backoff-cap-slider'});
+  bSlider.addEventListener('input',()=>{ const v=parseInt(bSlider.value,10); renderBVal(v); Store.setAutoSyncBackoffCap(v); });
+  renderBVal(Store.autoSyncBackoffCap());
+  bRow.append(bHead, bSlider, el('span',{class:'tiny muted', text:'Each consecutive failure doubles a project’s retry wait; this caps how many times slower it can get.'}));
+  auto.append(bRow);
+  auto.append(el('button',{class:'btn sm', style:'margin-top:12px', html:`${icon('refresh')} Reset backoff cap`, onclick:()=>{
+    Store.setAutoSyncBackoffCap(DEFAULT_AUTO_SYNC_BACKOFF_CAP);
+    bSlider.value=String(DEFAULT_AUTO_SYNC_BACKOFF_CAP); renderBVal(DEFAULT_AUTO_SYNC_BACKOFF_CAP);
+    toast('Backoff cap reset to default',{kind:'ok'});
+  }}));
   const optedIn=Store.projects().filter(p=>p.autoSync);
   auto.append(el('div',{class:'tiny muted', style:'margin-top:4px', text: optedIn.length?`Opted in: ${optedIn.map(p=>p.name).join(', ')}.`:'No projects opted in yet.'}));
   const failing=optedIn.filter(p=>(p.autoSyncFailCount||0)>=Store.attentionThresholdsFor(p.id).autoSyncFails);

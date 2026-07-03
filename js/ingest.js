@@ -13,7 +13,7 @@
 // would allow it — so failures here are expected and handled gracefully by
 // the caller, which offers a paste-to-import fallback.
 
-import { Store, AUTO_SYNC_FAIL_THRESHOLD } from './store.js';
+import { Store, AUTO_SYNC_FAIL_THRESHOLD, DEFAULT_AUTO_SYNC_BACKOFF_CAP } from './store.js';
 export { AUTO_SYNC_FAIL_THRESHOLD };
 
 export function guessChangelogUrl(site){
@@ -130,14 +130,14 @@ export function autoSyncMinutes(cfg){
 
 // A project whose auto-sync keeps failing (CORS, 404, dead site) is retried
 // less often the more times in a row it fails — doubling the wait each
-// failure, capped at 8x the normal interval — instead of hammering an
-// unreachable source on every tick forever. Any success resets the streak
-// and normal cadence resumes immediately. Once a streak reaches this many
-// consecutive failures it's surfaced in the UI as "failing", not just retried.
-// (AUTO_SYNC_FAIL_THRESHOLD itself now lives in store.js — see there.)
-const AUTO_SYNC_BACKOFF_CAP = 8;
-export function autoSyncBackoffMultiplier(failCount){
-  return failCount > 0 ? Math.min(2 ** failCount, AUTO_SYNC_BACKOFF_CAP) : 1;
+// failure, capped at `cap` times the normal interval — instead of hammering
+// an unreachable source on every tick forever. Any success resets the streak
+// and normal cadence resumes immediately. Once a streak reaches
+// AUTO_SYNC_FAIL_THRESHOLD consecutive failures it's surfaced in the UI as
+// "failing", not just retried. (Both AUTO_SYNC_FAIL_THRESHOLD and the cap's
+// tunable fleet default now live in store.js — see there.)
+export function autoSyncBackoffMultiplier(failCount, cap = DEFAULT_AUTO_SYNC_BACKOFF_CAP){
+  return failCount > 0 ? Math.min(2 ** failCount, cap) : 1;
 }
 
 // Sync one project and record the outcome onto its fail streak — resets
@@ -166,7 +166,7 @@ export async function runAutoSync(){
   const dueMs = autoSyncMinutes(cfg) * 60000;
   const due = Store.projects().filter(p => {
     if(!p.autoSync || !(p.site || p.changelogUrl)) return false;
-    const wait = dueMs * autoSyncBackoffMultiplier(p.autoSyncFailCount||0);
+    const wait = dueMs * autoSyncBackoffMultiplier(p.autoSyncFailCount||0, Store.autoSyncBackoffCapFor(p.id));
     return (Date.now() - (p.lastAutoSyncAt || 0)) >= wait;
   });
   if(!due.length) return null;

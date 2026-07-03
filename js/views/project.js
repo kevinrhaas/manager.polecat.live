@@ -1,5 +1,5 @@
 // Project detail — the full what's-new timeline + health panel + links.
-import { Store, STATUSES, healthBand, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS } from '../store.js';
+import { Store, STATUSES, healthBand, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, DEFAULT_AUTO_SYNC_BACKOFF_CAP } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
@@ -91,6 +91,7 @@ export function renderProject(root, ctx, params){
   velRow.append(el('span',{class:'v', title:'Releases per week, oldest to newest', html:sparkline(Store.releaseVelocity(p.id), {width:100, height:24, color:band.color})}));
   health.append(velRow);
   health.append(autoSyncRow(p, ctx));
+  health.append(backoffRow(p, ctx));
   side.append(health);
 
   // custom metadata — typed per the fleet's field schema, plus any legacy
@@ -122,14 +123,14 @@ function formatFieldValue(d, val){
 // -------------------------------------------------------------------------
 // Per-project "override the fleet default" plumbing — shared by every knob
 // that's normally fleet-wide (Settings) but can be dialed in per-project for
-// a deliberately different cadence: health weighting and needs-attention
-// thresholds today, and whatever's next (e.g. auto-sync backoff — see
-// ROADMAP). Each is a project-row toggle + N drag sliders that fall back to
-// the live fleet default when off, with the dialed-in numbers persisting
-// even while disabled so re-enabling restores them instead of resetting.
-// A `cfg` describes one override: how to read/write it on the project row,
-// its fleet defaults, and the sliders that edit it — see
-// HEALTH_WEIGHTING_OVERRIDE / ATTENTION_THRESHOLDS_OVERRIDE below.
+// a deliberately different cadence: health weighting, needs-attention
+// thresholds, and the auto-sync backoff cap. Each is a project-row toggle +
+// N drag sliders that fall back to the live fleet default when off, with the
+// dialed-in numbers persisting even while disabled so re-enabling restores
+// them instead of resetting. A `cfg` describes one override: how to
+// read/write it on the project row, its fleet defaults, and the sliders that
+// edit it — see HEALTH_WEIGHTING_OVERRIDE / ATTENTION_THRESHOLDS_OVERRIDE /
+// AUTO_SYNC_BACKOFF_OVERRIDE below.
 // -------------------------------------------------------------------------
 function overrideRow(p, ctx, cfg){
   const ov=cfg.getOverride(p.id);
@@ -234,8 +235,26 @@ const ATTENTION_THRESHOLDS_OVERRIDE={
   ],
 };
 
+const AUTO_SYNC_BACKOFF_OVERRIDE={
+  rowLabel:'Backoff cap',
+  summaryTitle:'Custom auto-sync failure backoff cap for this project only',
+  summary:t=>`${t.backoffCap}× max`,
+  getOverride:id=>Store.projectAutoSyncBackoffCapOverride(id),
+  getEffective:id=>({ backoffCap:Store.autoSyncBackoffCapFor(id) }),
+  setOverride:(id,patch)=>Store.setProjectAutoSyncBackoffCap(id,patch),
+  defaults:{ backoffCap:DEFAULT_AUTO_SYNC_BACKOFF_CAP },
+  toggleLabel:'Override fleet backoff cap',
+  description:p=>`${p.name}’s auto-sync retry backoff uses the fleet-wide cap from Settings by default — each consecutive failure doubles the wait, up to this many times the normal interval. Turn this on to dial in a different ceiling just for this project, e.g. a flakier source you'd rather retry sooner, or a fragile one you'd rather back off harder on.`,
+  modalTitle:'Auto-sync backoff cap', modalIcon:'refresh', sliderClass:'proj-backoff-slider',
+  resetToast:'Backoff cap reset to fleet default',
+  fields:[
+    { key:'backoffCap', label:'Backoff cap', desc:'How many times slower a repeatedly-failing sync is retried, at most.', min:1, max:64, valueWidth:'70px', format:v=>`${v}× max` },
+  ],
+};
+
 function weightingRow(p, ctx){ return overrideRow(p, ctx, HEALTH_WEIGHTING_OVERRIDE); }
 function attentionRow(p, ctx){ return overrideRow(p, ctx, ATTENTION_THRESHOLDS_OVERRIDE); }
+function backoffRow(p, ctx){ return overrideRow(p, ctx, AUTO_SYNC_BACKOFF_OVERRIDE); }
 
 // Per-project opt-in for the quiet, on-a-cadence auto-sync (also needs the
 // global switch in Settings → Auto-sync). Toggling here never fires a fetch

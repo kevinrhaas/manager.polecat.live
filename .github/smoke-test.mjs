@@ -196,6 +196,29 @@ try {
       && afterReset.healthMax === 35 && afterReset.autoSyncFails === 2
       && disabledMatchesFleet && /Fleet default/.test(rowAfter);
   });
+  await check('project health panel: per-project auto-sync backoff cap override is isolated to that project and resettable', async () => {
+    await openSec('projects');
+    await page.evaluate(() => { location.hash = 'project/polecat'; });
+    await page.waitForTimeout(400);
+    const rowBefore = await page.$eval('.row:has-text("Backoff cap") .v', (e) => e.textContent).catch(() => '');
+    const otherBefore = await store(`(S)=>S.autoSyncBackoffCapFor('games')`);
+    await page.click('.row:has-text("Backoff cap") button:has-text("Customize")'); await page.waitForTimeout(300);
+    await page.click('.modal .opt-row .toggle'); await page.waitForTimeout(150);
+    await page.$eval('.proj-backoff-slider[data-key="backoffCap"]', (s) => { s.value = '32'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(150);
+    const overridden = await store(`(S)=>S.autoSyncBackoffCapFor('polecat')`);
+    const otherAfter = await store(`(S)=>S.autoSyncBackoffCapFor('games')`);
+    await page.click('.modal button:has-text("Reset to fleet default")'); await page.waitForTimeout(150);
+    const afterReset = await store(`(S)=>S.autoSyncBackoffCapFor('polecat')`);
+    await page.click('.modal .opt-row .toggle'); await page.waitForTimeout(150); // back off — should now mirror the fleet
+    const disabledMatchesFleet = await store(`(S)=>S.autoSyncBackoffCap()===S.autoSyncBackoffCapFor('polecat')`);
+    await page.click('.modal button:has-text("Done")'); await page.waitForTimeout(300);
+    const rowAfter = await page.$eval('.row:has-text("Backoff cap") .v', (e) => e.textContent).catch(() => '');
+    return /Fleet default/.test(rowBefore) && overridden === 32
+      && otherAfter === otherBefore
+      && afterReset === 8
+      && disabledMatchesFleet && /Fleet default/.test(rowAfter);
+  });
 
   // ---------- Live changelog sync ----------
   console.log('Changelog sync');
@@ -339,7 +362,7 @@ try {
   await check('auto-sync backoff multiplier grows with consecutive failures, capped at 8x', async () => {
     const mults = await page.evaluate(async () => {
       const { autoSyncBackoffMultiplier } = await import('/js/ingest.js');
-      return [0, 1, 2, 3, 4, 5].map(autoSyncBackoffMultiplier);
+      return [0, 1, 2, 3, 4, 5].map((n) => autoSyncBackoffMultiplier(n));
     });
     return mults[0] === 1 && mults[1] === 2 && mults[2] === 4 && mults[3] === 8 && mults[4] === 8 && mults[5] === 8;
   });
@@ -610,6 +633,21 @@ try {
     const restored = await store(`(S)=>({...S.attentionThresholds()})`);
     return maxed === totalProjects && savedHealthMax === 100 && minned === 0
       && restored.healthMax === 35 && restored.autoSyncFails === 2 && before === (await store(`(S)=>S.needsAttention().length`));
+  });
+  await check('settings: auto-sync backoff cap slider persists and drives the retry multiplier, reset restores the shipped default', async () => {
+    await openSec('settings');
+    await page.$eval('.backoff-cap-slider', (s) => { s.value = '4'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(150);
+    const saved = await store(`(S)=>S.autoSyncBackoffCap()`);
+    const multAtCap = await page.evaluate(async () => {
+      const { autoSyncBackoffMultiplier } = await import('/js/ingest.js');
+      const { Store } = await import('/js/store.js');
+      return autoSyncBackoffMultiplier(5, Store.autoSyncBackoffCap());
+    });
+    await page.click('.card:has-text("Auto-sync") button:has-text("Reset backoff cap")');
+    await page.waitForTimeout(150);
+    const restored = await store(`(S)=>S.autoSyncBackoffCap()`);
+    return saved === 4 && multAtCap === 4 && restored === 8;
   });
   await check('welcome tour starts and can finish', async () => {
     await openSec('settings');

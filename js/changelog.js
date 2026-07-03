@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 20,
+    title: 'Tunable auto-sync backoff cap',
+    kind: 'feature',
+    ts: '2026-07-03T12:05:40.667Z',
+    items: [
+      'A failing project\'s auto-sync retries less often the longer it stays broken — doubling the wait each failure — but how high that backoff could climb was a fixed 8x. Settings → Auto-sync now has a "Failure backoff cap" slider (1–64x) with a one-click reset.',
+      'A project\'s health panel gets a matching "Backoff cap" row next to Weighting and Attention, for a source that should back off harder (or retry sooner) than the fleet norm — same "Customize" pattern, non-destructive toggle.',
+    ],
+  },
+  {
     v: 19,
     title: 'Per-project "needs attention" threshold override',
     kind: 'feature',

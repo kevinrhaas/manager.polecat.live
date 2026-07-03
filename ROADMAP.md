@@ -14,14 +14,7 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Make the auto-sync backoff cap (currently a fixed constant,
-      `AUTO_SYNC_BACKOFF_CAP` in `js/ingest.js`) tunable from Settings →
-      Auto-sync, same spirit as the fail threshold shipped 2026-07-03 — the
-      fail threshold that decides *when* a project counts as "failing" is
-      tunable, but how much its retry cadence backs off while it stays that
-      way still isn't. With the shared per-project override plumbing now
-      factored out (see Done, 2026-07-03), a per-project backoff-cap override
-      would be a ~20-line `cfg` object away if it's wanted too.
+- [ ] Bulk actions in the library (tag, set status, archive) with undo.
 
 ## Next (discovered / queued)
 
@@ -41,7 +34,6 @@ with new, ambitious, fun ideas.
       (`.modal-head`, `.sheet-head`, `.notif-pop-head`) were skipped because
       their titles are short static strings today — if any of those ever grow
       a dynamic, potentially-long title, re-check them at 320px too.
-- [ ] Bulk actions in the library (tag, set status, archive) with undo.
 - [ ] Import/export the whole workspace as JSON; round-trip test in the suite.
 - [ ] Per-project "notes" markdown scratchpad with autosave + history.
 - [ ] Keyboard-first navigation everywhere; focus rings audited.
@@ -71,6 +63,35 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Tunable auto-sync backoff cap** _(2026-07-03)_: the multiplier a
+      repeatedly-failing project's auto-sync backs off to — doubling the wait
+      each consecutive failure — was a fixed constant (`AUTO_SYNC_BACKOFF_CAP`
+      in `js/ingest.js`, capped at 8x), even though the fail *threshold* that
+      decides when a project counts as "failing" in the first place had
+      already been made tunable. `Store.autoSyncBackoffCap()` /
+      `setAutoSyncBackoffCap()` join `healthWeights()`/`attentionThresholds()`
+      as the tunable-settings pattern, exposed as a new "Failure backoff cap"
+      slider (1–64x) in Settings → Auto-sync with a one-click reset;
+      `runAutoSync()` now passes the live cap into
+      `autoSyncBackoffMultiplier(failCount, cap)` instead of reading a
+      hardcoded constant. A project's health panel gets a third override row,
+      "Backoff cap", right alongside Weighting and Attention — built from the
+      exact same shared `cfg`-object + `overrideRow()`/`openOverrideModal()`
+      plumbing factored out last cadence, so this one was a ~20-line
+      `AUTO_SYNC_BACKOFF_OVERRIDE` object rather than a third hand-copy of the
+      pattern, confirming that refactor's payoff. Same non-destructive shape
+      as the other two overrides: disabled (the default) means "use the live
+      fleet-wide cap," and the dialed-in number persists even while disabled.
+      New smoke checks cover both layers — the fleet-wide slider persisting
+      and actually changing `autoSyncBackoffMultiplier`'s output, and the
+      per-project override end to end (enable, crank to 32x, confirm a
+      *different* project's effective cap is untouched, reset, disable,
+      confirm parity with the live fleet default) — plus a fix to the
+      pre-existing backoff-multiplier check, which turned out to rely on
+      `Array.prototype.map` silently discarding its own `(index, array)`
+      arguments; adding the new `cap` parameter meant `map` started feeding
+      the array index in as `cap`, a latent footgun the old single-argument
+      signature had been masking.
 - [x] **Factor the shared per-project override plumbing into one helper**
       _(2026-07-03)_: the health-weighting override and the "needs attention"
       threshold override (both shipped earlier this cadence) had grown into
