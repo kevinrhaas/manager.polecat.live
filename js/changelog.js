@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 28,
+    title: 'Status updates itself from sync',
+    kind: 'feature',
+    ts: '2026-07-03T18:22:06.097Z',
+    items: [
+      'A project’s status now tracks its real activity every time it syncs: shipped in the last ~45 days → Live (or Active if it has no live site), gone quiet for 6+ months → Paused. In-between is left alone.',
+      'Guardrails: it never overrides Archived, and each project has a Lock toggle (health panel) to pin its status so sync leaves it be. An Idea does promote once it has real releases.',
+      'Turn the whole thing off in Settings → Status automation to keep statuses fully manual.',
+    ],
+  },
+  {
     v: 27,
     title: 'Status pills now explain themselves',
     kind: 'polish',

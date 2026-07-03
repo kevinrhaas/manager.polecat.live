@@ -107,6 +107,10 @@ const DEFAULT_SETTINGS = {
   wnTracked: { version:true, date:true, kind:true, items:true },
   wnSort: 'newest',
   autoSync: { enabled:false, intervalHours:6, backoffCap: DEFAULT_AUTO_SYNC_BACKOFF_CAP },
+  // Derive a project's status from its release activity every time it syncs.
+  // liveDays: newest release this recent → Live (has site) / Active (no site).
+  // staleDays: newest release older than this → Paused. In-between = unchanged.
+  autoStatus: { enabled:true, liveDays:45, staleDays:180 },
   healthWeights: { ...DEFAULT_HEALTH_WEIGHTS },
   attentionThresholds: { ...DEFAULT_ATTENTION_THRESHOLDS },
 };
@@ -275,7 +279,8 @@ export const Store = new (class {
     const slug = data.slug || slugify(data.name||'project');
     const row = { id:slug, slug, status:'idea', tags:[], icon:'grid', pinned:false, fields:{},
       name:'', repo:'', site:'', sessionUrl:'', description:'', assessment:'', cadence:'',
-      autoSync:false, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:'', ...data };
+      autoSync:false, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:'',
+      statusLocked:false, statusAuto:false, ...data };
     row.id = row.slug = data.slug || slugify(row.name||slug);
     return this.put('projects', row, { label:'Add project' });
   }
@@ -339,8 +344,38 @@ export const Store = new (class {
         added++;
       }
     });
-    this.updateProject(projectId, { changelogUrl:sourceUrl, lastSyncAt:Date.now() }, { silent:true });
-    return { added, updated };
+    return this._finishSync(projectId, sourceUrl, { added, updated });
+  }
+
+  // Derive a status from release activity after a sync. Returns the new status
+  // (or null to leave it). Skips projects the user has Locked, and the
+  // "declared" states Idea/Archived — those are never auto-changed.
+  deriveSyncStatus(projectId){
+    const cfg = this.settings().autoStatus;
+    if(!cfg || cfg.enabled===false) return null;
+    const p = this.project(projectId);
+    if(!p || p.statusLocked) return null;
+    if(p.status==='archived') return null;   // retired on purpose — never auto-revive; Idea DOES promote on real releases
+    const r = this.latestRelease(projectId);
+    if(!r || !r.ts) return null;
+    const ageDays = (Date.now() - +new Date(r.ts)) / 86400000;
+    const liveDays = cfg.liveDays ?? 45;
+    const staleDays = cfg.staleDays ?? 180;
+    let to = null;
+    if(ageDays <= liveDays) to = p.site ? 'live' : 'active';
+    else if(ageDays > staleDays) to = 'paused';
+    else return null;                        // in-between window: leave as-is
+    return to !== p.status ? to : null;
+  }
+  // Shared tail for both sync paths: stamp the source + time, and apply
+  // auto-status (returning what changed so the caller can surface it).
+  _finishSync(projectId, sourceUrl, result){
+    const patch = { changelogUrl:sourceUrl, lastSyncAt:Date.now() };
+    const to = this.deriveSyncStatus(projectId);
+    let statusChange = null;
+    if(to){ statusChange = { from:this.project(projectId).status, to }; patch.status = to; patch.statusAuto = true; patch.statusAutoAt = Date.now(); }
+    this.updateProject(projectId, patch, { silent:true });
+    return { ...result, statusChange };
   }
   // Force sync: a full reconcile, not just additive. Every version the source
   // publishes is written verbatim (even if a synced row was edited locally
@@ -365,8 +400,7 @@ export const Store = new (class {
     existing.forEach((r,v)=>{
       if(r.source==='sync' && !upstreamVs.has(v)){ this.remove('releases', r.id, { silent:true }); removed++; }
     });
-    this.updateProject(projectId, { changelogUrl:sourceUrl, lastSyncAt:Date.now() }, { silent:true });
-    return { added, updated, removed };
+    return this._finishSync(projectId, sourceUrl, { added, updated, removed });
   }
   // The "last updated" signal for a project = its newest release, else its own updatedAt.
   lastActivity(projectId){

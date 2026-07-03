@@ -85,7 +85,7 @@ export function renderProject(root, ctx, params){
     ['Changelog sync', p.lastSyncAt?`Synced ${escapeHtml(fmtCT(p.lastSyncAt))}`:'<span class="muted">Not connected</span>'],
   ];
   health.innerHTML=`<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Health</h2></div>`;
-  rows.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${k}</span><span class="v">${v}</span>`; health.append(r); if(k==='Health score'){ health.append(weightingRow(p, ctx)); health.append(attentionRow(p, ctx)); } });
+  rows.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${k}</span><span class="v">${v}</span>`; health.append(r); if(k==='Status'){ health.append(statusSourceRow(p, ctx)); } if(k==='Health score'){ health.append(weightingRow(p, ctx)); health.append(attentionRow(p, ctx)); } });
   const velRow=el('div',{class:'row'});
   velRow.innerHTML=`<span class="k">Velocity · 10w</span>`;
   velRow.append(el('span',{class:'v', title:'Releases per week, oldest to newest', html:sparkline(Store.releaseVelocity(p.id), {width:100, height:24, color:band.color})}));
@@ -110,6 +110,21 @@ export function renderProject(root, ctx, params){
   grid.append(side);
   wrap.append(grid);
   root.append(wrap);
+}
+
+// Status source + a Lock toggle. Sync derives status from release activity;
+// locking a project pins its status so sync leaves it alone.
+function statusSourceRow(p, ctx){
+  const locked = !!p.statusLocked;
+  const r=el('div',{class:'row'});
+  r.innerHTML=`<span class="k">Status source</span>`;
+  const v=el('span',{class:'v', style:'display:inline-flex;align-items:center;gap:8px;font-weight:400'});
+  v.append(el('span',{class:'tiny muted', text: locked ? 'Locked — you set it' : (p.statusAuto ? 'Auto — from sync' : 'Manual') }));
+  v.append(el('button',{class:'toggle'+(locked?' on':''), role:'switch', 'aria-checked':String(locked), 'aria-label':'Lock status against auto-updates from sync',
+    title: locked ? 'Unlock — let sync update this status' : 'Lock — keep this status fixed when syncing',
+    onclick:()=>{ Store.updateProject(p.id, { statusLocked:!locked }, { silent:true }); toast(locked?'Status unlocked — sync can update it':'Status locked',{kind:'ok'}); ctx.go('project',{id:p.id}); }}));
+  r.append(v);
+  return r;
 }
 
 function formatFieldValue(d, val){

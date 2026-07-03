@@ -365,6 +365,19 @@ try {
 
   // ---------- Live changelog sync ----------
   console.log('Changelog sync');
+  await check('sync auto-updates status from activity (and Lock protects it)', async () => {
+    // a project with a site + a fresh release should land on Live after syncing
+    await store(`(S)=>S.updateProject('games',{status:'idea',statusLocked:false,statusAuto:false},{silent:true})`);
+    await store(`(S)=>S.syncReleases('games',[{v:998,title:'probe',kind:'feature',ts:new Date().toISOString(),items:['x']}],'probe://x')`);
+    const promoted = await store(`(S)=>S.project('games').status`);
+    // a Locked project is left exactly as the user set it
+    await store(`(S)=>S.updateProject('games',{status:'paused',statusLocked:true},{silent:true})`);
+    await store(`(S)=>S.syncReleases('games',[{v:997,title:'probe2',kind:'feature',ts:new Date().toISOString(),items:['y']}],'probe://y')`);
+    const lockedKept = await store(`(S)=>S.project('games').status`);
+    // cleanup: drop probe releases + restore games to Live/unlocked
+    await store(`(S)=>{[998,997].forEach(v=>{const r=S.releasesFor('games').find(x=>x.v===v); if(r) S.remove('releases', r.id, {silent:true});}); S.updateProject('games',{status:'live',statusLocked:false,statusAuto:false},{silent:true});}`);
+    return promoted === 'live' && lockedKept === 'paused';
+  });
   await check('sync fetches, previews, and imports a real changelog', async () => {
     await openSec('projects');   // ensure the section actually changes so the hash nav below fires
     await page.evaluate(() => { location.hash = 'project/games'; });
@@ -437,7 +450,7 @@ try {
     await page.evaluate(() => { location.hash = 'project/games'; });
     await page.waitForTimeout(400);
     const before = await store(`(S)=>!!S.project('games').autoSync`);
-    await page.click('.health .toggle'); await page.waitForTimeout(200);
+    await page.click('.health .toggle[aria-label*="Auto-sync"]'); await page.waitForTimeout(200);
     const after = await store(`(S)=>!!S.project('games').autoSync`);
     await store(`(S)=>{const p=S.project('games'); S.put('projects', {...p, autoSync:false}, {silent:true});}`);
     return before !== after;

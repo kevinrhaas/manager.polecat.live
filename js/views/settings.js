@@ -88,6 +88,16 @@ export function renderSettings(root, ctx){
   }
   wrap.append(auto);
 
+  // ---- Status automation (derive a project's status from its sync activity) ----
+  const asCfg = Store.settings().autoStatus || { enabled:true };
+  const stat=card('Status automation', 'compass');
+  stat.append(el('p',{class:'muted tiny', style:'margin:0 0 6px', text:'When a project syncs, set its status from its release activity: shipped recently → Live (or Active if it has no live site), gone quiet for months → Paused. It never touches Archived or any project you’ve Locked on its health panel (an Idea does promote once it has real releases).'}));
+  stat.append(toggleRow('Update status on sync', 'Applies to manual Sync, Force sync, Sync all, and Auto-sync.', asCfg.enabled!==false, (on)=>{
+    Store.setSetting('autoStatus', { ...Store.settings().autoStatus, enabled:on });
+    toast(on?'Status will update on sync':'Status is now manual only', {kind:'ok'});
+  }));
+  wrap.append(stat);
+
   // ---- Fleet health weighting ----
   const health=card('Fleet health weighting', 'gauge');
   health.append(el('p',{class:'muted tiny', style:'margin:0 0 10px', text:'Every project’s health score (0-100) blends three signals — how recently it shipped, how fast it’s shipping, and its status. Drag to change how much each one counts; they’re relative, so they always add up to 100 no matter what you set them to.'}));
