@@ -1,11 +1,10 @@
 // Settings — theme, Simple mode, welcome tour, what's-new preferences,
 // data (export/import/reset), and access.
-import { Store, FIELD_TYPES, DEFAULT_HEALTH_WEIGHTS } from '../store.js';
+import { Store, FIELD_TYPES, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, healthBand } from '../store.js';
 import { Access } from '../access.js';
 import { getThemePref, setTheme } from '../theme.js';
 import { el, escapeHtml, toast, modal, confirmDialog } from '../ui.js';
 import { icon } from '../icons.js';
-import { AUTO_SYNC_FAIL_THRESHOLD } from '../ingest.js';
 
 export function renderSettings(root, ctx){
   root.innerHTML='';
@@ -67,7 +66,7 @@ export function renderSettings(root, ctx){
   auto.append(intervalRow);
   const optedIn=Store.projects().filter(p=>p.autoSync);
   auto.append(el('div',{class:'tiny muted', style:'margin-top:4px', text: optedIn.length?`Opted in: ${optedIn.map(p=>p.name).join(', ')}.`:'No projects opted in yet.'}));
-  const failing=optedIn.filter(p=>(p.autoSyncFailCount||0)>=AUTO_SYNC_FAIL_THRESHOLD);
+  const failing=optedIn.filter(p=>(p.autoSyncFailCount||0)>=Store.attentionThresholds().autoSyncFails);
   if(failing.length){
     auto.append(el('div',{class:'tiny', style:'margin-top:6px;color:var(--danger)',
       html:`${icon('warning','warn-ic')} ${failing.length} failing: ${failing.map(p=>escapeHtml(p.name)).join(', ')} — see each project’s health panel.`}));
@@ -103,6 +102,47 @@ export function renderSettings(root, ctx){
     renderPcts(); toast('Health weighting reset',{kind:'ok'});
   }}));
   wrap.append(health);
+
+  // ---- Needs-attention thresholds ----
+  const attn=card('Needs attention', 'warning');
+  attn.append(el('p',{class:'muted tiny', style:'margin:0 0 10px', text:'The bell, the Dashboard rail badge, and the “Needs attention” callout all flag a project once its health score sinks low enough, or its auto-sync fails too many times in a row. Tune how sensitive that is — a smaller fleet you watch closely might want an earlier warning; a big one might want to only hear about real trouble.'}));
+  const at=Store.attentionThresholds();
+  const attnCountEl=el('span',{class:'tiny muted mono'});
+  const renderAttnCount=()=>{ attnCountEl.textContent=`${Store.needsAttention().length} of ${Store.projects().length} project${Store.projects().length===1?'':'s'} flagged right now`; };
+
+  const hRow=el('div',{class:'field', style:'margin:0'});
+  const hHead=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
+  hHead.innerHTML=`<label style="margin:0">Health score</label><span class="tiny muted mono" style="min-width:120px;text-align:right"></span>`;
+  const hVal=hHead.lastElementChild;
+  const renderHVal=(v)=>{ const b=healthBand(Math.max(0,v-1)); hVal.textContent=`below ${v} (${b.label})`; };
+  const hSlider=el('input',{type:'range', min:'1', max:'100', step:'1', value:String(at.healthMax), class:'attn-slider', 'data-attn':'health'});
+  hSlider.addEventListener('input',()=>{ const v=parseInt(hSlider.value,10); renderHVal(v); Store.setAttentionThresholds({ healthMax:v }); renderAttnCount(); });
+  renderHVal(at.healthMax);
+  hRow.append(hHead, hSlider, el('span',{class:'tiny muted', text:'Flag a project once its health score falls below this line.'}));
+  attn.append(hRow);
+
+  const sRow=el('div',{class:'field', style:'margin:14px 0 0'});
+  const sHead=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
+  sHead.innerHTML=`<label style="margin:0">Auto-sync failures</label><span class="tiny muted mono" style="min-width:70px;text-align:right"></span>`;
+  const sVal=sHead.lastElementChild;
+  const renderSVal=(v)=>{ sVal.textContent=`×${v} in a row`; };
+  const sSlider=el('input',{type:'range', min:'1', max:'10', step:'1', value:String(at.autoSyncFails), class:'attn-slider', 'data-attn':'sync'});
+  sSlider.addEventListener('input',()=>{ const v=parseInt(sSlider.value,10); renderSVal(v); Store.setAttentionThresholds({ autoSyncFails:v }); renderAttnCount(); });
+  renderSVal(at.autoSyncFails);
+  sRow.append(sHead, sSlider, el('span',{class:'tiny muted', text:'Flag an opted-in project once its auto-sync has failed this many times in a row.'}));
+  attn.append(sRow);
+
+  const attnFoot=el('div',{style:'display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px'});
+  attnFoot.append(el('button',{class:'btn sm', html:`${icon('refresh')} Reset to default`, onclick:()=>{
+    Store.setSetting('attentionThresholds', { ...DEFAULT_ATTENTION_THRESHOLDS });
+    hSlider.value=String(DEFAULT_ATTENTION_THRESHOLDS.healthMax); renderHVal(DEFAULT_ATTENTION_THRESHOLDS.healthMax);
+    sSlider.value=String(DEFAULT_ATTENTION_THRESHOLDS.autoSyncFails); renderSVal(DEFAULT_ATTENTION_THRESHOLDS.autoSyncFails);
+    renderAttnCount(); toast('Needs-attention thresholds reset',{kind:'ok'});
+  }}));
+  attnFoot.append(attnCountEl);
+  attn.append(attnFoot);
+  renderAttnCount();
+  wrap.append(attn);
 
   // ---- Custom fields (typed project-metadata schema) ----
   const fields=card('Custom fields', 'sliders');

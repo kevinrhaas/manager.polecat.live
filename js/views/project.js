@@ -3,7 +3,7 @@ import { Store, STATUSES, healthBand } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
-import { fetchChangelog, parseChangelogSource, guessChangelogUrl, forceSyncProject, attemptAutoSync, AUTO_SYNC_FAIL_THRESHOLD } from '../ingest.js';
+import { fetchChangelog, parseChangelogSource, guessChangelogUrl, forceSyncProject, attemptAutoSync } from '../ingest.js';
 
 export function renderProject(root, ctx, params){
   const p = Store.project(params?.id);
@@ -123,14 +123,15 @@ function formatFieldValue(d, val){
 // global switch in Settings → Auto-sync). Toggling here never fires a fetch
 // itself — it just marks the project eligible for the next scheduled pass.
 // A source that keeps failing (dead site, CORS, 404) surfaces here instead of
-// silently retrying forever in the background — see AUTO_SYNC_FAIL_THRESHOLD
-// and the backoff in ingest.js.
+// silently retrying forever in the background — see the tunable
+// autoSyncFails threshold (Store.attentionThresholds(), Settings → Needs
+// attention) and the backoff in ingest.js.
 function autoSyncRow(p, ctx){
   const r=el('div',{class:'row'});
   r.innerHTML=`<span class="k">Auto-sync</span>`;
   const v=el('span',{class:'v', style:'display:inline-flex;align-items:center;gap:8px;font-weight:400'});
   const failCount=p.autoSyncFailCount||0;
-  const failing = p.autoSync && failCount>=AUTO_SYNC_FAIL_THRESHOLD;
+  const failing = p.autoSync && failCount>=Store.attentionThresholds().autoSyncFails;
   if(failing){
     v.append(el('span',{class:'fail-chip', title:`${p.autoSyncLastError||'Sync failed'} — last attempt ${fmtCT(p.lastAutoSyncAt)}. Retrying less often the longer it fails.`,
       html:`${icon('warning')} Failing ×${failCount}`}));

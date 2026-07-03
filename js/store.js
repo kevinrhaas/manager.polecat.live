@@ -53,6 +53,14 @@ export function healthBand(score){ return HEALTH_BANDS.find(b=>score>=b.min) || 
 // re-exports it for backward-compatible imports.
 export const AUTO_SYNC_FAIL_THRESHOLD = 2;
 
+// "Needs attention" thresholds — the two cutoffs behind Store.needsAttention():
+// how low a health score has to sink, and how many auto-sync failures in a
+// row, before a project is flagged. Tunable from Settings → "Needs attention"
+// (same spirit as DEFAULT_HEALTH_WEIGHTS above); ship defaults reproduce the
+// original fixed behavior exactly (Slowing/Stale = below the Steady band's
+// floor of 35, and the auto-sync fail threshold just above).
+export const DEFAULT_ATTENTION_THRESHOLDS = { healthMax: 35, autoSyncFails: AUTO_SYNC_FAIL_THRESHOLD };
+
 // Typed custom-field schema (`fieldDefs` table) — a project's free-form
 // `fields` map is keyed by a def's `key`, but the def gives it a real type so
 // it can render, filter, and sort correctly instead of always being text.
@@ -78,6 +86,7 @@ const DEFAULT_SETTINGS = {
   wnSort: 'newest',
   autoSync: { enabled:false, intervalHours:6 },
   healthWeights: { ...DEFAULT_HEALTH_WEIGHTS },
+  attentionThresholds: { ...DEFAULT_ATTENTION_THRESHOLDS },
 };
 
 // ---- reactive core -------------------------------------------------------
@@ -278,6 +287,10 @@ export const Store = new (class {
   }
   setHealthWeights(patch){ this.setSetting('healthWeights', { ...this.settings().healthWeights, ...patch }); }
 
+  // ---- "needs attention" thresholds (tunable, Settings → Needs attention) --
+  attentionThresholds(){ return { ...DEFAULT_ATTENTION_THRESHOLDS, ...(this.settings().attentionThresholds||{}) }; }
+  setAttentionThresholds(patch){ this.setSetting('attentionThresholds', { ...this.settings().attentionThresholds, ...patch }); }
+
   // ---- fleet health (recency + release velocity + status), 0-100 --------
   healthScore(projectId){
     const p = this.project(projectId);
@@ -307,19 +320,22 @@ export const Store = new (class {
     return buckets;
   }
 
-  // A project "needs attention" when its health score has slipped into the
-  // bottom two bands (Slowing/Stale) or its auto-sync is failing outright.
-  // One shared definition so the dashboard callout and the library's saved
-  // view always agree on exactly the same set of projects, sorted worst-off
-  // first. Each reason is `{ kind:'health'|'sync', text }` so callers can
-  // render the right chip style without recomputing the logic themselves.
+  // A project "needs attention" when its health score has sunk below the
+  // tunable `healthMax` cutoff (Settings → Needs attention; defaults to the
+  // Steady band's floor, i.e. Slowing/Stale) or its auto-sync has failed at
+  // least `autoSyncFails` times in a row. One shared definition so the
+  // dashboard callout and the library's saved view always agree on exactly
+  // the same set of projects, sorted worst-off first. Each reason is
+  // `{ kind:'health'|'sync', text }` so callers can render the right chip
+  // style without recomputing the logic themselves.
   needsAttention(){
+    const t = this.attentionThresholds();
     return this.projects().map(p=>{
       const score = this.healthScore(p.id);
       const band = healthBand(score);
       const reasons = [];
-      if(band.label==='Slowing' || band.label==='Stale') reasons.push({ kind:'health', text:`${band.label} · ${score}/100` });
-      if(p.autoSync && (p.autoSyncFailCount||0)>=AUTO_SYNC_FAIL_THRESHOLD) reasons.push({ kind:'sync', text:`Auto-sync failing ×${p.autoSyncFailCount}` });
+      if(score < t.healthMax) reasons.push({ kind:'health', text:`${band.label} · ${score}/100` });
+      if(p.autoSync && (p.autoSyncFailCount||0)>=t.autoSyncFails) reasons.push({ kind:'sync', text:`Auto-sync failing ×${p.autoSyncFailCount}` });
       return reasons.length ? { project:p, score, band, reasons } : null;
     }).filter(Boolean).sort((a,b)=>a.score-b.score);
   }

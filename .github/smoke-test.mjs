@@ -541,6 +541,25 @@ try {
     const restored = await store(`(S)=>({...S.settings().healthWeights})`);
     return zeroed === 0 && restored.recency === 40 && restored.velocity === 40 && restored.status === 20;
   });
+  await check('settings: needs-attention thresholds are tunable and drive Store.needsAttention()', async () => {
+    await openSec('settings');
+    const before = await store(`(S)=>S.needsAttention().length`);
+    // cranking the health cutoff to 100 must flag every project (nothing scores >=100)
+    await page.$eval('.attn-slider[data-attn="health"]', (s) => { s.value = '100'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(150);
+    const maxed = await store(`(S)=>S.needsAttention().length`);
+    const totalProjects = await store(`(S)=>S.projects().length`);
+    const savedHealthMax = await store(`(S)=>S.attentionThresholds().healthMax`);
+    // and dropping it to 1 must flag none on health (a project would need to score 0)
+    await page.$eval('.attn-slider[data-attn="health"]', (s) => { s.value = '1'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(150);
+    const minned = await store(`(S)=>S.needsAttention().filter(a=>a.reasons.some(r=>r.kind==='health')).length`);
+    await page.click('.card:has-text("Needs attention") button:has-text("Reset to default")');
+    await page.waitForTimeout(150);
+    const restored = await store(`(S)=>({...S.attentionThresholds()})`);
+    return maxed === totalProjects && savedHealthMax === 100 && minned === 0
+      && restored.healthMax === 35 && restored.autoSyncFails === 2 && before === (await store(`(S)=>S.needsAttention().length`));
+  });
   await check('welcome tour starts and can finish', async () => {
     await openSec('settings');
     await page.click('button:has-text("Start tour")'); await page.waitForTimeout(400);

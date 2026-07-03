@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 16,
+    title: 'Tunable "Needs attention" thresholds',
+    kind: 'feature',
+    ts: '2026-07-03T05:12:26.963Z',
+    items: [
+      'Settings → "Needs attention" now lets you tune how sensitive the bell, rail badge, and dashboard callout are — a health-score cutoff and an auto-sync fail count, both drag sliders with a live "N of M projects flagged" readout.',
+      'Previously these were fixed: a project only ever flagged once its health slipped to Slowing/Stale, and only after 2 auto-sync failures in a row.',
+      'The per-project "Failing ×N" badge (project tile, health panel, and the Settings → Auto-sync roll-up) now uses the same tunable threshold, so a project is called "failing" consistently everywhere.',
+      'One-click reset restores the shipped defaults (35 and 2) — the exact behavior this replaces.',
+    ],
+  },
+  {
     v: 15,
     title: 'Dismiss a "Needs attention" notification',
     kind: 'feature',

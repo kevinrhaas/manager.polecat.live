@@ -14,11 +14,18 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Let "Needs attention" thresholds be tuned from Settings, same spirit as
-      the fleet health weighting (see Done, 2026-07-02) — today Slowing/Stale
-      and the auto-sync fail threshold are fixed, not configurable per fleet.
+- [ ] Persist a per-project override of the fleet health weighting (see Done,
+      2026-07-02) for the rare project whose cadence is intentionally
+      different from the fleet norm — today the weights are fleet-wide only.
 
 ## Next (discovered / queued)
+
+- [ ] Now that both the health-score cutoff and the auto-sync fail threshold
+      are fleet-wide (see Done, 2026-07-03), consider whether a per-project
+      override belongs here too, for a project someone deliberately wants a
+      lower/higher bar for (e.g. a "manual cadence" project that should never
+      be flagged just for being slow) — same shape as the per-project health
+      weighting idea above, just for the attention cutoffs instead.
 
 - [ ] Now that dismissal exists (see Done, 2026-07-03), consider whether the
       rail badge should dim/deprioritize (rather than disappear) once a user
@@ -29,12 +36,12 @@ with new, ambitious, fun ideas.
       list regularly has more than a handful of rows — right now it's a flat
       list sorted worst-score-first, fine at fleet scale today but won't
       stay scannable if the fleet grows a lot.
-- [ ] Persist a per-project override of the fleet health weighting (see Done,
-      2026-07-02) for the rare project whose cadence is intentionally
-      different from the fleet norm — today the weights are fleet-wide only.
-- [ ] Make the auto-sync backoff cap and fail threshold (currently fixed
-      constants in `js/ingest.js`) tunable from Settings → Auto-sync, same
-      spirit as the health-score-weighting item just shipped (2026-07-02).
+- [ ] Make the auto-sync backoff cap (currently a fixed constant,
+      `AUTO_SYNC_BACKOFF_CAP` in `js/ingest.js`) tunable from Settings →
+      Auto-sync, same spirit as the fail threshold just shipped (2026-07-03,
+      see Done) — the fail threshold that decides *when* a project counts as
+      "failing" is now tunable, but how much its retry cadence backs off
+      while it stays that way still isn't.
 - [ ] Sweep the rest of the app's `display:flex;align-items:center` rows (this
       sweep, 2026-07-03) for the same wrap-then-center anti-pattern — anywhere
       a fixed-size icon/actions sibling sits next to a text column that *can*
@@ -47,7 +54,6 @@ with new, ambitious, fun ideas.
 - [ ] Keyboard-first navigation everywhere; focus rings audited.
 - [ ] Public site: an animated live "fleet" showcase driven by demo data.
 - [ ] SQLite adapter behind the same Store interface (design already relational).
-- [ ] Notification center for run failures / stale projects.
 - [ ] Saved views: let a user save a *custom* filter+sort combo as a new named
       chip (today's saved views are a fixed, useful set — All/Live/Recent/
       Pinned — but they aren't user-definable yet).
@@ -72,6 +78,24 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Tunable "Needs attention" thresholds** _(2026-07-03)_: the health-score
+      cutoff and the auto-sync fail count behind `Store.needsAttention()` were
+      fixed constants — Slowing/Stale (score below the Steady band's floor of
+      35) and two consecutive failures, respectively. A new Settings →
+      "Needs attention" card (sitting right under the fleet health weighting
+      card it mirrors in spirit) exposes both as drag sliders — health score
+      cutoff 1–100, auto-sync fails 1–10 — with a live "N of M projects
+      flagged right now" readout and a one-click reset to the shipped
+      defaults. `Store.attentionThresholds()`/`setAttentionThresholds()` join
+      `healthWeights()` as the tunable-settings pattern; `needsAttention()`
+      now reads the live thresholds on every call, so the bell, the rail
+      badge, the dashboard callout, and the library's saved view all move
+      together the instant a slider changes — same shared-definition
+      guarantee the earlier "Needs attention" rollup shipped with. The
+      per-project "Failing ×N" badges (project tile, health panel, and the
+      Settings → Auto-sync roll-up) now read the same tunable fail threshold
+      instead of a separate hardcoded constant, so a project stops being
+      called "failing" in one place and not another.
 - [x] **Dismiss a "Needs attention" notification** _(2026-07-03)_: the bell,
       rail badge, and dashboard callout all mirrored the live
       `Store.needsAttention()` set with no per-item read state, so a problem
