@@ -636,22 +636,29 @@ export const Store = new (class {
     this._history = []; this._saveHistory();
     this.emit('change', {}); TABLES.forEach(t=>this.emit(t,{})); this.emit('history');
   }
-  // A dry-run per-table {add, skip} count for a merge import: `add` is rows in
-  // the file whose id doesn't exist in this workspace yet (would be inserted),
-  // `skip` is rows whose id already exists locally (merge never overwrites —
-  // that's what importJSON()'s replace mode is for). Excludes `dismissals`:
-  // that table is local "have I already seen this" state scoped to whichever
-  // browser raised it, and porting someone else's doesn't mean anything here.
+  // A dry-run per-table {add, skip, rows} preview for a merge import: `add`
+  // is the count of rows in the file whose id doesn't exist in this
+  // workspace yet (would be inserted), `rows` is those same rows themselves
+  // (so a "review" UI can list what's about to land by name, not just a
+  // count — mirroring how the per-project sync preview lists new/changed
+  // releases by name), `skip` is rows whose id already exists locally
+  // (merge never overwrites — that's what importJSON()'s replace mode is
+  // for). Excludes `dismissals`: that table is local "have I already seen
+  // this" state scoped to whichever browser raised it, and porting someone
+  // else's doesn't mean anything here. Also returns the file's raw incoming
+  // `projects` map so a caller can name a new release/credential's parent
+  // project even when that project is itself new in the same file (and so
+  // not yet in the live store to look up).
   previewMerge(text){
     const parsed = this._parseWorkspace(text);
-    const counts = {};
+    const tables = {};
     MERGE_TABLES.forEach(t=>{
       const local = this._db[t];
       const incoming = Object.values(parsed[t]);
-      const add = incoming.filter(r=>!local[r.id]).length;
-      counts[t] = { add, skip: incoming.length - add };
+      const rows = incoming.filter(r=>!local[r.id]);
+      tables[t] = { add: rows.length, skip: incoming.length - rows.length, rows };
     });
-    return counts;
+    return { tables, projects: parsed.projects };
   }
   // Adds rows from `text` that don't already exist locally (by id) across
   // every MERGE_TABLES table, leaving every existing row untouched — for

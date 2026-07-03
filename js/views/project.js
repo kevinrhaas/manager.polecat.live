@@ -413,8 +413,8 @@ function openSync(p, ctx){
     }
     status.textContent=`Found ${entries.length} release${entries.length===1?'':'s'} — ${fresh.length} new, ${changed.length} updated.`;
     const list=el('ul',{class:'sync-preview'});
-    fresh.forEach(e=>list.append(el('li',{html:`<span class="tag sync-new">new</span><b>v${e.v}</b> ${escapeHtml(e.title)}`})));
-    changed.forEach(e=>list.append(el('li',{html:`<span class="tag sync-upd">update</span><b>v${e.v}</b> ${escapeHtml(e.title)}`})));
+    fresh.forEach(e=>list.append(el('li',{html:`<span class="tag sync-new">new</span><span><b>v${e.v}</b> ${escapeHtml(e.title)}</span>`})));
+    changed.forEach(e=>list.append(el('li',{html:`<span class="tag sync-upd">update</span><span><b>v${e.v}</b> ${escapeHtml(e.title)}</span>`})));
     results.append(list);
     pending={ entries, url };
     setImportEnabled(fresh.length+changed.length);

@@ -14,15 +14,25 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Now that a rows-only "merge" import mode exists (see Done, 2026-07-03),
-      consider a merge dry-run "review" step — today's confirm dialog only
-      shows per-table add/skip counts; for a big cross-browser combine it'd be
-      nice to expand and see *which* rows are new before committing, the same
-      way the per-project sync preview already lists new/changed releases by
-      name rather than just a count.
+- [ ] Merge import intentionally skips any incoming row whose id already
+      exists locally (see Done, 2026-07-03) — it never overwrites, only adds.
+      A future "merge & update" variant could let a user opt into also
+      refreshing rows that exist in both places but differ (e.g. a release
+      edited on one machine after the backup was made on another), with a
+      diff-style preview so it's clear what would change before committing —
+      the new per-row review list (see Done, 2026-07-03) is the natural place
+      to surface that diff once "update" is a real option, not just "skip".
 
 ## Next (discovered / queued)
 
+- [ ] The merge-review list's per-row layout fix (two flex children — a tag
+      chip plus one wrapper span — see Done, 2026-07-03) is the same
+      "anonymous flex item" trap the old `.sync-preview` markup had been
+      quietly carrying since the original Sync-changelog modal shipped; worth
+      grepping for any other `display:flex` list item built from raw
+      `el(...,{html:...})` strings mixing bare text with inline elements
+      (rather than a single wrapping child) in case the same squeeze bug is
+      hiding somewhere it hasn't been triggered by long content yet.
 - [ ] The new scroll-direction fade (see Done, 2026-07-03) only wired up
       `.lib-table` — the docs sidebar's mobile table-of-contents strip
       (`.docs-toc`, `overflow-x:auto` under 760px) has the exact same
@@ -88,6 +98,41 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Merge-review: expand to see which rows are new, by name, before
+      committing** _(2026-07-03)_: the Merge JSON confirm dialog previously
+      showed only a per-table add/skip count ("3 new projects, 5 new
+      releases") — enough to decide *whether* to merge, but not *what*, for a
+      big cross-browser combine where "3 new projects" could hide a name you
+      didn't expect. The dialog now has a "Review the N new rows" disclosure;
+      expanding it lists every row about to be added, grouped by table, named
+      the same way the per-project sync preview already names new/changed
+      releases (`v${e.v} ${title}`) rather than a bare count. `Store.previewMerge()`
+      now returns each table's actual new row objects (`{add, skip, rows}`)
+      alongside the counts, plus the file's raw incoming `projects` map, so a
+      new release or credential can be named with its parent project even
+      when that project is itself new in the same file and not yet in the
+      live store to look up. Building this surfaced a real pre-existing
+      mobile bug in the shared `.sync-preview` list (used by both this new
+      review list and the original per-project Sync modal): a row's markup
+      mixed a `<span>` tag chip with raw text and a `<b>` version number as
+      three separate flex children, which the flex layout algorithm was
+      squeezing into three narrow independent columns instead of wrapping as
+      one paragraph once the title was long enough to need it — invisible
+      with short titles, ugly and hard to read with real ones. Fixed at the
+      shared CSS level (one wrapper `<span>` per row so there are always
+      exactly two flex children, `align-items:flex-start` so the tag anchors
+      to the first line instead of the vertical center of a now-multi-line
+      block, plus `overflow-wrap:anywhere`/`min-width:0` so an unbroken
+      token like a long env-var key wraps instead of forcing the modal
+      wider) — verified against both the new merge-review list and the
+      original Sync-changelog modal. Five new smoke checks: `previewMerge()`'s
+      new `{add, skip, rows}` shape in isolation, the real file-picker →
+      review-disclosure → Cancel path confirming the list names an incoming
+      release's project correctly even when that project is new in the same
+      file, and a dedicated 320px check that seeds a deliberately long
+      release title and asserts it wraps as one aligned paragraph rather than
+      the pre-fix squeezed-column bug — verified that check actually failed
+      against the pre-fix markup before keeping it.
 - [x] **Sweep: scroll-direction hints on the projects table + a dead-code pass**
       _(2026-07-03)_: the projects library table (`.lib-table`) scrolls
       horizontally on narrow phones — Status/Latest/Updated/Tags all sit

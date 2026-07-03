@@ -313,25 +313,64 @@ export function importJSON(ctx){
 // existing row untouched — for combining a backup made in one browser into
 // a different browser's workspace, rather than always overwriting it.
 const MERGE_ROW_LABELS = { projects:'project', releases:'release', credentials:'credential', runs:'run', fieldDefs:'custom field' };
+// Names one incoming row for the merge review list — the same "list what's
+// new by name, not just a count" idea as the per-project sync preview (see
+// `<b>v${e.v}</b> ${escapeHtml(e.title)}` in openSync(), views/project.js).
+// `incomingProjects` is previewMerge()'s raw id->row map straight from the
+// file, needed because a new release or credential's parent project might
+// itself be new in this same file and so not yet resolvable via a live
+// Store.get() lookup. Returns pre-escaped HTML, not plain text.
+function mergeRowHtml(table, row, incomingProjects){
+  const projectName = id => (Store.get('projects', id)||{}).name || (incomingProjects[id]||{}).name || id || '(no project)';
+  switch(table){
+    case 'projects': return escapeHtml(row.name || '(untitled project)');
+    case 'releases': return `${escapeHtml(projectName(row.projectId))} — <b>v${escapeHtml(String(row.v||'?'))}</b> ${escapeHtml(row.title||'')}`;
+    case 'credentials': return `${escapeHtml(row.scope==='global'?'Global':projectName(row.scope))} · ${escapeHtml(row.name||row.key||'(unnamed)')}`;
+    case 'runs': return escapeHtml(row.note || `${row.mode||'run'} run`);
+    case 'fieldDefs': return escapeHtml(row.label || '(untitled field)');
+    default: return escapeHtml(row.id);
+  }
+}
 export function mergeImportFile(ctx){
   const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json';
   inp.onchange=()=>{ const file=inp.files[0]; if(!file) return; const rd=new FileReader();
     rd.onload=async()=>{
       const text=rd.result;
-      let counts;
-      try{ counts=Store.previewMerge(text); }
+      let preview;
+      try{ preview=Store.previewMerge(text); }
       catch(e){ toast('Merge failed',{body:e.message,kind:'err'}); return; }
+      const { tables, projects:incomingProjects } = preview;
       let totalAdd=0, totalSkip=0;
       const parts=[];
-      Object.entries(counts).forEach(([t,{add,skip}])=>{
+      Object.entries(tables).forEach(([t,{add,skip}])=>{
         totalAdd+=add; totalSkip+=skip;
         if(add) parts.push(`${add} new ${MERGE_ROW_LABELS[t]}${add===1?'':'s'}`);
       });
       if(!totalAdd){ toast('Nothing new to merge — every row in that file already exists here',{kind:'info'}); return; }
-      const summary=`This file has ${parts.join(', ')}`
+
+      const body=el('div');
+      body.append(el('p',{class:'muted', text:`This file has ${parts.join(', ')}`
         +(totalSkip?` (plus ${totalSkip} row${totalSkip===1?'':'s'} that already exist here, which will be left untouched)`:'')
-        +`. Merging only adds the new rows — nothing already in this workspace is changed.`;
-      const go=await confirmDialog('Merge workspace', summary, {okLabel:'Merge in'});
+        +`. Merging only adds the new rows — nothing already in this workspace is changed.`}));
+      // A review step: expand to see exactly which rows are new, by name,
+      // before committing — not just a per-table count.
+      const details=el('details',{class:'merge-review'});
+      details.append(el('summary',{text:`Review the ${totalAdd} new row${totalAdd===1?'':'s'}`}));
+      Object.entries(tables).forEach(([t,{add,rows}])=>{
+        if(!add) return;
+        details.append(el('div',{class:'merge-review-head', text:`${add} new ${MERGE_ROW_LABELS[t]}${add===1?'':'s'}`}));
+        const list=el('ul',{class:'sync-preview'});
+        rows.forEach(r=>list.append(el('li',{html:`<span class="tag sync-new">new</span><span>${mergeRowHtml(t,r,incomingProjects)}</span>`})));
+        details.append(list);
+      });
+      body.append(details);
+
+      const ok=el('button',{class:'btn primary', text:'Merge in'});
+      const cancel=el('button',{class:'btn', text:'Cancel'});
+      const go=await new Promise(res=>{
+        const {hide}=modal({ title:'Merge workspace', icon:'layers', body, foot:[cancel, ok] });
+        ok.onclick=()=>{hide();res(true)}; cancel.onclick=()=>{hide();res(false)};
+      });
       if(!go) return;
       try{
         const n=Store.mergeImport(text);

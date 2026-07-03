@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 29,
+    title: 'Review a merge before committing it',
+    kind: 'feature',
+    ts: '2026-07-03T19:10:29.621Z',
+    items: [
+      'Merge JSON now has a "Review the N new rows" disclosure in the confirm dialog — expand it to see exactly which projects, releases, credentials, runs, and custom fields are about to land, by name, before you merge.',
+      'Fixed a real mobile bug along the way: a long release title or credential key in these preview lists used to fracture into squeezed, unreadable columns on narrow phones instead of wrapping as one paragraph.',
+    ],
+  },
+  {
     v: 28,
     title: 'Status updates itself from sync',
     kind: 'feature',

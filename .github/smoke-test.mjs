@@ -903,9 +903,11 @@ try {
   await check('Store.previewMerge counts new-vs-already-here rows per table without mutating the live store', async () => {
     const merged = await store(`(S)=>{ const db=JSON.parse(S.exportJSON()); db.projects['smoke-merge-preview']={id:'smoke-merge-preview',slug:'smoke-merge-preview',name:'Smoke Merge Preview',status:'idea',tags:[],fields:{},createdAt:Date.now(),updatedAt:Date.now()}; return JSON.stringify(db); }`);
     const liveBefore = await store(`(S)=>S.projects().length`);
-    const counts = await store(`(S)=>S.previewMerge(${JSON.stringify(merged)})`);
+    const preview = await store(`(S)=>S.previewMerge(${JSON.stringify(merged)})`);
     const liveAfter = await store(`(S)=>S.projects().length`);
-    return counts.projects.add === 1 && counts.projects.skip === liveBefore && liveBefore === liveAfter;
+    const t = preview.tables.projects;
+    return t.add === 1 && t.rows.length === 1 && t.rows[0].id === 'smoke-merge-preview'
+      && t.skip === liveBefore && liveBefore === liveAfter;
   });
   await check('Store.mergeImport adds only new rows, spanning two tables, as one grouped Undo step', async () => {
     const merged = await store(`(S)=>{
@@ -942,6 +944,39 @@ try {
       await page.waitForTimeout(200);
       const stillAbsent = !(await store(`(S)=>!!S.project('smoke-merge-ui')`));
       return mentionsNew && stillAbsent;
+    } finally { fs.unlinkSync(tmpFile); }
+  });
+  await check('Merge JSON: the review disclosure lists new rows by name, resolving a new release’s project name even when that project is also new in the same file', async () => {
+    await openSec('settings');
+    const merged = await store(`(S)=>{
+      const db=JSON.parse(S.exportJSON());
+      db.projects['smoke-merge-review']={id:'smoke-merge-review',slug:'smoke-merge-review',name:'Smoke Merge Review UI',status:'idea',tags:[],fields:{},createdAt:Date.now(),updatedAt:Date.now()};
+      db.releases['smoke-merge-review-rel']={id:'smoke-merge-review-rel',projectId:'smoke-merge-review',v:1,title:'Smoke review release',kind:'feature',items:['test'],ts:new Date().toISOString(),createdAt:Date.now(),updatedAt:Date.now()};
+      return JSON.stringify(db);
+    }`);
+    const tmpFile = path.join(ROOT, '.smoke-merge-review-tmp.json');
+    fs.writeFileSync(tmpFile, merged);
+    try {
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.click('button:has-text("Merge JSON")'),
+      ]);
+      await chooser.setFiles(tmpFile);
+      await page.waitForTimeout(300);
+      // The row list lives inside a closed <details> until expanded — assert
+      // it's collapsed by default, then open it and check the actual names.
+      const openBefore = await page.$eval('.modal details.merge-review', (d) => d.open);
+      await page.click('.modal details.merge-review summary');
+      await page.waitForTimeout(150);
+      const reviewText = await page.$eval('.modal details.merge-review', (d) => d.textContent);
+      await page.click('.modal button:has-text("Cancel")');
+      await page.waitForTimeout(200);
+      const stillAbsent = !(await store(`(S)=>!!S.project('smoke-merge-review')`));
+      return !openBefore
+        && reviewText.includes('Smoke Merge Review UI')
+        && reviewText.includes('v1')
+        && reviewText.includes('Smoke review release')
+        && stillAbsent;
     } finally { fs.unlinkSync(tmpFile); }
   });
   await check('Merge JSON: confirming adds only the new rows (existing project left untouched), and Undo removes them together', async () => {
@@ -1206,6 +1241,47 @@ try {
     await store(`(S)=>{const r=S.all('runs').find(x=>(x.note||'').includes('deliberately long run note')); if(r) S.remove('runs', r.id, {silent:true});}`);
     await page.setViewportSize({ width: 1280, height: 900 });
     return !!info && info.wrapped && info.aligned;
+  });
+  await check('mobile (320px): merge-review row with a long title wraps as one paragraph instead of splitting into squeezed columns', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    const merged = await store(`(S)=>{
+      const db=JSON.parse(S.exportJSON());
+      db.projects['smoke-merge-mobile']={id:'smoke-merge-mobile',slug:'smoke-merge-mobile',name:'Smoke Merge Mobile Project With A Long Name',status:'idea',tags:[],fields:{},createdAt:Date.now(),updatedAt:Date.now()};
+      db.releases['smoke-merge-mobile-rel']={id:'smoke-merge-mobile-rel',projectId:'smoke-merge-mobile',v:1,title:'A deliberately long release title used to force this merge-review row to wrap across several lines',kind:'feature',items:['test'],ts:new Date().toISOString(),createdAt:Date.now(),updatedAt:Date.now()};
+      return JSON.stringify(db);
+    }`);
+    const tmpFile = path.join(ROOT, '.smoke-merge-mobile-tmp.json');
+    fs.writeFileSync(tmpFile, merged);
+    let info;
+    try {
+      await openSecMobile('settings');
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.click('button:has-text("Merge JSON")'),
+      ]);
+      await chooser.setFiles(tmpFile);
+      await page.waitForTimeout(300);
+      await page.click('.modal details.merge-review summary');
+      await page.waitForTimeout(150);
+      info = await page.evaluate(() => {
+        const rows = [...document.querySelectorAll('.modal .sync-preview li')];
+        const row = rows.find((r) => r.textContent.includes('deliberately long release title'));
+        if (!row) return null;
+        const tag = row.querySelector('.tag').getBoundingClientRect();
+        const content = row.querySelector('span:last-child').getBoundingClientRect();
+        return {
+          right: row.getBoundingClientRect().right,
+          topAligned: Math.abs(tag.top - content.top) < 2,
+          wrapped: content.height > 20,
+          // the bug this guards against: content splitting into several
+          // narrow anonymous-flex-item columns instead of one wide paragraph
+          notSqueezed: content.width > 150,
+        };
+      });
+      await page.click('.modal button:has-text("Cancel")');
+    } finally { fs.unlinkSync(tmpFile); }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return !!info && info.right <= 320 && info.topAligned && info.wrapped && info.notSqueezed;
   });
 
   if (errors.length) { console.error('\nConsole/page errors:\n' + errors.join('\n')); failed = true; }
