@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 12,
+    title: 'Mobile sweep: three squeezed-text rows fixed at phone widths',
+    kind: 'polish',
+    ts: '2026-07-03T12:00:00.000Z',
+    items: [
+      'The "Sync all changelogs" modal used to squeeze project names down to unreadable fragments ("M..", "R..") on a narrow phone when a status chip like "10 New, 1 Updated" claimed most of the row — the status now drops to its own line under the name instead.',
+      'The admin "Invites you’ve created" list and the Settings → Custom fields row both centered their action buttons against the *whole* row, so a long label wrapping to several lines made the buttons appear to float in the middle of the text — both now keep actions anchored to the top (or wrapped cleanly below) instead.',
+      'The mobile no-overflow smoke check is now a loop over every rail section at 320px instead of two one-off spots, plus three new checks that pin down these exact regressions.',
+    ],
+  },
+  {
     v: 11,
     title: '"Needs attention" rollup',
     kind: 'feature',

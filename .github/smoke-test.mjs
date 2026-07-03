@@ -511,20 +511,103 @@ try {
     return open;
   });
   const noHorizOverflow = (sel) => page.$eval(sel, (e) => e.scrollWidth <= e.clientWidth + 1);
-  await check('mobile: project detail has no horizontal overflow (narrow phone)', async () => {
-    await page.setViewportSize({ width: 375, height: 780 }); await page.waitForTimeout(200);
-    await openSec('home');
+  // On mobile, opening a section auto-closes the rail drawer (app.js), so the
+  // drawer must be re-opened before every nav click here or the next section's
+  // rail-item is off-canvas and unclickable.
+  const openSecMobile = async (s) => { await page.evaluate(() => window.__rail && window.__rail.setOpen(true)); await page.waitForTimeout(150); return openSec(s); };
+  // Generalized: every rail section, at a narrow phone width, has no horizontal
+  // overflow — a loop instead of the one-off project-detail/landing checks this
+  // sweep found (see ROADMAP), so the next `.section-title`-shaped regression
+  // anywhere in the app trips this instead of shipping unnoticed.
+  await check('mobile: every rail section has no horizontal overflow (320px)', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    let allOk = true;
+    for (const s of ['home', 'projects', 'activity', 'credentials', 'docs', 'settings']) {
+      await openSecMobile(s);
+      if (!(await noHorizOverflow('.view'))) { console.error(`  (overflow in section "${s}")`); allOk = false; }
+    }
+    await openSecMobile('home');
     const tile = await $('.tile'); await tile.click(); await page.waitForTimeout(400);
-    const ok = await noHorizOverflow('.view');
+    if (!(await noHorizOverflow('.view'))) { console.error('  (overflow in project detail)'); allOk = false; }
     await page.setViewportSize({ width: 1280, height: 900 });
-    return ok;
+    return allOk;
   });
   await check('mobile: landing page has no horizontal overflow (narrow phone)', async () => {
     await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
     await page.goto(`${base}/`, { waitUntil: 'networkidle', timeout: 30000 });
     const ok = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+    await page.goto(`${base}/app/`, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.waitForTimeout(300);
     await page.setViewportSize({ width: 1280, height: 900 });
     return ok;
+  });
+
+  // A narrow-phone content audit, prompted by three real bugs this sweep found:
+  // rows built as `display:flex;align-items:center` around a text column that
+  // can wrap to several lines squeeze the column so hard at 320px that its text
+  // visually overflows (browsers paint overflow, they don't clip it by default)
+  // right into the icon/action buttons, which sit vertically centered against
+  // the *whole* tall row instead of beside the text's first line. A bounding-box
+  // check on the text column's own flex box misses this — that box legitimately
+  // shrinks to ~0 while its overflowing text still paints wherever it wants — so
+  // this measures the actual painted text line rects (via Range.getClientRects)
+  // against the actions box instead.
+  const textOverlapsBox = (textEl, boxRect) => {
+    if (!textEl || !boxRect) return false;
+    const range = document.createRange();
+    range.selectNodeContents(textEl);
+    const rects = [...range.getClientRects()];
+    return rects.some((r) => r.left < boxRect.right - 1 && boxRect.left < r.right - 1 && r.top < boxRect.bottom - 1 && boxRect.top < r.bottom - 1);
+  };
+  await check('mobile (320px): custom-field row keeps its edit/remove buttons out of the middle of a long wrapped label (top-aligned or wrapped below, never centered mid-column)', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    await store(`(S)=>S.addFieldDef({label:'Priority Tier Level', type:'select', options:['Gold Standard','Silver Standard','Bronze Standard']})`);
+    await openSecMobile('settings');
+    const { midTop, midBottom, midH, actionsTop, actionsBottom } = await page.evaluate(() => {
+      const mid = document.querySelector('.field-row-mid').getBoundingClientRect();
+      const actions = document.querySelector('.field-row-actions').getBoundingClientRect();
+      return { midTop: mid.top, midBottom: mid.bottom, midH: mid.height, actionsTop: actions.top, actionsBottom: actions.bottom };
+    });
+    await store(`(S)=>{const f=S.fieldDefs().find(x=>x.label==='Priority Tier Level'); if(f) S.removeFieldDef(f.id, {silent:true});}`);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    // only meaningful if the label really did wrap to multiple lines — a single
+    // line looks identical whether centered or top-aligned
+    const reallyWrapped = midH > 40;
+    // the bug: actions strictly nested inside the label's vertical span (neither
+    // touching its top nor its bottom) — i.e. floating mid-column. Landing on the
+    // same line (top-aligned) or wrapping to their own line below are both fine.
+    const floatingMidColumn = actionsTop > midTop + 4 && actionsBottom < midBottom - 4;
+    return reallyWrapped && !floatingMidColumn;
+  });
+  await check('mobile (320px): "Sync all" modal keeps project names legible instead of squeezing them behind the status chip', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    await openSecMobile('home');
+    await page.click('.qa:has-text("Sync all")'); await page.waitForTimeout(500);
+    // "Manager" paired with a long status ("10 New, 1 Updated") used to claim
+    // almost the whole row width, squeezing the name into an illegible fragment
+    const nameWidth = await page.$$eval('.sync-all-row', (rows) => {
+      const row = rows.find((r) => /Manager/.test(r.textContent));
+      return row ? row.querySelector('.name').getBoundingClientRect().width : 0;
+    });
+    await page.click('.modal button:has-text("Close")').catch(() => {});
+    await page.waitForTimeout(200);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return nameWidth > 60;
+  });
+  await check('mobile (320px): admin invite row keeps a long created/expiry line from overlapping Copy/Revoke', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    await page.evaluate(() => { try { localStorage.setItem('manager.adminkey', 'smoke-test-fake-not-a-real-key'); } catch {} });
+    await page.reload({ waitUntil: 'networkidle' }); await page.waitForTimeout(1000);
+    await page.evaluate(() => { try { localStorage.setItem('manager.invites', JSON.stringify([
+      { label: 'Design partner walkthrough', iat: Date.now() - 60000, exp: 0, jti: 'abc12345', code: 'x.y', link: 'https://example.com/x' },
+    ])); } catch {} });
+    await page.evaluate(() => { location.hash = 'admin'; }); await page.waitForTimeout(400);
+    const overlap = await page.evaluate(`(${textOverlapsBox})(document.querySelector('.invite-row > div:first-child'), document.querySelector('.invite-row .invite-actions')?.getBoundingClientRect())`);
+    await page.evaluate(() => { try { localStorage.removeItem('manager.adminkey'); localStorage.removeItem('manager.invites'); localStorage.removeItem('manager.access'); } catch {} });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.reload({ waitUntil: 'networkidle' }); await page.waitForTimeout(1000);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    return !overlap;
   });
 
   if (errors.length) { console.error('\nConsole/page errors:\n' + errors.join('\n')); failed = true; }

@@ -435,12 +435,18 @@ table.data tbody tr:last-child td{border-bottom:0}
 /* sync-all modal (dashboard) */
 .sync-all-list{display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;
   border:1px solid var(--border);border-radius:var(--radius);padding:4px}
-.sync-all-row{display:flex;align-items:center;gap:10px;padding:8px 8px}
+.sync-all-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:8px 8px}
 .sync-all-row .saa{width:24px;height:24px;flex:0 0 auto;border-radius:7px;color:#05121a;
   display:flex;align-items:center;justify-content:center}
 .sync-all-row .saa svg{width:13px;height:13px}
-.sync-all-row .name{font-size:13px;font-weight:560;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sync-all-row .status{flex:0 0 auto;text-align:right}
+.sync-all-row .name{font-size:13px;font-weight:560;flex:1 1 90px;min-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sync-all-row .status{flex:0 0 auto;text-align:right;margin-left:auto}
+@media (max-width:420px){
+  /* a status like "10 New, 1 Updated" left almost no room for the name at
+     phone widths — drop it to its own full-width line under the name
+     instead of squeezing the name into an illegible fragment */
+  .sync-all-row .status{flex:1 1 100%;text-align:left;margin-left:34px}
+}
 
 .health .row{display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:9px 0;border-bottom:1px solid var(--border);font-size:12.5px}
@@ -660,10 +666,16 @@ a.link:hover{text-decoration:underline}
 .gate-err{color:var(--danger);font-size:12.5px;width:100%;text-align:left}
 
 /* ---- invite rows (admin) ---------------------------------------------- */
-.invite-row{display:flex;align-items:center;gap:12px;padding:14px 16px}
-.invite-actions{display:flex;gap:8px;flex-wrap:wrap}
+.invite-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 12px;padding:14px 16px}
+.invite-row>div:first-child{flex:1 1 180px;min-width:0}
+.invite-actions{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;flex:0 0 auto}
 .token-box{font-family:var(--mono);font-size:11px;word-break:break-all;background:var(--rail-bg);
   border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text-2)}
+
+/* ---- custom field rows (settings) -------------------------------------- */
+.field-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 12px}
+.field-row-mid{flex:1 1 140px;min-width:0}
+.field-row-actions{display:flex;align-items:flex-start;gap:6px;flex:0 0 auto}
 
 /* ---- mobile ------------------------------------------------------------ */
 @media (max-width:720px){

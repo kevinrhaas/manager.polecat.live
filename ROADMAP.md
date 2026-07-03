@@ -33,14 +33,12 @@ with new, ambitious, fun ideas.
 - [ ] Make the auto-sync backoff cap and fail threshold (currently fixed
       constants in `js/ingest.js`) tunable from Settings → Auto-sync, same
       spirit as the health-score-weighting item just shipped (2026-07-02).
-- [ ] Generalize the mobile no-overflow smoke check (see Done, 2026-07-02) into
-      a loop over every rail section at 320px, instead of the two spots this
-      sweep happened to catch — cheap insurance against the next `.section-title`
-      -shaped regression anywhere in the app.
-- [ ] Audit modal/sheet content (sync-all list, custom-field editor, admin invite
-      rows) for the same header-row-doesn't-wrap overflow risk on very narrow
-      phones — this sweep fixed the two instances found by screenshot, but
-      didn't exhaustively open every modal at 320px.
+- [ ] Sweep the rest of the app's `display:flex;align-items:center` rows (this
+      sweep, 2026-07-03) for the same wrap-then-center anti-pattern — anywhere
+      a fixed-size icon/actions sibling sits next to a text column that *can*
+      wrap to multiple lines is a candidate. Only three instances were found by
+      hand this run; a real audit would grep every `.card`-with-inline-flex
+      and every row class for the shape and check each at 320px.
 - [ ] Bulk actions in the library (tag, set status, archive) with undo.
 - [ ] Import/export the whole workspace as JSON; round-trip test in the suite.
 - [ ] Per-project "notes" markdown scratchpad with autosave + history.
@@ -67,6 +65,24 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Mobile sweep: three squeezed-text rows fixed at 320px** _(2026-07-03)_:
+      no fresh feature this run — a design sweep across the app and the public
+      site, following up on the previous sweep's mobile-overflow work. Screen-
+      shotting every rail section and every modal at 320px turned up three real
+      (non-horizontal-scroll) bugs the earlier `scrollWidth`-based check
+      couldn't catch: the "Sync all changelogs" modal squeezed project names
+      down to unreadable fragments ("M..", "R..") when a status chip like
+      "10 New, 1 Updated" claimed almost the whole row; and both the admin
+      "Invites you've created" list and the Settings → Custom fields row
+      vertically centered their edit/action buttons against the *whole* row,
+      so a label wrapping to several lines made the buttons visually float in
+      the middle of the text instead of beside its first line. All three are
+      fixed with `flex-wrap` + top-alignment CSS (no HTML/behavior changes
+      besides grouping the field-row buttons the same way sync-all/invite rows
+      already did). The mobile no-overflow smoke check is now a loop over every
+      rail section at 320px instead of the two one-off spots from last sweep,
+      and three new checks pin down the exact regressions found here — each was
+      verified to actually fail against the pre-fix code before being kept.
 - [x] **"Needs attention" rollup** _(2026-07-02)_: the health score, release
       velocity, and auto-sync failing signal shipped earlier this cadence
       were only ever passive per-tile badges — easy to miss in a big grid. A

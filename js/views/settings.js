@@ -167,18 +167,20 @@ function toggleRow(title, desc, on, onChange, compact){
 
 // ---- custom fields (typed project-metadata schema) -----------------------
 function fieldDefRow(d, onChange){
-  const row=el('div',{class:'card', style:'display:flex;align-items:center;gap:12px'});
+  const row=el('div',{class:'card field-row'});
   row.innerHTML=`<span class="qicon" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--brand-b),var(--consensus));color:#05121a">${icon('sliders')}</span>`;
-  const mid=el('div',{style:'flex:1;min-width:0'});
+  const mid=el('div',{class:'field-row-mid'});
   mid.innerHTML=`<b>${escapeHtml(d.label)}</b> <span class="tiny mono muted">${escapeHtml(d.key)}</span>
     <div class="tiny muted">${escapeHtml(FIELD_TYPES[d.type]?.label||'Text')}${d.type==='select'&&d.options?.length?` · ${d.options.map(escapeHtml).join(', ')}`:''}</div>`;
   row.append(mid);
-  row.append(el('button',{class:'btn ghost icon sm', title:'Edit', 'aria-label':'Edit field', html:icon('edit'), onclick:()=>editFieldDef(d.id, onChange)}));
-  row.append(el('button',{class:'btn ghost icon sm', title:'Remove', 'aria-label':'Remove field', html:icon('trash'), onclick:async()=>{
+  const actions=el('div',{class:'field-row-actions'});
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Edit', 'aria-label':'Edit field', html:icon('edit'), onclick:()=>editFieldDef(d.id, onChange)}));
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Remove', 'aria-label':'Remove field', html:icon('trash'), onclick:async()=>{
     if(await confirmDialog('Remove field', `Remove "${d.label}" from the schema? Existing values stay on projects, but the field won’t appear in the editor, filters, or sort unless you re-add it.`, {danger:true, okLabel:'Remove'})){
       Store.removeFieldDef(d.id); toast('Field removed',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); onChange();
     }
   }}));
+  row.append(actions);
   return row;
 }
 
