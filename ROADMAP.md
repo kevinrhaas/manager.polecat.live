@@ -14,18 +14,14 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Persist a per-project override of the fleet health weighting (see Done,
-      2026-07-02) for the rare project whose cadence is intentionally
-      different from the fleet norm — today the weights are fleet-wide only.
+- [ ] Now that per-project health weighting exists (see Done, 2026-07-03),
+      build the matching per-project override for the "Needs attention"
+      cutoffs (health-score cutoff, auto-sync fail count) — today those are
+      still fleet-wide only, so a "manual cadence" project that should never
+      be flagged just for being slow has no escape hatch there yet, even
+      though its health *score* can now be weighted differently.
 
 ## Next (discovered / queued)
-
-- [ ] Now that both the health-score cutoff and the auto-sync fail threshold
-      are fleet-wide (see Done, 2026-07-03), consider whether a per-project
-      override belongs here too, for a project someone deliberately wants a
-      lower/higher bar for (e.g. a "manual cadence" project that should never
-      be flagged just for being slow) — same shape as the per-project health
-      weighting idea above, just for the attention cutoffs instead.
 
 - [ ] Now that dismissal exists (see Done, 2026-07-03), consider whether the
       rail badge should dim/deprioritize (rather than disappear) once a user
@@ -79,6 +75,29 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Per-project health weighting override** _(2026-07-03)_: the three
+      health-score dimensions (recency/velocity/status) were fleet-wide only
+      — every project was scored with the exact same weighting, even one
+      whose cadence is deliberately different from the fleet norm (e.g. a
+      project that's expected to ship rarely, or one where status matters
+      far more than recency). A project's health panel now has a
+      "Weighting" row — "Fleet default" or a "Custom · R/V/S" summary — with
+      a "Customize" link that opens the same three drag sliders as
+      Settings → "Fleet health weighting", scoped to just that project.
+      `Store.healthWeightsFor(projectId)` is the new single source every
+      score calculation reads (`healthScore()` now calls it instead of the
+      fleet-wide `healthWeights()` directly), so the override flows
+      everywhere a health score shows up — dashboard tile, health panel,
+      the fleet health average, "Needs attention" — with zero special-casing
+      in any of those call sites. The override is stored on the project row
+      itself (`healthWeightsOverride: {enabled, recency, velocity, status}`)
+      so turning it off (or resetting the numbers) is non-destructive: the
+      dialed-in values persist even while disabled, falling straight back to
+      the live fleet-wide weighting rather than losing what was there. A new
+      smoke check drives the real modal end to end — enables the override,
+      sets an extreme weighting, confirms a *different* project's score is
+      untouched (isolation), resets, disables, and confirms the effective
+      weights land back exactly on the live fleet default.
 - [x] **Sweep: a real horizontal-overflow bug + two floating-icon alignment
       bugs, hunted by grepping every `align-items:center` row** _(2026-07-03)_:
       following up the previous sweep's flex-wrap fixes to `.field-row` and

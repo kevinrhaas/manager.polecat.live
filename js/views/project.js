@@ -1,5 +1,5 @@
 // Project detail — the full what's-new timeline + health panel + links.
-import { Store, STATUSES, healthBand } from '../store.js';
+import { Store, STATUSES, healthBand, DEFAULT_HEALTH_WEIGHTS } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
@@ -85,7 +85,7 @@ export function renderProject(root, ctx, params){
     ['Changelog sync', p.lastSyncAt?`Synced ${escapeHtml(fmtCT(p.lastSyncAt))}`:'<span class="muted">Not connected</span>'],
   ];
   health.innerHTML=`<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Health</h2></div>`;
-  rows.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${k}</span><span class="v">${v}</span>`; health.append(r); });
+  rows.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${k}</span><span class="v">${v}</span>`; health.append(r); if(k==='Health score') health.append(weightingRow(p, ctx)); });
   const velRow=el('div',{class:'row'});
   velRow.innerHTML=`<span class="k">Velocity · 10w</span>`;
   velRow.append(el('span',{class:'v', title:'Releases per week, oldest to newest', html:sparkline(Store.releaseVelocity(p.id), {width:100, height:24, color:band.color})}));
@@ -117,6 +117,85 @@ function formatFieldValue(d, val){
   if(d.type==='select') return `<span class="tag">${escapeHtml(val)}</span>`;
   if(d.type==='number') return `<span class="mono">${escapeHtml(val)}</span>`;
   return escapeHtml(val);
+}
+
+// Every project's health score normally rides the fleet-wide weighting from
+// Settings → "Fleet health weighting" — but the rare project on a
+// deliberately different cadence (e.g. one that should never be marked down
+// just for shipping slowly) can override just its own three dimensions.
+// This row shows which mode is active; the modal it opens is where that gets
+// dialed in, scoped to this project only.
+function weightingRow(p, ctx){
+  const ov=Store.projectHealthWeightsOverride(p.id);
+  const r=el('div',{class:'row'});
+  r.innerHTML=`<span class="k">Weighting</span>`;
+  const v=el('span',{class:'v', style:'display:inline-flex;align-items:center;gap:8px;font-weight:400'});
+  if(ov.enabled){
+    const w=Store.healthWeightsFor(p.id);
+    v.append(el('span',{class:'tiny muted', title:'Custom weighting for this project only', text:`Custom · R${Math.round(w.recency)}/V${Math.round(w.velocity)}/S${Math.round(w.status)}`}));
+  }else{
+    v.append(el('span',{class:'tiny muted', text:'Fleet default'}));
+  }
+  v.append(el('button',{class:'btn ghost sm', text:'Customize', onclick:()=>openHealthWeightingModal(p, ctx)}));
+  r.append(v);
+  return r;
+}
+
+// Per-project override of the fleet health weighting — same three sliders as
+// Settings → "Fleet health weighting", scoped to just this project. Disabled
+// (the default) falls straight back to the live fleet-wide weights; the
+// dialed-in numbers persist even while disabled, so flipping it back on
+// restores what was there rather than resetting to the shipped default.
+function openHealthWeightingModal(p, ctx){
+  const ov=Store.projectHealthWeightsOverride(p.id);
+  const body=el('div');
+  body.append(el('p',{class:'muted tiny', style:'margin:0 0 12px', text:`${p.name}’s health score uses the fleet-wide weighting from Settings by default. Turn this on to dial in different weights just for this project — for a cadence that's deliberately different from the fleet norm.`}));
+
+  const toggleRow=el('div',{class:'opt-row', style:'padding:0 0 14px'});
+  toggleRow.innerHTML=`<div class="sp"><b>Override fleet weighting</b><p>Only affects ${escapeHtml(p.name)}.</p></div>`;
+  const t=el('button',{class:'toggle'+(ov.enabled?' on':''), role:'switch', 'aria-checked':String(!!ov.enabled), 'aria-label':'Override fleet weighting for this project'});
+  toggleRow.append(t);
+  body.append(toggleRow);
+
+  const wRow=el('div',{style:'display:flex;flex-direction:column;gap:12px'});
+  const dims=[['recency','Recency','How recently the project last shipped something.'],['velocity','Velocity','How many releases it’s shipped in the last 90 days.'],['status','Status','Live/active projects score higher than paused or archived ones.']];
+  const pctEls={};
+  const renderPcts=()=>{
+    const norm=Store.healthWeightsFor(p.id);
+    dims.forEach(([k])=>{ if(pctEls[k]) pctEls[k].textContent=Math.round(norm[k])+'%'; });
+  };
+  dims.forEach(([k,label,desc])=>{
+    const cur=ov[k] ?? DEFAULT_HEALTH_WEIGHTS[k];
+    const row=el('div',{class:'field', style:'margin:0'});
+    const head=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
+    head.innerHTML=`<label style="margin:0">${escapeHtml(label)}</label><span class="tiny muted mono" style="min-width:34px;text-align:right"></span>`;
+    const pctEl=head.lastElementChild; pctEls[k]=pctEl;
+    const slider=el('input',{type:'range', min:'0', max:'100', step:'1', value:String(cur), class:'proj-weight-slider', 'data-dim':k});
+    slider.addEventListener('input',()=>{ Store.setProjectHealthWeights(p.id, { [k]:parseInt(slider.value,10) }); renderPcts(); });
+    row.append(head, slider, el('span',{class:'tiny muted', text:desc}));
+    wRow.append(row);
+  });
+  wRow.style.opacity = ov.enabled?'1':'.45';
+  wRow.style.pointerEvents = ov.enabled?'':'none';
+  body.append(wRow);
+  renderPcts();
+
+  t.addEventListener('click',()=>{
+    const now=!t.classList.contains('on');
+    t.classList.toggle('on', now); t.setAttribute('aria-checked',String(now));
+    Store.setProjectHealthWeights(p.id, { enabled:now });
+    wRow.style.opacity = now?'1':'.45';
+    wRow.style.pointerEvents = now?'':'none';
+  });
+
+  const resetBtn=el('button',{class:'btn sm', html:`${icon('refresh')} Reset to fleet default`, onclick:()=>{
+    Store.setProjectHealthWeights(p.id, { ...DEFAULT_HEALTH_WEIGHTS });
+    dims.forEach(([k])=>{ const s=wRow.querySelector(`[data-dim="${k}"]`); if(s) s.value=String(DEFAULT_HEALTH_WEIGHTS[k]); });
+    renderPcts(); toast('Weighting reset to fleet default',{kind:'ok'});
+  }});
+  body.append(resetBtn);
+
+  const {hide}=modal({ title:`Health weighting — ${p.name}`, icon:'gauge', body, foot:[el('button',{class:'btn primary', text:'Done', onclick:()=>{ hide(); ctx.go('project',{id:p.id}); }})] });
 }
 
 // Per-project opt-in for the quiet, on-a-cadence auto-sync (also needs the

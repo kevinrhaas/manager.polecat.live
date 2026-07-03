@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 18,
+    title: 'Per-project health weighting override',
+    kind: 'feature',
+    ts: '2026-07-03T07:58:29.160Z',
+    items: [
+      'Every project\'s health score used to blend the same fleet-wide weighting — no way to score a project differently even if its cadence is deliberately unusual.',
+      'A project\'s health panel now has a "Customize" link next to its weighting that opens a per-project override: the same recency/velocity/status sliders as Settings → Fleet health weighting, but scoped to just that one project.',
+      'Turning the override off (or resetting it) falls straight back to the live fleet-wide weighting — nothing is lost, since the dialed-in numbers stick around even while disabled.',
+    ],
+  },
+  {
     v: 17,
     title: 'Sweep: fixed a real overflow bug + two floating-icon alignment bugs',
     kind: 'polish',

@@ -145,6 +145,31 @@ try {
     await store(`(S)=>{const r=S.releasesFor('relay').find(x=>x.title==='Smoke release'); if(r) S.remove('releases', r.id, {silent:true});}`);
     return after === before + 1;
   });
+  await check('project health panel: per-project weighting override is isolated to that project and resettable', async () => {
+    await openSec('projects');
+    await page.evaluate(() => { location.hash = 'project/solution-engineering'; });
+    await page.waitForTimeout(400);
+    const rowBefore = await page.$eval('.row:has-text("Weighting") .v', (e) => e.textContent).catch(() => '');
+    const otherBefore = await store(`(S)=>S.healthScore('games')`);
+    await page.click('.health button:has-text("Customize")'); await page.waitForTimeout(300);
+    await page.click('.modal .opt-row .toggle'); await page.waitForTimeout(150);
+    await page.$eval('.proj-weight-slider[data-dim="recency"]', (s) => { s.value = '0'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.$eval('.proj-weight-slider[data-dim="velocity"]', (s) => { s.value = '0'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.$eval('.proj-weight-slider[data-dim="status"]', (s) => { s.value = '100'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(150);
+    const overridden = await store(`(S)=>({...S.healthWeightsFor('solution-engineering')})`);
+    const otherAfter = await store(`(S)=>S.healthScore('games')`);
+    await page.click('.modal button:has-text("Reset to fleet default")'); await page.waitForTimeout(150);
+    const afterReset = await store(`(S)=>({...S.healthWeightsFor('solution-engineering')})`);
+    await page.click('.modal .opt-row .toggle'); await page.waitForTimeout(150); // back off — should now mirror the fleet
+    const disabledMatchesFleet = await store(`(S)=>{const f=S.healthWeights(); const p=S.healthWeightsFor('solution-engineering'); return Math.abs(f.recency-p.recency)<0.01 && Math.abs(f.velocity-p.velocity)<0.01 && Math.abs(f.status-p.status)<0.01;}`);
+    await page.click('.modal button:has-text("Done")'); await page.waitForTimeout(300);
+    const rowAfter = await page.$eval('.row:has-text("Weighting") .v', (e) => e.textContent).catch(() => '');
+    return /Fleet default/.test(rowBefore) && Math.abs(overridden.status - 100) < 0.01 && overridden.recency === 0 && overridden.velocity === 0
+      && otherAfter === otherBefore
+      && Math.abs(afterReset.recency - 40) < 0.01 && Math.abs(afterReset.velocity - 40) < 0.01 && Math.abs(afterReset.status - 20) < 0.01
+      && disabledMatchesFleet && /Fleet default/.test(rowAfter);
+  });
 
   // ---------- Live changelog sync ----------
   console.log('Changelog sync');

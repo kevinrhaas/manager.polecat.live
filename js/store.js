@@ -287,6 +287,36 @@ export const Store = new (class {
   }
   setHealthWeights(patch){ this.setSetting('healthWeights', { ...this.settings().healthWeights, ...patch }); }
 
+  // ---- per-project fleet-health weighting override -----------------------
+  // Almost every project should just ride the fleet-wide weights above, but
+  // the rare project on a deliberately different cadence (e.g. one someone
+  // wants scored mostly on status, or that's intentionally slow-shipping and
+  // shouldn't be marked down for recency) can override just its own three
+  // dimensions. Stored on the project row as `healthWeightsOverride`:
+  // absent/`enabled:false` means "use the fleet weights"; the dialed-in
+  // numbers persist even while disabled, so re-enabling restores them instead
+  // of resetting to the fleet default.
+  projectHealthWeightsOverride(projectId){
+    const p = this.project(projectId);
+    return p?.healthWeightsOverride || { enabled:false, ...DEFAULT_HEALTH_WEIGHTS };
+  }
+  // The weights actually used to score this project — its own override when
+  // enabled (renormalized to 100, same rule as the fleet-wide weights), else
+  // whatever the fleet is currently set to.
+  healthWeightsFor(projectId){
+    const ov = this.projectHealthWeightsOverride(projectId);
+    if(!ov.enabled) return this.healthWeights();
+    const raw = { recency:ov.recency??DEFAULT_HEALTH_WEIGHTS.recency, velocity:ov.velocity??DEFAULT_HEALTH_WEIGHTS.velocity, status:ov.status??DEFAULT_HEALTH_WEIGHTS.status };
+    const total = raw.recency+raw.velocity+raw.status;
+    if(!total) return this.healthWeights();
+    const scale = 100/total;
+    return { recency:raw.recency*scale, velocity:raw.velocity*scale, status:raw.status*scale };
+  }
+  setProjectHealthWeights(projectId, patch){
+    const cur = this.projectHealthWeightsOverride(projectId);
+    this.updateProject(projectId, { healthWeightsOverride:{ ...cur, ...patch } }, { silent:true });
+  }
+
   // ---- "needs attention" thresholds (tunable, Settings → Needs attention) --
   attentionThresholds(){ return { ...DEFAULT_ATTENTION_THRESHOLDS, ...(this.settings().attentionThresholds||{}) }; }
   setAttentionThresholds(patch){ this.setSetting('attentionThresholds', { ...this.settings().attentionThresholds, ...patch }); }
@@ -295,7 +325,7 @@ export const Store = new (class {
   healthScore(projectId){
     const p = this.project(projectId);
     if(!p) return 0;
-    const w = this.healthWeights();
+    const w = this.healthWeightsFor(projectId);
     const now = Date.now();
     const days = this.lastActivity(projectId) ? (now-this.lastActivity(projectId))/86400000 : Infinity;
     const recencyFrac = days<=3?1 : days<=14?0.8 : days<=30?0.6 : days<=90?0.3 : days<=180?0.1 : 0;
