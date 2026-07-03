@@ -14,21 +14,32 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Grow the Releases timeline, continued** — the "by day / by project"
-      toggle and the fleet-wide "since you last looked" unread marker (see
-      Done, 2026-07-03) cover the top two asks; take it further, highest-value
-      first: a compact **digest / density** option (collapse each day/project
-      group to a one-line summary you can expand); **jump-to-date** (a small
-      calendar/date-picker affordance that scrolls the feed to a given day);
-      and an optional **weekly rollup** stat ("this week across the suite: N
-      releases, M projects"). Add smoke coverage for each and a Docs mention.
+- [ ] **Releases feed: a shareable / exportable digest** — the new "this week"
+      rollup line (see Done, 2026-07-03) is a copyable one-sentence summary;
+      take it further, highest-value first: **copy-as-markdown** for the
+      current filtered feed (a formatted `## Releases` list grouped exactly
+      like the on-screen day/project groups, ready to paste into a status
+      update or PR description), then a **JSON/RSS export** of the combined
+      recent-releases feed so "what improved across the suite" can be
+      subscribed to rather than just pasted. Add smoke coverage for each and
+      a Docs mention.
 
 ## Next (discovered / queued)
 
-- [ ] Releases feed: a **shareable / exportable digest** (copy-as-markdown or a
-      JSON/RSS export of the combined recent-releases feed) so a top-level
-      "what improved across the suite this week" can be pasted into a status
-      update or subscribed to.
+- [ ] The Releases feed's "Digest" density mode (see Done, 2026-07-03) always
+      truncates a group's preview to its first 3 releases ("+N more") — worth
+      a "remembers per-session which groups you expanded" tweak if a heavy
+      user reports re-expanding the same handful of projects/days repeatedly
+      after every filter change; today every `rerender()` rebuilds fresh
+      `<details>` elements so expansion state doesn't survive a filter tweak,
+      which reads as reasonable default behavior with no evidence yet it's a
+      real annoyance.
+- [ ] "Jump to date" (see Done, 2026-07-03) only offers dates present in the
+      *currently filtered* set — reasonable (jumping to a date with nothing
+      to show would be a dead click), but worth revisiting if someone wants
+      to jump across an active project/kind filter to a date that filter
+      hides, e.g. a small "(disabled — no matches under current filter)"
+      option instead of simply omitting the date.
 - [ ] The new fleet-wide "since you last looked" unread marker (see Done,
       2026-07-03) is deliberately coarse — one `seenTs` for the whole feed,
       re-armed only on an actual rail-click navigation into Releases (not on
@@ -140,6 +151,36 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Releases: digest/density mode, jump-to-date, and a weekly rollup**
+      _(2026-07-03)_: continuing the Releases timeline's highest-value queue
+      (grouping + unread marker shipped earlier this cadence), this pass took
+      the top three remaining asks. A new **Full / Digest** toolbar toggle
+      (mirroring the existing By-day/By-project toggle's single-button,
+      icon-swap pattern) collapses every day/project group's cards behind a
+      native `<details>`/`<summary>` one-line preview — reusing the exact
+      disclosure-marker CSS convention `.merge-review` already established —
+      so a long scroll session becomes a scan of headlines instead of every
+      release's full detail; nothing is ever removed, only visually deferred,
+      and clicking a summary expands that one group back to full cards.
+      **Jump to date** is a new select in the same toolbar, populated from
+      every distinct day present in the *currently filtered* feed (newest
+      first); picking one finds the first release card carrying that day's
+      `data-day` attribute — set on every card regardless of grouping mode,
+      so the same control works whether the feed is clustered by day or by
+      project — opens its parent `<details>` if the target happens to be
+      collapsed in Digest mode, scrolls it into view, and gives it a brief
+      highlight flash so landing feels obvious rather than a silent jump. The
+      **weekly rollup** is a new pasteable one-line banner above the "who
+      shipped" chips: "This week across the suite: N releases across M
+      projects" — deliberately a *calendar* week (Monday-anchored in CT, via
+      a new `ctWeekStartKey()`) rather than the existing "Last 7 days" stat's
+      rolling window, so it reads the way an actual status update would say
+      it, with a one-click Copy button. Three new smoke checks drive the real
+      UI end to end: Digest mode collapsing every group without dropping any
+      `.rel-card` from the DOM (and restoring on toggle-back), Jump-to-date
+      expanding a collapsed group and flashing the right card, and the weekly
+      rollup line rendering with its Copy button. Docs updated to describe
+      all three.
 - [x] **Releases: "by project" grouping + a fleet-wide "since you last looked"
       unread marker** _(2026-07-03)_: the fleet-wide Releases feed (just
       shipped this cadence) only ever grouped by day. A new toolbar toggle —

@@ -105,6 +105,37 @@ try {
     const backToDay = await count('.feed-day h3 .mini-av');
     return dayHeaderAvatars === 0 && projHeaderAvatars > 0 && cardsStillShow && backToDay === 0;
   });
+  await check('releases feed "Full / Digest" toggle collapses each group behind a one-line summary without losing any cards', async () => {
+    await openSec('releases');
+    const cardsBefore = await count('.rel-card');
+    const densityBtn = 'button[title="Toggle between full cards and a collapsed one-line digest per group"]';
+    await page.click(densityBtn); await page.waitForTimeout(250);
+    const groupsInDigest = await count('.rel-group');
+    const digestLinesShown = await count('.rel-digest-text');
+    const cardsStillInDom = await count('.rel-card');   // collapsed <details>, not removed
+    await page.click(densityBtn); await page.waitForTimeout(250);   // toggle back to Full
+    const groupsAfter = await count('.rel-group');
+    const cardsAfter = await count('.rel-card');
+    return groupsInDigest > 0 && digestLinesShown === groupsInDigest && cardsStillInDom === cardsBefore
+      && groupsAfter === 0 && cardsAfter === cardsBefore;
+  });
+  await check('releases feed "Jump to date" scrolls to and highlights a release from the chosen day, expanding a collapsed digest group first', async () => {
+    await openSec('releases');
+    const densityBtn = 'button[title="Toggle between full cards and a collapsed one-line digest per group"]';
+    await page.click(densityBtn); await page.waitForTimeout(250);   // switch to Digest so the target starts collapsed
+    const dateKey = await page.$eval('select[aria-label="Jump to date"] option:not([value=""])', (o) => o.value);
+    await page.selectOption('select[aria-label="Jump to date"]', dateKey);
+    await page.waitForTimeout(700);   // smooth scroll + flash
+    const opened = await page.$eval(`.rel-card[data-day="${dateKey}"]`, (e) => !!e.closest('details.rel-group')?.open);
+    const flashed = await page.$eval(`.rel-card[data-day="${dateKey}"]`, (e) => e.classList.contains('jump-flash'));
+    await page.click(densityBtn); await page.waitForTimeout(250);   // back to Full
+    return opened && flashed;
+  });
+  await check('releases feed shows a "this week" rollup line with a copy button', async () => {
+    await openSec('releases');
+    const text = await page.$eval('.week-rollup', (e) => e.textContent).catch(() => '');
+    return /This week across the suite/.test(text) && !!(await page.$('.week-rollup .btn'));
+  });
   await check('releases feed flags releases shipped since your last visit as "new" and the rail badge clears on open', async () => {
     // wind the fleet-wide "seen" marker back so a freshly-seeded release reads as unread
     await page.evaluate(() => localStorage.setItem('manager.releases.seenTs', String(Date.now() - 999999999)));

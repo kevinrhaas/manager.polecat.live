@@ -2,11 +2,11 @@
 // you can see at a glance what improved recently across the whole suite.
 // Read-only: it reads the same `releases` table the per-project timelines do.
 import { Store } from '../store.js';
-import { el, escapeHtml, fmtCT, avatarColor } from '../ui.js';
+import { el, escapeHtml, fmtCT, avatarColor, toast } from '../ui.js';
 import { icon } from '../icons.js';
 
 const VIEW_KEY = 'manager.releases.view';
-const DEFAULT = { q:'', project:'all', range:'all', kind:'all', group:'day' };
+const DEFAULT = { q:'', project:'all', range:'all', kind:'all', group:'day', density:'full' };
 function state(){ try{ return { ...DEFAULT, ...(JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')) }; }catch{ return { ...DEFAULT }; } }
 function save(s){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify(s)); }catch{} }
 
@@ -46,6 +46,26 @@ function ctDayLabel(ts){
   return { lead:friendly, rest:'' };
 }
 function timeCT(ts){ try{ return new Date(ts).toLocaleTimeString('en-US',{ timeZone:'America/Chicago', hour:'numeric', minute:'2-digit' })+' CT'; }catch{ return ''; } }
+
+// The Monday (CT) of the current calendar week, as a 'YYYY-MM-DD' key —
+// distinct from the rolling "last 7 days" stat: this resets every Monday
+// rather than sliding, so "this week" reads the way a status update would say it.
+function ctWeekStartKey(){
+  const d = new Date(ctDayKey(Date.now())+'T00:00:00Z');
+  const dow = d.getUTCDay(); // 0=Sun..6=Sat
+  d.setUTCDate(d.getUTCDate() - (dow===0?6:dow-1));
+  return d.toISOString().slice(0,10);
+}
+
+// A compact one-line preview of a group's releases for digest/density mode —
+// "By day" names the project per release (the header is just a date); "By
+// project" already names the project in the header, so this only needs the
+// version + title.
+function digestSummary(items, mode){
+  const parts = items.slice(0,3).map(x => mode==='project' ? `v${x.r.v} ${x.r.title||'Untitled release'}` : `${x.p.name} v${x.r.v}`);
+  const extra = items.length>3 ? `, +${items.length-3} more` : '';
+  return parts.join(', ') + extra;
+}
 
 export function renderReleases(root, ctx){
   root.innerHTML='';
@@ -88,6 +108,20 @@ export function renderReleases(root, ctx){
   );
   wrap.append(stats);
 
+  // ---- weekly rollup — a pasteable one-liner, calendar week not rolling ----
+  const weekStart = ctWeekStartKey();
+  const inWeek = all.filter(x => ctDayKey(x.r.ts) >= weekStart);
+  if(inWeek.length){
+    const weekProj = new Set(inWeek.map(x=>x.p.id)).size;
+    const line = `This week across the suite: ${inWeek.length} release${inWeek.length!==1?'s':''} across ${weekProj} project${weekProj!==1?'s':''}.`;
+    const rollup = el('div',{class:'week-rollup'});
+    rollup.append(el('span',{style:'display:inline-flex', html:icon('bolt')}));
+    rollup.append(el('span',{html:`This week across the suite: <b>${inWeek.length} release${inWeek.length!==1?'s':''}</b> across <b>${weekProj} project${weekProj!==1?'s':''}</b>.`}));
+    rollup.append(el('button',{class:'btn ghost sm', html:`${icon('copy')} Copy`,
+      onclick:()=>navigator.clipboard?.writeText(line).then(()=>toast('Copied',{kind:'ok'}))}));
+    wrap.append(rollup);
+  }
+
   // ---- "who shipped" chips (in the selected range) ----
   // built after we know the range; placeholder appended in render()
 
@@ -124,7 +158,21 @@ export function renderReleases(root, ctx){
       groupBtn.innerHTML=`${icon(groupIcon(ns.group))} <span>${groupLabel(ns.group)}</span>`;
       rerender();
     }});
-  bar.append(search, projSel, rangeSel, kinds, groupBtn);
+  const densityLabel=(d)=>d==='digest'?'Digest':'Full';
+  const densityIcon=(d)=>d==='digest'?'menu':'eye';
+  const densityBtn=el('button',{class:'btn sm', title:'Toggle between full cards and a collapsed one-line digest per group',
+    html:`${icon(densityIcon(s.density))} <span>${densityLabel(s.density)}</span>`,
+    onclick:()=>{
+      const ns={...state(), density: state().density==='digest'?'full':'digest'};
+      save(ns);
+      densityBtn.innerHTML=`${icon(densityIcon(ns.density))} <span>${densityLabel(ns.density)}</span>`;
+      rerender();
+    }});
+
+  const jumpSel=el('select',{class:'input', style:'max-width:190px', 'aria-label':'Jump to date'});
+  jumpSel.addEventListener('change',()=>{ if(jumpSel.value) jumpToDay(jumpSel.value); jumpSel.value=''; });
+
+  bar.append(search, projSel, rangeSel, kinds, groupBtn, densityBtn, jumpSel);
   wrap.append(bar);
 
   const shippedHost=el('div');
@@ -161,40 +209,76 @@ export function renderReleases(root, ctx){
       shippedHost.append(chips);
     }
 
-    // grouped feed — either day-by-day (default) or clustered by project
+    // jump-to-date — one option per distinct day present in the filtered set,
+    // newest first (matches feed order); works in either grouping mode since
+    // it targets the release card's own data-day, not the group header.
+    const dayKeys=[]; const seenDay=new Set();
+    rows.forEach(x=>{ const k=ctDayKey(x.r.ts); if(!seenDay.has(k)){ seenDay.add(k); dayKeys.push(k); } });
+    jumpSel.innerHTML='';
+    jumpSel.append(el('option',{value:'', text:dayKeys.length?'Jump to date…':'No dates yet', disabled:true, selected:true}));
+    dayKeys.forEach(k=>{
+      const first=rows.find(x=>ctDayKey(x.r.ts)===k);
+      const n=rows.filter(x=>ctDayKey(x.r.ts)===k).length;
+      const lab=ctDayLabel(first.r.ts);
+      jumpSel.append(el('option',{value:k, text:`${lab.rest?`${lab.lead} — ${lab.rest}`:lab.lead} (${n})`}));
+    });
+    jumpSel.disabled = dayKeys.length===0;
+
+    // grouped feed — either day-by-day (default) or clustered by project;
+    // digest/density mode collapses each group's cards behind a one-line
+    // <details> summary instead of removing them, so nothing is ever lost.
     listHost.innerHTML='';
     if(!rows.length){
       listHost.append(el('div',{class:'card empty', html:`${icon('sparkle')}<div>No releases match.<br><span class="tiny">Sync a project (or clear filters) to populate the timeline.</span></div>`}));
       return;
     }
+    let groups;
     if(cur.group==='project'){
       const byProj=new Map();
       rows.forEach(x=>{ const arr=byProj.get(x.p.id)||[]; arr.push(x); byProj.set(x.p.id, arr); });
       // most recently active project first — each bucket is already newest-first
       const order=[...byProj.keys()].sort((a,b)=> new Date(byProj.get(b)[0].r.ts) - new Date(byProj.get(a)[0].r.ts));
-      order.forEach(pid=>{
-        const group=byProj.get(pid);
-        const p=group[0].p;
-        const d=el('div',{class:'feed-day'});
-        d.innerHTML=`<h3><span class="mini-av" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span> ${escapeHtml(p.name)}</h3><span class="ln"></span><span class="cnt">${group.length} release${group.length!==1?'s':''}</span>`;
-        listHost.append(d);
-        group.forEach(x=>listHost.append(relCard(x, ctx, sinceTs)));
+      groups = order.map(pid=>{
+        const items=byProj.get(pid), p=items[0].p;
+        return { items, headHtml:`<span class="mini-av" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span> ${escapeHtml(p.name)}` };
       });
     } else {
-      let lastDay=null;
-      rows.forEach(x=>{
-        const day=ctDayKey(x.r.ts);
-        if(day!==lastDay){
-          lastDay=day;
-          const dayRows=rows.filter(y=>ctDayKey(y.r.ts)===day);
-          const lab=ctDayLabel(x.r.ts);
-          const d=el('div',{class:'feed-day'});
-          d.innerHTML=`<h3>${escapeHtml(lab.lead)}${lab.rest?` <span class="cnt" style="font-weight:400">· ${escapeHtml(lab.rest)}</span>`:''}</h3><span class="ln"></span><span class="cnt">${dayRows.length} release${dayRows.length!==1?'s':''}</span>`;
-          listHost.append(d);
-        }
-        listHost.append(relCard(x, ctx, sinceTs));
+      const byDay=new Map();
+      rows.forEach(x=>{ const day=ctDayKey(x.r.ts); const arr=byDay.get(day)||[]; arr.push(x); byDay.set(day,arr); });
+      // `rows` is already newest-first, so Map insertion order is day order too
+      groups = [...byDay.values()].map(items=>{
+        const lab=ctDayLabel(items[0].r.ts);
+        return { items, headHtml:`${escapeHtml(lab.lead)}${lab.rest?` <span class="cnt" style="font-weight:400">· ${escapeHtml(lab.rest)}</span>`:''}` };
       });
     }
+    groups.forEach(({items,headHtml})=>{
+      const d=el('div',{class:'feed-day'});
+      d.innerHTML=`<h3>${headHtml}</h3><span class="ln"></span><span class="cnt">${items.length} release${items.length!==1?'s':''}</span>`;
+      listHost.append(d);
+      if(cur.density==='digest'){
+        const det=el('details',{class:'rel-group'});
+        det.append(el('summary',{class:'rel-digest', html:`<span class="rel-digest-text">${escapeHtml(digestSummary(items,cur.group))}</span>`}));
+        const body=el('div',{class:'rel-group-body'});
+        items.forEach(x=>body.append(relCard(x, ctx, sinceTs)));
+        det.append(body);
+        listHost.append(det);
+      } else {
+        items.forEach(x=>listHost.append(relCard(x, ctx, sinceTs)));
+      }
+    });
+  }
+
+  // opens the release's group (if collapsed in digest mode) and scrolls it
+  // into view with a brief highlight, so "jump to date" lands somewhere
+  // visibly obvious rather than just silently changing scroll position.
+  function jumpToDay(key){
+    const target = listHost.querySelector(`[data-day="${CSS.escape(key)}"]`);
+    if(!target) return;
+    const group = target.closest('details.rel-group');
+    if(group && !group.open) group.open = true;
+    target.scrollIntoView({ behavior:'smooth', block:'center' });
+    target.classList.add('jump-flash');
+    setTimeout(()=>target.classList.remove('jump-flash'), 1400);
   }
   rerender();
 }
@@ -202,7 +286,7 @@ export function renderReleases(root, ctx){
 function relCard(x, ctx, sinceTs){
   const { r, p } = x;
   const isNew = sinceTs!=null && +new Date(r.ts) > sinceTs;
-  const card=el('div',{class:'rel-card'+(isNew?' is-new':''), tabindex:'0', role:'button', 'aria-label':`${p.name} v${r.v}: ${r.title}${isNew?' — new since your last visit':''}`,
+  const card=el('div',{class:'rel-card'+(isNew?' is-new':''), tabindex:'0', role:'button', 'data-day':ctDayKey(r.ts), 'aria-label':`${p.name} v${r.v}: ${r.title}${isNew?' — new since your last visit':''}`,
     onclick:()=>ctx.go('project',{id:p.id}),
     onkeydown:(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); ctx.go('project',{id:p.id}); } }});
   const av=el('span',{class:'rc-av', style:`background:${avatarColor(p.id)}`, html:icon(p.icon||'grid')});

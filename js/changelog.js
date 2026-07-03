@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 35,
+    title: 'Releases: digest mode, jump-to-date, weekly rollup',
+    kind: 'feature',
+    ts: '2026-07-03T23:31:03.677Z',
+    items: [
+      'A new "Full / Digest" toggle collapses each day or project group in the Releases feed down to a one-line summary — click it to expand back to full cards, nothing is ever hidden for good.',
+      '"Jump to date" scrolls straight to any day with releases, opening its group first if it\'s collapsed.',
+      'A "this week" rollup line (calendar week, not just a rolling 7 days) sums up the suite in one copyable sentence, ready to paste into a status update.',
+    ],
+  },
+  {
     v: 34,
     title: 'Releases: group by project + "since you last looked"',
     kind: 'feature',

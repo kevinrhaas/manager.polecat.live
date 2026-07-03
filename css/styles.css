@@ -501,6 +501,32 @@ input.lib-sel{width:16px;height:16px;accent-color:var(--brand-b);cursor:pointer;
   color:#05121a;vertical-align:-3px}
 .mini-av svg{width:10px;height:10px}
 @media(max-width:520px){ .rel-card .rc-when{margin-left:0;width:100%} }
+/* digest/density mode — each group's cards collapse behind a one-line
+   <details> summary; same disclosure marker convention as .merge-review */
+.rel-group{margin:-4px 0 10px}
+.rel-group summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:7px;
+  padding:9px 14px;border:1px solid var(--border);border-radius:var(--radius);
+  font-size:12.5px;color:var(--text-2);background:color-mix(in srgb,var(--surface) 88%,transparent)}
+.rel-group summary::-webkit-details-marker{display:none}
+.rel-group summary::before{content:'▸';display:inline-block;color:var(--brand-b);
+  transition:transform .15s ease;flex:0 0 auto}
+.rel-group[open] summary::before{transform:rotate(90deg)}
+.rel-group summary:hover{color:var(--text);border-color:var(--brand-b)}
+.rel-digest-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rel-group-body{padding-top:8px}
+/* weekly rollup — a pasteable one-liner above the "who shipped" chips */
+.week-rollup{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 14px;
+  padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);
+  background:color-mix(in srgb,var(--brand-b) 7%,transparent);font-size:12.5px;color:var(--text-2)}
+.week-rollup svg{width:14px;height:14px;color:var(--brand-b)}
+.week-rollup b{color:var(--text);font-weight:650}
+.week-rollup .btn{margin-left:auto}
+/* jump-to-date target — a brief highlight so landing feels obvious */
+.rel-card.jump-flash{animation:jumpFlash 1.4s ease}
+@keyframes jumpFlash{
+  0%{box-shadow:0 0 0 3px color-mix(in srgb,var(--brand-b) 55%,transparent)}
+  100%{box-shadow:none}
+}
 .sync-tag{display:inline-flex;align-items:center;gap:4px;color:var(--brand-b);
   background:color-mix(in srgb,var(--brand-b) 12%,transparent);
   border:1px solid color-mix(in srgb,var(--brand-b) 28%,transparent)}
