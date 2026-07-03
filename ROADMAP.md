@@ -14,10 +14,17 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Bulk actions in the library (tag, set status, archive) with undo.
+- [ ] Import/export the whole workspace as JSON; round-trip test in the suite.
 
 ## Next (discovered / queued)
 
+- [ ] Bulk actions currently cover tag/status/archive (see Done, 2026-07-03).
+      A natural next one: bulk **delete**, behind a confirm (unlike the other
+      three, which are all easily reversible via a status/tag change, delete
+      removes rows outright — worth its own explicit "are you sure" even
+      though it's still undoable).
+- [ ] Bulk "remove tag" (today's bulk tag action only adds) — for cleaning up
+      a tag that was applied too broadly, or retiring one across the fleet.
 - [ ] Now that dismissal exists (see Done, 2026-07-03), consider whether the
       rail badge should dim/deprioritize (rather than disappear) once a user
       has opened the popover or dashboard this session but hasn't dismissed
@@ -34,7 +41,6 @@ with new, ambitious, fun ideas.
       (`.modal-head`, `.sheet-head`, `.notif-pop-head`) were skipped because
       their titles are short static strings today — if any of those ever grow
       a dynamic, potentially-long title, re-check them at 320px too.
-- [ ] Import/export the whole workspace as JSON; round-trip test in the suite.
 - [ ] Per-project "notes" markdown scratchpad with autosave + history.
 - [ ] Keyboard-first navigation everywhere; focus rings audited.
 - [ ] Public site: an animated live "fleet" showcase driven by demo data.
@@ -63,6 +69,37 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Bulk actions in the library (tag, set status, archive) with undo**
+      _(2026-07-03)_: every row in the projects library now has a checkbox
+      (plus a header "select all" for every currently visible row), and
+      checking any of them opens a bulk action bar above the table with a
+      live "N selected" count. Three actions: **Add tag** (opens a small
+      prompt, appends the tag to every checked project that doesn't already
+      have it), **Set status** (a dropdown — any of the six statuses), and
+      **Archive** (a one-click shortcut for the common case of setting
+      status to Archived across the selection). Each action is recorded as
+      a *single* undo step covering the whole batch — clicking "Undo" once
+      reverts every row together, not just the last one — via a new
+      `Store.bulkUpdate(table, ids, patchFn)` that mutates many rows and
+      pushes one grouped history entry (`{table, items:[{id,prev}, …]}`);
+      `Store.undo()` was generalized to replay either shape so every
+      existing single-row undo caller kept working unchanged. Rows a
+      `patchFn` leaves untouched (e.g. a project that already has the tag
+      being bulk-added) are skipped entirely — both from the mutation and
+      from the undo record — so undo never "reverts" a no-op. Checkbox
+      state is intentionally local UI state (module-level in
+      `js/views/projects.js`, not a Store table): toggling a checkbox only
+      patches the small bulk bar and the header checkbox's
+      checked/indeterminate state in place rather than doing a full
+      section re-render, so rapid keyboard multi-select (Tab/Space through
+      several rows) doesn't lose focus each time — unlike the bulk-action
+      buttons themselves, which do trigger a full re-render (matching the
+      rest of the app's existing pin-toggle/edit-save convention) since
+      they're one-off clicks, not something chained via keyboard. Four new
+      smoke checks cover the header select-all, add-tag, set-status
+      (including isolation — an unselected project is provably untouched),
+      and archive, each verifying the one-step undo restores every row in
+      the batch together.
 - [x] **Tunable auto-sync backoff cap** _(2026-07-03)_: the multiplier a
       repeatedly-failing project's auto-sync backs off to — doubling the wait
       each consecutive failure — was a fixed constant (`AUTO_SYNC_BACKOFF_CAP`

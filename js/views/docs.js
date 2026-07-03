@@ -35,7 +35,8 @@ const SECTIONS = [
       <li>Name, repository (<code>owner/name</code>), live site, and the Claude Code session URL.</li>
       <li>Status, cadence, tags, an assessment, and an icon.</li>
       <li><b>Custom fields</b> — track anything (model, owner, budget…). They show on the project page.</li>
-    </ul>` },
+    </ul>
+    <p>Check any number of rows (the header checkbox selects every currently visible one) to open the <b>bulk action bar</b> — add a tag, set a status, or archive the whole selection in one shot. Each bulk action is a single Undo.</p>` },
   { id:'releases', title:'Releases & what’s new', body:`
     <p>Every project has its own <b>what’s-new timeline</b>. Open a project and click <b>Add release</b> to record one: a version number, a title, a kind (feature / polish / fix), and a bullet list of what changed. The newest release drives the tile’s “latest version” and “last shipped”.</p>
     <p>Manager itself also has a what’s-new panel — the ✨ button in the top bar — with search, filtering, and sorting.</p>

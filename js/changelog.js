@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 22,
+    title: 'Bulk actions in the projects library',
+    kind: 'feature',
+    ts: '2026-07-03T13:49:36.735Z',
+    items: [
+      'Check any number of rows in the projects library — a header checkbox selects (or clears) every currently visible one — and a bulk action bar appears with the live count.',
+      'Add a tag, set a status, or archive every checked project in one shot. Each action is a single Undo: one click reverts the whole batch together, not just the last row.',
+      '"Archive" is a one-click shortcut for setting status to Archived across the selection, next to the full status dropdown for anything else.',
+    ],
+  },
+  {
     v: 21,
     title: 'Keyboard access to tiles, rows, and quick actions',
     kind: 'polish',

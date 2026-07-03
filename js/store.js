@@ -151,6 +151,31 @@ export const Store = new (class {
     this.emit(table, { id:row.id });
     return row;
   }
+  // Apply `patchFn` to many rows at once, recorded as ONE undo step (not one
+  // per row) so a single "Undo" reverts every row together. `patchFn(row)`
+  // returns the patched row, or a falsy value to leave that row untouched
+  // (e.g. it already has the tag being bulk-added) — untouched rows are
+  // skipped entirely, including from the undo record. Returns the count of
+  // rows actually changed; pushes no history (and fires no events) if none were.
+  bulkUpdate(table, ids, patchFn, { label='Bulk edit' }={}){
+    const items=[];
+    ids.forEach(id=>{
+      const prev=this._db[table][id];
+      if(!prev) return;
+      const next=patchFn(prev);
+      if(!next) return;
+      next.id=id;
+      next.updatedAt=Date.now();
+      next.createdAt=prev.createdAt||next.updatedAt;
+      this._db[table][id]=next;
+      items.push({ id, prev });
+    });
+    if(!items.length) return 0;
+    this._pushHistory({ table, items, label });
+    this._save();
+    items.forEach(({id})=>{ this.emit('change',{table,id}); this.emit(table,{id}); });
+    return items.length;
+  }
   remove(table, id, { silent=false, label='Delete' }={}){
     const prev = this._db[table][id];
     if(!prev) return;
@@ -178,13 +203,17 @@ export const Store = new (class {
     const op = this._history.pop();
     if(!op) return null;
     this._saveHistory();
-    // reverse: restore prev (or delete if there was none)
-    if(op.prev) this._db[op.table][op.id] = op.prev;
-    else delete this._db[op.table][op.id];
+    // reverse: restore prev (or delete if there was none) for every row the
+    // op touched — `items` (bulk ops, see bulkUpdate) or the single id/prev
+    // shape every other op uses.
+    const rows = op.items || [{ id:op.id, prev:op.prev }];
+    rows.forEach(({id,prev})=>{
+      if(prev) this._db[op.table][id] = prev;
+      else delete this._db[op.table][id];
+    });
     (op.cascade||[]).forEach(c=>{ this._db[c.table][c.row.id]=c.row; });
     this._save();
-    this.emit('change', { table:op.table, id:op.id });
-    this.emit(op.table, { id:op.id });
+    rows.forEach(({id})=>{ this.emit('change', { table:op.table, id }); this.emit(op.table, { id }); });
     this.emit('history');
     return op;
   }
@@ -207,6 +236,25 @@ export const Store = new (class {
   }
   updateProject(id, patch, opts={}){ const p=this.project(id); if(!p) return; return this.put('projects', { ...p, ...patch }, { label:'Edit project', ...opts }); }
   togglePin(id){ const p=this.project(id); if(!p) return; return this.put('projects', { ...p, pinned:!p.pinned }, { silent:true }); }
+
+  // ---- bulk actions (projects library multi-select) ----------------------
+  // Every one of these is a single undo step covering the whole selection —
+  // see bulkUpdate() above.
+  bulkSetStatus(ids, status){
+    const label=STATUSES[status]?.label||status;
+    return this.bulkUpdate('projects', ids, p=>p.status===status?null:{ ...p, status }, { label:`Set status: ${label}` });
+  }
+  bulkArchive(ids){ return this.bulkSetStatus(ids, 'archived'); }
+  // Skips (leaves untouched) any project that already carries the tag, so
+  // undo only reverts the projects that actually gained it.
+  bulkAddTag(ids, tag){
+    const t=String(tag||'').trim();
+    if(!t) return 0;
+    return this.bulkUpdate('projects', ids, p=>{
+      const tags=p.tags||[];
+      return tags.includes(t) ? null : { ...p, tags:[...tags, t] };
+    }, { label:`Add tag "${t}"` });
+  }
 
   // ---- custom field definitions (typed project-metadata schema) ---------
   fieldDefs(){ return this.all('fieldDefs').sort((a,b)=>(a.order||0)-(b.order||0)); }

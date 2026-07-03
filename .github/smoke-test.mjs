@@ -113,7 +113,7 @@ try {
     const cell = await page.evaluate(() => {
       const rows = [...document.querySelectorAll('.lib-table tbody tr')];
       const relay = rows.find((r) => /relay/i.test(r.textContent));
-      const vcell = relay && relay.querySelector('td:nth-child(4)');
+      const vcell = relay && relay.querySelector('td:nth-child(5)');   // 1=select, 2=pin, 3=name, 4=status, 5=latest
       return vcell ? vcell.textContent.trim() : '';
     });
     return /v\d+/.test(cell) && /\bCT$/.test(cell);
@@ -171,6 +171,71 @@ try {
     await page.waitForTimeout(200);
     const after = await page.evaluate(() => JSON.parse(localStorage.getItem('manager.lib.view') || '{}').sort);
     return role === 'button' && after === 'status';
+  });
+
+  // ---------- Bulk actions (library multi-select) ----------
+  console.log('Bulk actions');
+  await check('the library "select all" header checkbox selects and clears every visible row, driving a live-count bulk bar', async () => {
+    await openSec('projects');
+    const total = await count('.lib-table tbody tr');
+    await page.click('th.lib-sel-th input.lib-sel');
+    await page.waitForTimeout(150);
+    const checkedAfter = await page.$$eval('input.lib-sel[data-pid]', (cbs) => cbs.filter((c) => c.checked).length);
+    const barText = await page.$eval('.bulkbar-count', (e) => e.textContent);
+    await page.click('th.lib-sel-th input.lib-sel');   // toggle back off
+    await page.waitForTimeout(150);
+    const bulkGone = !(await page.$('.bulkbar'));
+    return checkedAfter === total && barText === `${total} selected` && bulkGone;
+  });
+  await check('bulk "Add tag" tags every checked project in one shot, and Undo reverts the whole batch together', async () => {
+    await openSec('projects');
+    const before = await store(`(S)=>({games:[...(S.project('games').tags||[])], polecat:[...(S.project('polecat').tags||[])]})`);
+    await page.click('input.lib-sel[data-pid="games"]');
+    await page.click('input.lib-sel[data-pid="polecat"]');
+    await page.waitForTimeout(150);
+    await page.click('.bulkbar button:has-text("Add tag")');
+    await page.waitForTimeout(300);
+    await page.fill('.modal input.input', 'smoke-bulk');
+    await page.click('.modal button:has-text("Add tag")');
+    await page.waitForTimeout(400);
+    const tagged = await store(`(S)=>(S.project('games').tags||[]).includes('smoke-bulk') && (S.project('polecat').tags||[]).includes('smoke-bulk')`);
+    await page.keyboard.down('Control'); await page.keyboard.press('KeyZ'); await page.keyboard.up('Control');
+    await page.waitForTimeout(350);
+    const after = await store(`(S)=>({games:[...(S.project('games').tags||[])], polecat:[...(S.project('polecat').tags||[])]})`);
+    const undone = JSON.stringify(after.games) === JSON.stringify(before.games) && JSON.stringify(after.polecat) === JSON.stringify(before.polecat);
+    return tagged && undone;
+  });
+  await check('bulk "Set status" changes every checked project, leaves an unselected one untouched, and Undo reverts the whole batch together', async () => {
+    await openSec('projects');
+    const beforeGames = await store(`(S)=>S.project('games').status`);
+    const beforePolecat = await store(`(S)=>S.project('polecat').status`);
+    const relayBefore = await store(`(S)=>S.project('relay').status`);
+    await page.click('input.lib-sel[data-pid="games"]');
+    await page.click('input.lib-sel[data-pid="polecat"]');
+    await page.waitForTimeout(150);
+    await page.selectOption('.bulkbar select', 'paused');
+    await page.waitForTimeout(400);
+    const changed = await store(`(S)=>S.project('games').status==='paused' && S.project('polecat').status==='paused'`);
+    const relayUntouched = (await store(`(S)=>S.project('relay').status`)) === relayBefore;
+    await page.keyboard.down('Control'); await page.keyboard.press('KeyZ'); await page.keyboard.up('Control');
+    await page.waitForTimeout(350);
+    const undone = (await store(`(S)=>S.project('games').status`)) === beforeGames && (await store(`(S)=>S.project('polecat').status`)) === beforePolecat;
+    return changed && relayUntouched && undone;
+  });
+  await check('bulk "Archive" sets every checked project\'s status to Archived, with Undo reverting the whole batch together', async () => {
+    await openSec('projects');
+    const beforeGames = await store(`(S)=>S.project('games').status`);
+    const beforePolecat = await store(`(S)=>S.project('polecat').status`);
+    await page.click('input.lib-sel[data-pid="games"]');
+    await page.click('input.lib-sel[data-pid="polecat"]');
+    await page.waitForTimeout(150);
+    await page.click('.bulkbar button:has-text("Archive")');
+    await page.waitForTimeout(400);
+    const archived = await store(`(S)=>S.project('games').status==='archived' && S.project('polecat').status==='archived'`);
+    await page.keyboard.down('Control'); await page.keyboard.press('KeyZ'); await page.keyboard.up('Control');
+    await page.waitForTimeout(350);
+    const undone = (await store(`(S)=>S.project('games').status`)) === beforeGames && (await store(`(S)=>S.project('polecat').status`)) === beforePolecat;
+    return archived && undone;
   });
 
   // ---------- Project detail / releases ----------

@@ -9,6 +9,13 @@ import { openSyncAll } from './home.js';
 const VIEW_KEY = 'manager.lib.view';   // { q, status, sort, dir, field, fieldValue }
 const DEFAULT_STATE = { q:'', status:'all', sort:'activity', dir:'desc', field:'', fieldValue:'' };
 
+// Bulk-select checkbox state for the library table. Module-level (not
+// per-render) so it survives the view's own internal re-renders (search,
+// sort, filter chips) instead of silently clearing on every keystroke;
+// pruned against live projects on every render so a deleted/undone row can
+// never linger in a stale selection.
+const selected = new Set();
+
 function state(){ try{ return { ...DEFAULT_STATE, ...(JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')) }; }catch{ return { ...DEFAULT_STATE }; } }
 function saveState(s){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify(s)); }catch{} }
 
@@ -98,15 +105,83 @@ export function renderProjects(root, ctx){
   }
   wrap.append(bar);
 
+  const bulkHost=el('div',{id:'libBulk'});
+  wrap.append(bulkHost);
   const listHost=el('div',{id:'libList'});
   wrap.append(listHost);
   root.append(wrap);
 
-  function rerenderList(){ listHost.innerHTML=''; listHost.append(buildList(ctx)); }
+  function renderBulk(){
+    bulkHost.innerHTML='';
+    if(selected.size) bulkHost.append(buildBulkBar(ctx));
+  }
+  function rerenderList(){
+    for(const id of [...selected]) if(!Store.project(id)) selected.delete(id);
+    listHost.innerHTML=''; listHost.append(buildList(ctx, renderBulk));
+    renderBulk();
+  }
   rerenderList();
 }
 
-function buildList(ctx){
+// The bulk-action bar shown above the table once at least one row is
+// checked — add a tag, set a status, or archive every selected project in
+// one shot. Every action clears the selection FIRST, then mutates the
+// store, then calls ctx.refresh(): a store mutation fires Store's own
+// reactive re-render synchronously (see app.js's `Store.on('*', ...)`),
+// which would repaint this exact view mid-mutation — clearing first means
+// that repaint already shows the correct, deselected state instead of a
+// stale bulkHost/listHost closure trying (and failing) to patch DOM nodes
+// the reactive render already replaced. The trailing ctx.refresh() is what
+// actually repaints for the harmless no-op case (e.g. "archive" when every
+// selected project is already archived), where bulkUpdate makes no change
+// and so fires no reactive render at all.
+function buildBulkBar(ctx){
+  const ids=[...selected];
+  const bar=el('div',{class:'bulkbar'});
+  bar.append(el('span',{class:'bulkbar-count', text:`${ids.length} selected`}));
+  bar.append(el('button',{class:'btn sm', html:`${icon('tag')} Add tag`, onclick:()=>openBulkTagPrompt(ctx, ids)}));
+  const statusSel=el('select',{class:'input', style:'max-width:160px', 'aria-label':'Set status for selected projects'});
+  statusSel.append(el('option',{value:'', text:'Set status…'}));
+  Object.entries(STATUSES).forEach(([k,st])=>statusSel.append(el('option',{value:k,text:st.label})));
+  statusSel.addEventListener('change',()=>{
+    if(!statusSel.value) return;
+    const label=STATUSES[statusSel.value].label;
+    selected.clear();
+    const n=Store.bulkSetStatus(ids, statusSel.value);
+    toast(n?`${n===1?'1 project':n+' projects'} set to ${label}`:'Already set',{kind:n?'ok':'info', action:n?{label:'Undo', fn:()=>Store.undo()}:undefined});
+    ctx.refresh();
+  });
+  bar.append(statusSel);
+  bar.append(el('button',{class:'btn sm', title:'Set status to Archived', html:`${icon('archive')} Archive`, onclick:()=>{
+    selected.clear();
+    const n=Store.bulkArchive(ids);
+    toast(n?`${n===1?'1 project':n+' projects'} archived`:'Already archived',{kind:n?'ok':'info', action:n?{label:'Undo', fn:()=>Store.undo()}:undefined});
+    ctx.refresh();
+  }}));
+  bar.append(el('span',{class:'sp'}));
+  bar.append(el('button',{class:'btn ghost icon sm', title:'Clear selection', 'aria-label':'Clear selection', html:icon('x'), onclick:()=>{ selected.clear(); ctx.refresh(); }}));
+  return bar;
+}
+
+function openBulkTagPrompt(ctx, ids){
+  const input=el('input',{class:'input', placeholder:'e.g. needs-review', autocomplete:'off'});
+  const body=el('div',{class:'field'});
+  body.append(el('label',{text:`Add a tag to ${ids.length} project${ids.length===1?'':'s'}`}), input);
+  const add=el('button',{class:'btn primary', text:'Add tag', onclick:()=>{
+    const t=input.value.trim();
+    if(!t){ input.focus(); return; }
+    hide();
+    selected.clear();
+    const n=Store.bulkAddTag(ids, t);
+    toast(n?`Tagged ${n===1?'1 project':n+' projects'} "${t}"`:'Every selected project already has that tag',{kind:n?'ok':'info', action:n?{label:'Undo', fn:()=>Store.undo()}:undefined});
+    ctx.refresh();
+  }});
+  input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); add.click(); } });
+  const {hide}=modal({ title:'Add tag', icon:'tag', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), add] });
+  setTimeout(()=>input.focus(),50);
+}
+
+function buildList(ctx, renderBulk){
   const s=state();
   let rows=Store.projects();
   const q=s.q.trim().toLowerCase();
@@ -153,6 +228,18 @@ function buildList(ctx){
   const table=el('table',{class:'data'});
   const cols=[['','pin'],['Project','name'],['Status','status'],['Latest','version'],['Updated','activity'],['Tags','tags'],['',' ']];
   const thead=el('tr');
+  const selAll=el('input',{type:'checkbox', class:'lib-sel', 'aria-label':'Select all visible projects'});
+  const updateSelAll=()=>{
+    selAll.checked = rows.length>0 && rows.every(p=>selected.has(p.id));
+    selAll.indeterminate = !selAll.checked && rows.some(p=>selected.has(p.id));
+  };
+  updateSelAll();
+  selAll.addEventListener('change',()=>{
+    rows.forEach(p=>{ if(selAll.checked) selected.add(p.id); else selected.delete(p.id); });
+    tb.querySelectorAll('input.lib-sel[data-pid]').forEach(cb=>{ cb.checked=selAll.checked; });
+    renderBulk();
+  });
+  thead.append(el('th',{class:'lib-sel-th'},selAll));
   cols.forEach(([label,key])=>{
     const th=el('th',{class:s.sort===key?'sorted':''});
     th.innerHTML=`${escapeHtml(label)}${['name','status','version','activity'].includes(key)?` <span class="caret">${s.dir==='asc'?'▲':'▼'}</span>`:''}`;
@@ -165,7 +252,8 @@ function buildList(ctx){
   });
   table.append(el('thead',{},thead));
   const tb=el('tbody');
-  rows.forEach(p=>tb.append(projectRow(p, ctx)));
+  const onRowToggle=()=>{ updateSelAll(); renderBulk(); };
+  rows.forEach(p=>tb.append(projectRow(p, ctx, onRowToggle)));
   table.append(tb);
   box.append(table);
   return box;
@@ -178,11 +266,16 @@ function fieldSortValue(def, val){
   const n=parseFloat(val); return isNaN(n)?-Infinity:n;
 }
 
-function projectRow(p, ctx){
+function projectRow(p, ctx, onSelectionChange){
   const rel=Store.latestRelease(p.id);
   const st=STATUSES[p.status]||STATUSES.idea;
-  const tr=el('tr',{onclick:(e)=>{ if(e.target.closest('.rowbtn')) return; ctx.go('project',{id:p.id}); }});
+  const tr=el('tr',{onclick:(e)=>{ if(e.target.closest('.rowbtn')||e.target.closest('.lib-sel-td')) return; ctx.go('project',{id:p.id}); }});
   makeRowClickable(tr, ()=>ctx.go('project',{id:p.id}), `Open ${p.name}`);
+  // select
+  const selTd=el('td',{class:'lib-sel-td'});
+  const cb=el('input',{type:'checkbox', class:'lib-sel', 'data-pid':p.id, checked:selected.has(p.id), 'aria-label':`Select ${p.name}`});
+  cb.addEventListener('change',()=>{ if(cb.checked) selected.add(p.id); else selected.delete(p.id); onSelectionChange(); });
+  selTd.append(cb);
   // pin
   const pinTd=el('td');
   pinTd.append(el('button',{class:'pin-btn rowbtn'+(p.pinned?' on':''), title:p.pinned?'Unpin':'Pin', 'aria-label':p.pinned?'Unpin project':'Pin project',
@@ -206,7 +299,7 @@ function projectRow(p, ctx){
   const actTd=el('td');
   actTd.append(el('button',{class:'btn ghost icon sm rowbtn', title:'Edit', 'aria-label':'Edit project', html:icon('edit'),
     onclick:(e)=>{ e.stopPropagation(); openProjectEditor(p.id, ctx); }}));
-  tr.append(pinTd,nameTd,stTd,vTd,upTd,tagTd,actTd);
+  tr.append(selTd,pinTd,nameTd,stTd,vTd,upTd,tagTd,actTd);
   return tr;
 }
 
