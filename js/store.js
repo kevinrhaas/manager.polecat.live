@@ -656,20 +656,25 @@ export const Store = new (class {
     const strip = r => { const { id, createdAt, updatedAt, ...rest } = r; return rest; };
     return stableStringify(strip(a)) !== stableStringify(strip(b));
   }
-  // A dry-run per-table {add, skip, update, rows, updateRows} preview for a
-  // merge import: `add`/`rows` are rows in the file whose id doesn't exist
-  // here yet (would be inserted); `update`/`updateRows` are rows whose id
-  // DOES already exist here but whose content differs from the file's
-  // version (only overwritten if the caller opts into mergeImport's
-  // `applyUpdates`) — each entry is `{id, local, incoming}` so a "review" UI
-  // can diff the two versions field by field; `skip` is rows that already
-  // exist here and are identical to the file, left out of both lists since
-  // there's nothing to show or do. Excludes `dismissals`: that table is
-  // local "have I already seen this" state scoped to whichever browser
-  // raised it, and porting someone else's doesn't mean anything here. Also
-  // returns the file's raw incoming `projects` map so a caller can name a
-  // new release/credential's parent project even when that project is
-  // itself new in the same file (and so not yet in the live store to look up).
+  // A dry-run per-table {add, skip, update, remove, rows, updateRows,
+  // removeRows} preview for a merge import: `add`/`rows` are rows in the
+  // file whose id doesn't exist here yet (would be inserted); `update`/
+  // `updateRows` are rows whose id DOES already exist here but whose content
+  // differs from the file's version (only overwritten if the caller opts
+  // into mergeImport's `applyUpdates`) — each entry is `{id, local,
+  // incoming}` so a "review" UI can diff the two versions field by field;
+  // `remove`/`removeRows` are rows that exist here but whose id is absent
+  // from the file entirely (only deleted if the caller opts into
+  // mergeImport's `applyRemoves` — a two-way-sync opt-in, since a plain
+  // partial export legitimately omits rows without meaning "delete these");
+  // `skip` is rows that already exist here and are identical to the file,
+  // left out of every list since there's nothing to show or do. Excludes
+  // `dismissals`: that table is local "have I already seen this" state
+  // scoped to whichever browser raised it, and porting someone else's
+  // doesn't mean anything here. Also returns the file's raw incoming
+  // `projects` map so a caller can name a new release/credential's parent
+  // project even when that project is itself new in the same file (and so
+  // not yet in the live store to look up).
   previewMerge(text){
     const parsed = this._parseWorkspace(text);
     const tables = {};
@@ -677,13 +682,15 @@ export const Store = new (class {
       const local = this._db[t];
       const rows = [], updateRows = [];
       let skip = 0;
+      const incomingIds = new Set(Object.keys(parsed[t]));
       Object.values(parsed[t]).forEach(row=>{
         const existing = local[row.id];
         if(!existing) rows.push(row);
         else if(this._rowsDiffer(existing, row)) updateRows.push({ id:row.id, local:existing, incoming:row });
         else skip++;
       });
-      tables[t] = { add: rows.length, skip, update: updateRows.length, rows, updateRows };
+      const removeRows = Object.values(local).filter(r=>!incomingIds.has(r.id));
+      tables[t] = { add: rows.length, skip, update: updateRows.length, remove: removeRows.length, rows, updateRows, removeRows };
     });
     return { tables, projects: parsed.projects };
   }
@@ -694,17 +701,32 @@ export const Store = new (class {
   // importJSON() for that replace mode). Passing `{applyUpdates:true}` also
   // opts into overwriting rows that exist in both places but differ (see
   // previewMerge()'s `updateRows`) — a row identical in both places is still
-  // never touched either way. Recorded as one undo step spanning every table
-  // it touched, via the same `{table, items}` grouped shape
-  // bulkUpdate()/bulkRemove() use, generalized to `{tables: {table: items}}`
-  // so a single Undo removes every add and restores every update a merge
-  // made — however many tables it touched — in one click; an updated row's
-  // `prev` is the full previous row (not null, unlike a fresh add) so Undo
-  // puts back exactly what was overwritten. Returns `{added, updated}` counts.
-  mergeImport(text, { applyUpdates=false }={}){
+  // never touched either way. Passing `{applyRemoves:true}` also opts into
+  // deleting local rows whose id is absent from the file entirely (see
+  // previewMerge()'s `removeRows`) — a genuine two-way-sync opt-in, since by
+  // default a partial export omitting a row never means "delete it"; a
+  // removed project cascades its releases/credentials/dismissals exactly
+  // like remove() does, via the same `_cascadeFor()` helper, so a project
+  // dropped this way doesn't leave orphaned children behind. Recorded as one
+  // undo step spanning every table it touched, via the same `{table, items}`
+  // grouped shape bulkUpdate()/bulkRemove() use, generalized to
+  // `{tables: {table: items}}` so a single Undo reverses every add, update,
+  // and remove a merge made — however many tables it touched — in one
+  // click; an updated row's `prev` is the full previous row (not null,
+  // unlike a fresh add) so Undo puts back exactly what was overwritten, and
+  // a removed row's `prev` (plus its `cascade`) lets Undo restore it exactly
+  // like remove()'s undo does. Returns `{added, updated, removed}` counts.
+  mergeImport(text, { applyUpdates=false, applyRemoves=false }={}){
     const parsed = this._parseWorkspace(text);
     const tables = {};
-    let added=0, updated=0;
+    let added=0, updated=0, removed=0;
+    // Pass 1: every table's adds and updates, before any table's removes.
+    // This has to fully finish first — if a project's cascade-remove (pass 2
+    // below) ran interleaved with a sibling table's own add pass, a release
+    // that's still present in the file but just got cascade-deleted because
+    // its parent project was removed would look, to that sibling table's add
+    // check, exactly like a legitimate new row (existing is now falsy) and
+    // get silently re-inserted a moment after the cascade removed it.
     MERGE_TABLES.forEach(t=>{
       const local = this._db[t];
       const items = [];
@@ -722,13 +744,33 @@ export const Store = new (class {
       });
       if(items.length) tables[t]=items;
     });
-    if(!added && !updated) return { added:0, updated:0 };
-    this._pushHistory({ tables, label: updated?'Merge import (with updates)':'Merge import' });
+    // Pass 2: removes, only once every add/update above has landed. A
+    // project removed here cascades its releases/credentials/dismissals via
+    // the same `_cascadeFor()` remove()/bulkRemove() use, so a cascaded row
+    // simply vanishes from its own table's `Object.keys(local)` before this
+    // loop reaches that table — never re-added (pass 1 is already done) and
+    // never double-removed (it's no longer there to find).
+    if(applyRemoves){
+      MERGE_TABLES.forEach(t=>{
+        const local = this._db[t];
+        const incomingIds = new Set(Object.keys(parsed[t]));
+        Object.keys(local).filter(id=>!incomingIds.has(id)).forEach(id=>{
+          const prev = local[id];
+          delete local[id];
+          const cascade = this._cascadeFor(t, id);
+          (tables[t] = tables[t] || []).push({ id, prev, cascade });
+          removed++;
+        });
+      });
+    }
+    if(!added && !updated && !removed) return { added:0, updated:0, removed:0 };
+    const labelParts=[]; if(updated) labelParts.push('updates'); if(removed) labelParts.push('removals');
+    this._pushHistory({ tables, label: labelParts.length ? `Merge import (with ${labelParts.join(' & ')})` : 'Merge import' });
     this._save();
     Object.entries(tables).forEach(([table,items])=>{
       items.forEach(({id})=>{ this.emit('change',{table,id}); this.emit(table,{id}); });
     });
-    return { added, updated };
+    return { added, updated, removed };
   }
   reset(){ localStorage.removeItem(LS_KEY); localStorage.removeItem(HIST_KEY); this._db=this._load(); this._history=[]; this.emit('change', {}); }
 })();

@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 31,
+    title: 'Merge & remove, for real two-way sync',
+    kind: 'feature',
+    ts: '2026-07-03T20:56:59.693Z',
+    items: [
+      'Merge JSON can now delete rows that exist here but aren’t in the file at all — for two browsers that both add, edit, and delete. Off by default; a plain merge is still purely additive.',
+      'The opt-in checkbox and its review-list tag are styled in red so the destructive direction is unmistakable before you commit.',
+      'Deleting a project this way cleans up its releases, credentials, and dismissals too, just like deleting it normally does.',
+      'Still one Undo for the whole merge — adds, updates, and removes together.',
+    ],
+  },
+  {
     v: 30,
     title: 'Merge & update, not just merge & add',
     kind: 'feature',

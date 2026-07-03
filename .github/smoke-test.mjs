@@ -1056,6 +1056,63 @@ try {
       return showsDiff && disabledByDefault && !!mergeBtn && updated && restored;
     } finally { fs.unlinkSync(tmpFile); }
   });
+  await check('Store.previewMerge flags a local row absent from the file as `remove`, and Store.mergeImport only deletes it (cascading its release) with {applyRemoves:true} — Undo restores both', async () => {
+    await store(`(S)=>{
+      S.put('projects',{id:'smoke-merge-remove-proj',slug:'smoke-merge-remove-proj',name:'Smoke Merge Remove Proj',status:'idea',tags:[],fields:{}},{silent:true});
+      S.put('releases',{id:'smoke-merge-remove-rel',projectId:'smoke-merge-remove-proj',v:1,title:'Smoke remove release',kind:'feature',items:['test'],ts:new Date().toISOString()},{silent:true});
+    }`);
+    try {
+      const merged = await store(`(S)=>{ const db=JSON.parse(S.exportJSON()); delete db.projects['smoke-merge-remove-proj']; return JSON.stringify(db); }`);
+      const preview = await store(`(S)=>S.previewMerge(${JSON.stringify(merged)})`);
+      const t = preview.tables.projects;
+      const flagged = t.remove === 1 && (t.removeRows || []).some((r) => r.id === 'smoke-merge-remove-proj');
+      const withoutFlag = await store(`(S)=>S.mergeImport(${JSON.stringify(merged)})`);
+      const stillThereByDefault = await store(`(S)=>!!S.project('smoke-merge-remove-proj')`);
+      const withFlag = await store(`(S)=>S.mergeImport(${JSON.stringify(merged)}, {applyRemoves:true})`);
+      const projGone = !(await store(`(S)=>!!S.project('smoke-merge-remove-proj')`));
+      const relGone = !(await store(`(S)=>!!S.get('releases','smoke-merge-remove-rel')`));
+      await store(`(S)=>S.undo()`);
+      const projRestored = await store(`(S)=>!!S.project('smoke-merge-remove-proj')`);
+      const relRestored = await store(`(S)=>!!S.get('releases','smoke-merge-remove-rel')`);
+      return flagged && withoutFlag.removed === 0 && stillThereByDefault
+        && withFlag.removed === 1 && projGone && relGone && projRestored && relRestored;
+    } finally {
+      await store(`(S)=>{ S.remove('projects','smoke-merge-remove-proj',{silent:true}); S.remove('releases','smoke-merge-remove-rel',{silent:true}); }`);
+    }
+  });
+  await check('Merge JSON: a local-only row is left alone unless the "also remove" checkbox is opted into, and the review lists it tagged `remove`', async () => {
+    await openSec('settings');
+    await store(`(S)=>S.put('projects',{id:'smoke-merge-remove-ui',slug:'smoke-merge-remove-ui',name:'Smoke Merge Remove UI',status:'idea',tags:[],fields:{}},{silent:true})`);
+    try {
+      const merged = await store(`(S)=>{ const db=JSON.parse(S.exportJSON()); delete db.projects['smoke-merge-remove-ui']; return JSON.stringify(db); }`);
+      const tmpFile = path.join(ROOT, '.smoke-merge-remove-tmp.json');
+      fs.writeFileSync(tmpFile, merged);
+      try {
+        const [chooser] = await Promise.all([
+          page.waitForEvent('filechooser'),
+          page.click('button:has-text("Merge JSON")'),
+        ]);
+        await chooser.setFiles(tmpFile);
+        await page.waitForTimeout(300);
+        const removeCheckbox = await $('.modal .merge-remove-opt input[type=checkbox]');
+        if (!removeCheckbox) return false;
+        await page.click('.modal details.merge-review summary');
+        await page.waitForTimeout(150);
+        const reviewText = await page.$eval('.modal details.merge-review', (d) => d.textContent);
+        const showsRemove = reviewText.includes('Smoke Merge Remove UI') && /remove/i.test(reviewText);
+        const disabledByDefault = await page.$eval('.modal button.primary:has-text("Merge in")', (b) => b.disabled);
+        await removeCheckbox.click();
+        await page.click('.modal button:has-text("Merge in")');
+        await page.waitForTimeout(400);
+        const removed = !(await store(`(S)=>!!S.project('smoke-merge-remove-ui')`));
+        await store(`(S)=>S.undo()`);
+        const restored = await store(`(S)=>!!S.project('smoke-merge-remove-ui')`);
+        return showsRemove && disabledByDefault && removed && restored;
+      } finally { fs.unlinkSync(tmpFile); }
+    } finally {
+      await store(`(S)=>S.remove('projects','smoke-merge-remove-ui',{silent:true})`);
+    }
+  });
 
   await check('welcome tour starts and can finish', async () => {
     await openSec('settings');

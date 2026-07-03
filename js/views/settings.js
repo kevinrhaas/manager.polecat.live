@@ -362,21 +362,23 @@ export function mergeImportFile(ctx){
       try{ preview=Store.previewMerge(text); }
       catch(e){ toast('Merge failed',{body:e.message,kind:'err'}); return; }
       const { tables, projects:incomingProjects } = preview;
-      let totalAdd=0, totalSkip=0, totalUpdate=0;
+      let totalAdd=0, totalSkip=0, totalUpdate=0, totalRemove=0;
       const addParts=[];
-      Object.entries(tables).forEach(([t,{add,skip,update}])=>{
-        totalAdd+=add; totalSkip+=skip; totalUpdate+=update;
+      Object.entries(tables).forEach(([t,{add,skip,update,remove}])=>{
+        totalAdd+=add; totalSkip+=skip; totalUpdate+=update; totalRemove+=remove;
         if(add) addParts.push(`${add} new ${MERGE_ROW_LABELS[t]}${add===1?'':'s'}`);
       });
-      if(!totalAdd && !totalUpdate){ toast('Nothing to merge — every row in that file already exists here and matches',{kind:'info'}); return; }
+      if(!totalAdd && !totalUpdate && !totalRemove){ toast('Nothing to merge — every row in that file already exists here and matches',{kind:'info'}); return; }
 
       const body=el('div');
       body.append(el('p',{class:'muted', text: addParts.length
         ? `This file has ${addParts.join(', ')}`
           +(totalSkip?` (plus ${totalSkip} row${totalSkip===1?'':'s'} identical to what's already here)`:'')
           +`. Merging adds the new rows — nothing already in this workspace is changed`
-          +(totalUpdate?', unless you opt in below.':'.')
-        : `Every row in this file already exists here — ${totalUpdate} of them differ from your copy.`}));
+          +(totalUpdate||totalRemove?', unless you opt in below.':'.')
+        : totalUpdate
+          ? `Every row in this file already exists here — ${totalUpdate} of them differ from your copy.`
+          : `Every row in this file already exists here and matches your copy.`}));
 
       // Opt-in: by default a merge only ever adds rows, never overwrites —
       // this checkbox is the one way to let it also refresh rows that exist
@@ -386,19 +388,34 @@ export function mergeImportFile(ctx){
       if(totalUpdate){
         const updRow=el('label',{class:'merge-update-opt'});
         const cb=el('input',{type:'checkbox'});
-        cb.onchange=()=>{ applyUpdates=cb.checked; ok.disabled = !(totalAdd || applyUpdates); };
+        cb.onchange=()=>{ applyUpdates=cb.checked; ok.disabled = !(totalAdd || applyUpdates || applyRemoves); };
         updRow.append(cb, el('span',{text:`Also update ${totalUpdate} row${totalUpdate===1?'':'s'} that already exist here but differ from the file`}));
         body.append(updRow);
       }
 
+      // A second, separately-styled opt-in for the destructive direction:
+      // rows that exist here but whose id is missing from the file entirely.
+      // Off by default — a partial export legitimately omits rows without
+      // meaning "delete these" — this is only for someone doing a genuine
+      // two-way sync where the file really is the full, current state of
+      // both browsers.
+      let applyRemoves=false;
+      if(totalRemove){
+        const rmRow=el('label',{class:'merge-update-opt merge-remove-opt'});
+        const cb=el('input',{type:'checkbox'});
+        cb.onchange=()=>{ applyRemoves=cb.checked; ok.disabled = !(totalAdd || applyUpdates || applyRemoves); ok.classList.toggle('danger', applyRemoves); };
+        rmRow.append(cb, el('span',{text:`Also remove ${totalRemove} row${totalRemove===1?'':'s'} that exist here but aren't in the file`}));
+        body.append(rmRow);
+      }
+
       // A review step: expand to see exactly which rows are new (and, if any,
-      // which would update and how) by name, before committing — not just a
-      // per-table count.
-      const totalListed=totalAdd+totalUpdate;
+      // which would update or be removed, and how) by name, before
+      // committing — not just a per-table count.
+      const totalListed=totalAdd+totalUpdate+totalRemove;
       if(totalListed){
         const details=el('details',{class:'merge-review'});
         details.append(el('summary',{text:`Review the ${totalListed} row${totalListed===1?'':'s'} in this file`}));
-        Object.entries(tables).forEach(([t,{add,rows,update,updateRows}])=>{
+        Object.entries(tables).forEach(([t,{add,rows,update,updateRows,remove,removeRows}])=>{
           if(add){
             details.append(el('div',{class:'merge-review-head', text:`${add} new ${MERGE_ROW_LABELS[t]}${add===1?'':'s'}`}));
             const list=el('ul',{class:'sync-preview'});
@@ -413,6 +430,12 @@ export function mergeImportFile(ctx){
             })));
             details.append(list);
           }
+          if(remove){
+            details.append(el('div',{class:'merge-review-head', text:`${remove} ${MERGE_ROW_LABELS[t]}${remove===1?'':'s'} that would be removed`}));
+            const list=el('ul',{class:'sync-preview'});
+            removeRows.forEach(r=>list.append(el('li',{html:`<span class="tag sync-del">remove</span><span>${mergeRowHtml(t,r,incomingProjects)}</span>`})));
+            details.append(list);
+          }
         });
         body.append(details);
       }
@@ -425,8 +448,8 @@ export function mergeImportFile(ctx){
       });
       if(!go) return;
       try{
-        const { added, updated }=Store.mergeImport(text, { applyUpdates });
-        const parts=[]; if(added) parts.push(`${added} added`); if(updated) parts.push(`${updated} updated`);
+        const { added, updated, removed }=Store.mergeImport(text, { applyUpdates, applyRemoves });
+        const parts=[]; if(added) parts.push(`${added} added`); if(updated) parts.push(`${updated} updated`); if(removed) parts.push(`${removed} removed`);
         toast('Merged workspace',{kind:'ok', body:parts.join(', '), action:{label:'Undo', fn:()=>Store.undo()}});
         ctx.go('home');
       }catch(e){ toast('Merge failed',{body:e.message,kind:'err'}); }

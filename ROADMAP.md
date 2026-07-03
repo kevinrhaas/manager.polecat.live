@@ -14,16 +14,22 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Now that a merge can both add and update (see Done, 2026-07-03), the
-      remaining gap is deletes: a merge never removes a row that exists
-      locally but is absent from the incoming file, even in "update" mode —
-      reasonable as the safe default (an incomplete/partial export shouldn't
-      delete things), but worth a clearly-labeled opt-in "also remove rows
-      missing from the file" for someone doing a genuine two-way sync between
-      two browsers that both make deletions, not just additions/edits.
+- [ ] Nothing queued at the top of Now right now — pull the next item from
+      Next below (highest-value first) or from a fresh sweep of the app.
 
 ## Next (discovered / queued)
 
+- [ ] The merge-review's new "also remove" opt-in (see Done, 2026-07-03) is
+      per-merge, not per-table — if a file is a full export of `projects` but
+      only a partial export of, say, `credentials`, checking the one box
+      would delete local credentials that were never meant to be removed.
+      Today's copy ("remove N rows that exist here but aren't in the file")
+      and the full per-table review list are the mitigation, but a per-table
+      set of checkboxes (rather than one global one) would be safer for
+      someone merging files that mix a full export of one table with a
+      partial export of another — worth it if that scenario shows up in
+      practice, low priority since the review list already makes the blast
+      radius visible before committing.
 - [ ] The merge-update diff (see Done, 2026-07-03) compares top-level fields
       with a plain `JSON.stringify` per field for display, which is only a
       display nicety — `Store._rowsDiffer()` (the thing that actually decides
@@ -100,6 +106,26 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **"Merge & remove": opt in to deleting rows missing from the merge
+      file, for genuine two-way sync** _(2026-07-03)_: the last gap in Merge
+      JSON was deletes — a merge could add and (as of the item above) update,
+      but a row that existed locally and simply wasn't in the incoming file
+      was always left untouched, even for someone doing a real two-way sync
+      between two browsers that both delete things. `previewMerge()` now also
+      buckets local rows whose id is absent from the file into `remove`/
+      `removeRows` per table, and `mergeImport()` takes a new
+      `{applyRemoves:true}` option that deletes them — off by default, so a
+      plain Merge JSON is still exactly as safe/additive as before. A removed
+      project cascades its releases/credentials/dismissals through the same
+      `_cascadeFor()` helper `Store.remove()` already uses, so nothing gets
+      orphaned. The merge dialog gets a second opt-in checkbox, styled in the
+      danger color so it visually reads as the riskier of the two boxes
+      ("Also remove N rows that exist here but aren't in the file"), and the
+      review disclosure lists exactly which rows would go, tagged `remove` in
+      danger red alongside the existing `new`/`update` tags — so nothing is
+      deleted without the reviewer seeing it named first. The whole merge
+      (adds + updates + removes) is still one undo step, so a bad two-way
+      sync is one click to reverse.
 - [x] **"Merge & update": opt in to refreshing rows that exist in both places
       but differ, with a field-level diff preview** _(2026-07-03)_: Merge JSON
       previously only ever added rows whose id was new — a row that existed

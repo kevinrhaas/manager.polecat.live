@@ -472,6 +472,7 @@ input.lib-sel{width:16px;height:16px;accent-color:var(--brand-b);cursor:pointer;
 .sync-preview b{color:var(--text);font-family:var(--mono);font-size:12px}
 .tag.sync-new{color:var(--success);background:color-mix(in srgb,var(--success) 14%,transparent)}
 .tag.sync-upd{color:var(--warning);background:color-mix(in srgb,var(--warning) 14%,transparent)}
+.tag.sync-del{color:var(--danger);background:color-mix(in srgb,var(--danger) 14%,transparent)}
 .sync-err{color:var(--danger)}
 
 /* merge-workspace review (Settings → Data) */
@@ -493,6 +494,11 @@ input.lib-sel{width:16px;height:16px;accent-color:var(--brand-b);cursor:pointer;
 .merge-update-opt{display:flex;align-items:flex-start;gap:8px;margin-top:10px;cursor:pointer;font-size:13px;color:var(--text-2)}
 .merge-update-opt input{margin-top:2px;flex:0 0 auto}
 .merge-update-opt span{overflow-wrap:anywhere;min-width:0}
+/* the destructive "also remove rows missing from the file" opt-in — same
+   shape as .merge-update-opt, but tinted danger so it visually reads as the
+   riskier of the two checkboxes before it's even checked */
+.merge-remove-opt{color:var(--danger)}
+.merge-remove-opt input{accent-color:var(--danger)}
 
 /* sync-all modal (dashboard) */
 .sync-all-list{display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;
