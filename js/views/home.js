@@ -103,7 +103,7 @@ function attentionPanel(attn, ctx){
   return panel;
 }
 
-function attentionRow(a, ctx){
+export function attentionRow(a, ctx){
   const {project:p, band, reasons}=a;
   const row=el('div',{class:'attn-row', onclick:()=>ctx.go('project',{id:p.id})});
   row.innerHTML=`<span class="aavatar" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span>

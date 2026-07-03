@@ -355,6 +355,44 @@ try {
     return rows === expected && hasGames;
   });
 
+  await check('notification bell badges the same count as Store.needsAttention() and opens a matching popover', async () => {
+    await openSec('home');
+    const baseline = await store(`(S)=>S.needsAttention().length`);
+    const badgeVisible = await page.$eval('.notif-btn .badge', (e) => !e.hidden).catch(() => false);
+    const badgeText = badgeVisible ? await page.$eval('.notif-btn .badge', (e) => e.textContent) : '0';
+    const badgeMatches = baseline > 0 ? (badgeVisible && badgeText === String(baseline)) : !badgeVisible;
+    await page.click('.notif-btn'); await page.waitForTimeout(250);
+    const popShown = (await count('.notif-pop.show')) > 0;
+    const rows = await count('.notif-pop .attn-row');
+    const emptyShown = (await count('.notif-pop-empty')) > 0;
+    const listMatches = baseline > 0 ? (rows === baseline && !emptyShown) : (emptyShown && rows === 0);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(250);
+    const closed = (await count('.notif-pop.show')) === 0;
+    return badgeMatches && popShown && listMatches && closed;
+  });
+  await check('notification popover "Retry now" recovers a failing project and updates the badge', async () => {
+    const changelogUrl = `${base}/js/changelog.js`;
+    await store(`(S)=>{
+      const p=S.project('games');
+      S.put('projects', {...p, autoSync:true, autoSyncFailCount:3, autoSyncLastError:'HTTP 404', lastAutoSyncAt:Date.now(), changelogUrl:'${changelogUrl}'}, {silent:true});
+    }`);
+    await openSec('home');
+    const before = await page.$eval('.notif-btn .badge', (e) => e.textContent);
+    await page.click('.notif-btn'); await page.waitForTimeout(250);
+    const chipText = await page.$eval('.notif-pop .attn-row .fail-chip', (e) => e.textContent).catch(() => null);
+    await page.click('.notif-pop .attn-row button:has-text("Retry now")');
+    await page.waitForTimeout(700);
+    const popClosed = (await count('.notif-pop.show')) === 0; // a successful retry navigates home, closing the popover
+    const failCountAfter = await store(`(S)=>S.project('games').autoSyncFailCount`);
+    const badgeAfter = await page.$eval('.notif-btn .badge', (e) => (e.hidden ? '0' : e.textContent)).catch(() => '0');
+    // clean up
+    await store(`(S)=>{
+      S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
+      const p=S.project('games'); S.put('projects', {...p, autoSync:false, changelogUrl:'', lastSyncAt:0, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:''}, {silent:true});
+    }`);
+    return /Auto-sync failing/.test(chipText || '') && popClosed && failCountAfter === 0 && badgeAfter !== before;
+  });
+
   // ---------- Credentials ----------
   console.log('Credentials');
   await openSec('credentials');
@@ -531,6 +569,15 @@ try {
     if (!(await noHorizOverflow('.view'))) { console.error('  (overflow in project detail)'); allOk = false; }
     await page.setViewportSize({ width: 1280, height: 900 });
     return allOk;
+  });
+  await check('mobile (320px): notification popover stays within the viewport regardless of how many topbar buttons sit to its right', async () => {
+    await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);
+    await openSecMobile('home');
+    await page.click('.notif-btn'); await page.waitForTimeout(350);
+    const box = await page.$eval('.notif-pop', (e) => { const r = e.getBoundingClientRect(); return { left: r.left, right: r.right }; });
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return box.left >= 0 && box.right <= 320;
   });
   await check('mobile: landing page has no horizontal overflow (narrow phone)', async () => {
     await page.setViewportSize({ width: 320, height: 780 }); await page.waitForTimeout(200);

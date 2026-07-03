@@ -602,6 +602,27 @@ a.link:hover{text-decoration:underline}
   border-radius:50%;background:var(--brand-c);box-shadow:0 0 0 2px var(--surface),0 0 8px var(--brand-c)}
 @media(max-width:720px){ .sheet{width:100%} }
 
+/* ---- notification center (topbar bell + popover) ----------------------- */
+.notif-btn{position:relative}
+.notif-btn .badge{position:absolute;top:1px;right:1px;min-width:16px;height:16px;padding:0 4px;
+  border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--surface)}
+.notif-btn .badge[hidden]{display:none}
+.notif-pop{position:fixed;z-index:1200;width:min(380px,calc(100vw - 24px));max-height:min(70vh,520px);
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;
+  transform:translateY(-6px);opacity:0;pointer-events:none;transition:.16s}
+.notif-pop.show{transform:none;opacity:1;pointer-events:auto}
+.notif-pop-head{display:flex;align-items:center;gap:8px;padding:12px 8px 12px 16px;border-bottom:1px solid var(--border)}
+.notif-pop-head h3{margin:0;font-size:14.5px}
+.notif-pop-body{flex:1;min-height:0;overflow:auto;padding:4px 12px}
+.notif-pop-empty{padding:30px 16px;text-align:center;color:var(--text-3);font-size:12.5px;
+  display:flex;flex-direction:column;align-items:center;gap:8px}
+.notif-pop-empty svg{width:24px;height:24px;color:var(--success)}
+.notif-pop-body .attn-row{padding:9px 4px}
+.notif-pop-foot{padding:10px 14px;border-top:1px solid var(--border)}
+.notif-pop-foot .btn{width:100%;justify-content:center}
+
 /* ---- docs -------------------------------------------------------------- */
 .docs{display:grid;grid-template-columns:210px 1fr;gap:28px;align-items:start}
 .docs-toc{position:sticky;top:0;display:flex;flex-direction:column;gap:2px}

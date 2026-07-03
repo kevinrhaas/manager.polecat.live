@@ -14,6 +14,7 @@ import { renderDocs } from './views/docs.js';
 import { renderAdmin } from './views/admin.js';
 import { renderSettings } from './views/settings.js';
 import { openWhatsNew, hasUnread } from './views/whatsnew.js';
+import { buildNotifBell, refreshNotifBadge } from './views/notifications.js';
 import { startTour, MANAGER_TOUR } from './tour.js';
 import { runAutoSync } from './ingest.js';
 
@@ -83,6 +84,7 @@ function buildTopbar(){
 
   const cmdBtn=el('button',{class:'btn sm hide-sm', html:`${icon('search')} <span class="kbd">⌘K</span>`, title:'Command palette',
     onclick:()=>openPalette()});
+  const notifBtn=buildNotifBell(ctx);
   undoBtn=el('button',{class:'btn icon ghost hide-sm', title:'Undo (⌘Z)', 'aria-label':'Undo last change',
     html:icon('undo'), onclick:doUndo});
   wnBtn=el('button',{class:'btn icon ghost wn-btn', title:"What's new", 'aria-label':"What's new",
@@ -94,7 +96,7 @@ function buildTopbar(){
   const addBtn=el('button',{class:'btn sm primary', html:`${icon('plus')} <span class="hide-sm">Add project</span>`,
     onclick:()=>openProjectEditor(null, ctx)});
 
-  bar.append(cmdBtn, undoBtn, wnBtn, themeBtn, addBtn);
+  bar.append(cmdBtn, notifBtn, undoBtn, wnBtn, themeBtn, addBtn);
   return bar;
 }
 function isLight(){ return document.documentElement.getAttribute('data-theme')==='light'; }
@@ -114,6 +116,7 @@ function render(){
   view.scrollTop=0;
   RENDERERS[currentSection](view, ctx, currentParams);
   refreshUndo();
+  refreshNotifBadge();
 }
 function refresh(){ rebuildRail(); render(); }
 function refreshUndo(){ if(undoBtn) undoBtn.disabled = !Store.canUndo(); }
@@ -182,7 +185,7 @@ function openPalette(){
 
 // ---- live glue -----------------------------------------------------------
 function wireEvents(){
-  Store.on('change', ()=>{ refreshUndo(); });
+  Store.on('change', ()=>{ refreshUndo(); refreshNotifBadge(); });
   Store.on('history', refreshUndo);
   // re-render when the data behind the current view changes
   const rerenderOn = { projects:['projects','releases'], home:['projects','releases','runs'],

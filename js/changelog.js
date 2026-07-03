@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 13,
+    title: 'Notification center',
+    kind: 'feature',
+    ts: '2026-07-03T01:25:25.592Z',
+    items: [
+      'A bell in the topbar now surfaces the same "Needs attention" signal as the dashboard callout — a live badge count and a click-through popover — from anywhere in the app, not just the dashboard.',
+      'The popover lists every project whose health has slipped or whose auto-sync is failing, with a one-click "Retry now" and a jump to the project, plus an "Open dashboard" shortcut to the fuller view.',
+      'Shows a calm "All clear" state when nothing needs attention, and the popover is positioned to always stay on-screen no matter how narrow the phone.',
+    ],
+  },
+  {
     v: 12,
     title: 'Mobile sweep: three squeezed-text rows fixed at phone widths',
     kind: 'polish',

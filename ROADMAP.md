@@ -14,16 +14,24 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] A notification center (see Next) for run failures / stale projects,
-      built on top of the "Needs attention" rollup (2026-07-02) so both
-      surfaces share the same underlying signal instead of drifting apart.
-
-## Next (discovered / queued)
-
 - [ ] Badge the rail's Dashboard nav item with the live "Needs attention"
       count (see Done, 2026-07-02) so a slipping project is visible even
       before you land on the dashboard — today the callout is silent until
-      you're already looking at it.
+      you're already looking at it. The notification bell (2026-07-03)
+      already proves the shared-signal pattern for this.
+
+## Next (discovered / queued)
+
+- [ ] Let a notification be dismissed/marked-read independently of the
+      underlying condition — today the bell (2026-07-03) always mirrors the
+      live `Store.needsAttention()` set with no per-item read state, so a
+      problem you've already seen keeps re-appearing in the popover until
+      it's actually fixed. Worth deciding deliberately: is "still true" the
+      right model, or should a user be able to snooze one they're aware of?
+- [ ] Group the notification popover by reason (health vs. sync) once the
+      list regularly has more than a handful of rows — right now it's a flat
+      list sorted worst-score-first, fine at fleet scale today but won't
+      stay scannable if the fleet grows a lot.
 - [ ] Let "Needs attention" thresholds be tuned from Settings, same spirit as
       the fleet health weighting (see Done, 2026-07-02) — today Slowing/Stale
       and the auto-sync fail threshold are fixed, not configurable per fleet.
@@ -65,6 +73,23 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Notification center** _(2026-07-03)_: a bell in the topbar surfaces
+      `Store.needsAttention()` from anywhere in the app, not just the
+      dashboard — a live badge count (hidden when the fleet is healthy) and
+      a click-through popover that reuses the exact same row renderer as the
+      dashboard's "Needs attention" callout (`attentionRow`, now exported
+      from `home.js`), so all three surfaces — bell, dashboard callout,
+      library saved view — can never drift out of sync with each other or
+      with `Store.needsAttention()` itself. Each row keeps its one-click
+      "Retry now" (for a failing auto-sync) and jump-to-project, plus an
+      "Open dashboard" footer shortcut to the fuller view, and the popover
+      shows a calm "All clear" state rather than rendering empty. The
+      popover anchors under the bell but clamps its own left edge to the
+      viewport — a naive right-align broke on mobile, where the bell isn't
+      the rightmost topbar button (theme + add-project sit further right),
+      pushing the box off-screen to the left; verified the bug reproduced
+      against the old positioning before fixing it, and a new smoke check
+      pins the regression down at 320px.
 - [x] **Mobile sweep: three squeezed-text rows fixed at 320px** _(2026-07-03)_:
       no fresh feature this run — a design sweep across the app and the public
       site, following up on the previous sweep's mobile-overflow work. Screen-
