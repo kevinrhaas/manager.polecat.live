@@ -14,17 +14,25 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Merge import intentionally skips any incoming row whose id already
-      exists locally (see Done, 2026-07-03) — it never overwrites, only adds.
-      A future "merge & update" variant could let a user opt into also
-      refreshing rows that exist in both places but differ (e.g. a release
-      edited on one machine after the backup was made on another), with a
-      diff-style preview so it's clear what would change before committing —
-      the new per-row review list (see Done, 2026-07-03) is the natural place
-      to surface that diff once "update" is a real option, not just "skip".
+- [ ] Now that a merge can both add and update (see Done, 2026-07-03), the
+      remaining gap is deletes: a merge never removes a row that exists
+      locally but is absent from the incoming file, even in "update" mode —
+      reasonable as the safe default (an incomplete/partial export shouldn't
+      delete things), but worth a clearly-labeled opt-in "also remove rows
+      missing from the file" for someone doing a genuine two-way sync between
+      two browsers that both make deletions, not just additions/edits.
 
 ## Next (discovered / queued)
 
+- [ ] The merge-update diff (see Done, 2026-07-03) compares top-level fields
+      with a plain `JSON.stringify` per field for display, which is only a
+      display nicety — `Store._rowsDiffer()` (the thing that actually decides
+      whether a row is "different" at all) already does the key-order-safe
+      compare. Worth switching the display diff to the same stable-stringify
+      helper if a false "changed" ever shows up in practice (e.g. two
+      differently-ordered nested objects inside one field, like a project's
+      `fields` map) — low priority since it would show a spurious diff line,
+      never a wrong merge decision.
 - [ ] The merge-review list's per-row layout fix (two flex children — a tag
       chip plus one wrapper span — see Done, 2026-07-03) is the same
       "anonymous flex item" trap the old `.sync-preview` markup had been
@@ -41,12 +49,6 @@ with new, ambitious, fun ideas.
       scrolling strip shows up, worth promoting the pair of pseudo-elements
       + `ResizeObserver` snippet into a tiny shared helper rather than a
       third hand-copy.
-- [ ] Merge import intentionally skips any incoming row whose id already
-      exists locally (see Done, 2026-07-03) — it never overwrites, only adds.
-      A future "merge & update" variant could let a user opt into also
-      refreshing rows that exist in both places but differ (e.g. a release
-      edited on one machine after the backup was made on another), with a
-      diff-style preview so it's clear what would change before committing.
 - [ ] Now that bulk delete exists (see Done, 2026-07-03), consider a
       lightweight "Recently deleted" tray (last N removed projects, past the
       single-slot undo stack) — undo covers the "oops, right after" case, but
@@ -98,6 +100,36 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **"Merge & update": opt in to refreshing rows that exist in both places
+      but differ, with a field-level diff preview** _(2026-07-03)_: Merge JSON
+      previously only ever added rows whose id was new — a row that existed
+      in both the file and the live workspace but had drifted apart (e.g. a
+      release title edited on one machine after a backup was taken on
+      another) was silently left alone with no way to opt in. `previewMerge()`
+      now buckets every incoming row into `add` (new), `update` (exists here
+      but differs), or implicitly skipped (exists here and is byte-identical)
+      — a new `Store._rowsDiffer()` decides "differs" via a key-sorted
+      stringify rather than raw `JSON.stringify`, so two rows with the same
+      content built in a different key order (plausible across browsers/app
+      versions) don't falsely show up as changed. The merge dialog gets a new
+      "Also update N rows that already exist here but differ" checkbox — off
+      by default, so a plain Merge JSON is exactly as additive-only as before
+      — and the review disclosure now lists "would update" rows alongside new
+      ones, each with a field-by-field diff (`key: old value → new value`)
+      right under its name, reusing the same warning-colored "update" tag the
+      per-project sync preview already uses for changed releases.
+      `Store.mergeImport(text, {applyUpdates})` does the actual overwrite when
+      opted in, capturing each updated row's full previous version as the
+      undo `prev` (not `null`, unlike a fresh add) so one Undo click restores
+      every added row *and* every overwritten row to exactly what was there
+      before — mergeImport's return shape changed from a bare count to
+      `{added, updated}` so the confirmation toast and the smoke suite can
+      tell the two apart. Four new smoke checks: `previewMerge()`'s `update`
+      bucket and diff payload in isolation (and that computing it never
+      mutates the live row), `mergeImport()` proving the default/opt-in
+      behavior and undo restoration at the Store level, and a real
+      file-picker → checkbox → diff-review → confirm → Undo pass driving the
+      actual UI end to end.
 - [x] **Merge-review: expand to see which rows are new, by name, before
       committing** _(2026-07-03)_: the Merge JSON confirm dialog previously
       showed only a per-table add/skip count ("3 new projects, 5 new

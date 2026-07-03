@@ -924,7 +924,31 @@ try {
     await store(`(S)=>S.undo()`);
     const projGone = !(await store(`(S)=>!!S.project('smoke-merge-proj')`));
     const relGone = !(await store(`(S)=>!!S.get('releases','smoke-merge-rel')`));
-    return n === 2 && hasProj && hasRel && gamesUntouched && projGone && relGone;
+    return n.added === 2 && n.updated === 0 && hasProj && hasRel && gamesUntouched && projGone && relGone;
+  });
+  await check('Store.previewMerge flags a row that exists in both places but differs as `update` (not `skip`), carrying local+incoming for a diff — and never mutates the live row', async () => {
+    const beforeAssessment = await store(`(S)=>S.project('games').assessment`);
+    const merged = await store(`(S)=>{ const db=JSON.parse(S.exportJSON()); db.projects['games']={ ...db.projects['games'], assessment:'Smoke-updated assessment (preview)' }; return JSON.stringify(db); }`);
+    const preview = await store(`(S)=>S.previewMerge(${JSON.stringify(merged)})`);
+    const stillOriginal = (await store(`(S)=>S.project('games').assessment`)) === beforeAssessment;
+    const t = preview.tables.projects;
+    const row = (t.updateRows||[]).find((r) => r.id === 'games');
+    return t.update === 1 && !!row
+      && row.local.assessment === beforeAssessment
+      && row.incoming.assessment === 'Smoke-updated assessment (preview)'
+      && stillOriginal;
+  });
+  await check('Store.mergeImport leaves a differing existing row untouched by default, but overwrites it with {applyUpdates:true} — and Undo restores the exact previous version', async () => {
+    const beforeAssessment = await store(`(S)=>S.project('games').assessment`);
+    const merged = await store(`(S)=>{ const db=JSON.parse(S.exportJSON()); db.projects['games']={ ...db.projects['games'], assessment:'Smoke-applied merge update' }; return JSON.stringify(db); }`);
+    const withoutFlag = await store(`(S)=>S.mergeImport(${JSON.stringify(merged)})`);
+    const untouchedByDefault = (await store(`(S)=>S.project('games').assessment`)) === beforeAssessment;
+    const withFlag = await store(`(S)=>S.mergeImport(${JSON.stringify(merged)}, {applyUpdates:true})`);
+    const nowUpdated = (await store(`(S)=>S.project('games').assessment`)) === 'Smoke-applied merge update';
+    await store(`(S)=>S.undo()`);
+    const restored = (await store(`(S)=>S.project('games').assessment`)) === beforeAssessment;
+    return withoutFlag.added === 0 && withoutFlag.updated === 0 && untouchedByDefault
+      && withFlag.added === 0 && withFlag.updated === 1 && nowUpdated && restored;
   });
   await check('Merge JSON: file picker → confirm dialog previews new-row counts; Cancel leaves the workspace untouched', async () => {
     await openSec('settings');
@@ -998,6 +1022,38 @@ try {
       await store(`(S)=>S.undo()`);
       const goneAfterUndo = !(await store(`(S)=>!!S.project('smoke-merge-ui2')`));
       return added && canUndo && goneAfterUndo;
+    } finally { fs.unlinkSync(tmpFile); }
+  });
+  await check('Merge JSON: a differing existing row is left alone unless the "also update" checkbox is opted into, and the review shows a field-level diff', async () => {
+    await openSec('settings');
+    const beforeAssessment = await store(`(S)=>S.project('games').assessment`);
+    const merged = await store(`(S)=>{ const db=JSON.parse(S.exportJSON()); db.projects['games']={ ...db.projects['games'], assessment:'Smoke merge-update UI value' }; return JSON.stringify(db); }`);
+    const tmpFile = path.join(ROOT, '.smoke-merge-update-tmp.json');
+    fs.writeFileSync(tmpFile, merged);
+    try {
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser'),
+        page.click('button:has-text("Merge JSON")'),
+      ]);
+      await chooser.setFiles(tmpFile);
+      await page.waitForTimeout(300);
+      const checkbox = await $('.modal input[type=checkbox]');
+      if (!checkbox) return false;
+      await page.click('.modal details.merge-review summary');
+      await page.waitForTimeout(150);
+      const reviewText = await page.$eval('.modal details.merge-review', (d) => d.textContent);
+      const showsDiff = reviewText.includes('Smoke merge-update UI value') && /assessment/i.test(reviewText);
+      // Confirming with the box unchecked must leave the row untouched.
+      const mergeBtn = await $('.modal button.primary:has-text("Merge in")');
+      const disabledByDefault = await page.$eval('.modal button.primary:has-text("Merge in")', (b) => b.disabled);
+      // Opt in, then confirm — now it should overwrite.
+      await checkbox.click();
+      await page.click('.modal button:has-text("Merge in")');
+      await page.waitForTimeout(400);
+      const updated = (await store(`(S)=>S.project('games').assessment`)) === 'Smoke merge-update UI value';
+      await store(`(S)=>S.undo()`);
+      const restored = (await store(`(S)=>S.project('games').assessment`)) === beforeAssessment;
+      return showsDiff && disabledByDefault && !!mergeBtn && updated && restored;
     } finally { fs.unlinkSync(tmpFile); }
   });
 

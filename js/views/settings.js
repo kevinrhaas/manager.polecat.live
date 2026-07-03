@@ -331,6 +331,28 @@ function mergeRowHtml(table, row, incomingProjects){
     default: return escapeHtml(row.id);
   }
 }
+// Fields hidden from the "would update" diff — bookkeeping the user never
+// edits by hand, and would just be noise (`id` can't differ, it's the merge
+// key; slug is derived from name and always moves with it).
+const MERGE_DIFF_SKIP_KEYS = new Set(['id', 'createdAt', 'updatedAt', 'slug']);
+function mergeDiffValueHtml(v){
+  if(v==null || v==='') return '<i>(empty)</i>';
+  const s = Array.isArray(v) ? (v.length ? v.join(', ') : '(empty)')
+    : (typeof v==='object' ? JSON.stringify(v) : String(v));
+  return escapeHtml(s.length>70 ? s.slice(0,69)+'…' : s);
+}
+// The field-by-field diff behind a merge-review "update" row: every top-level
+// key present on either side whose value differs, local → incoming. Used
+// purely for display — Store._rowsDiffer() (a stricter, key-order-safe
+// compare) is what actually decided this row belongs in `updateRows` at all.
+function mergeRowDiffHtml(local, incoming){
+  const keys=[...new Set([...Object.keys(local), ...Object.keys(incoming)])].filter(k=>!MERGE_DIFF_SKIP_KEYS.has(k));
+  const changed=keys.filter(k=>JSON.stringify(local[k])!==JSON.stringify(incoming[k]));
+  if(!changed.length) return '';
+  return `<div class="merge-diff">${changed.map(k=>
+    `<div class="merge-diff-row"><b>${escapeHtml(k)}</b> ${mergeDiffValueHtml(local[k])} → ${mergeDiffValueHtml(incoming[k])}</div>`
+  ).join('')}</div>`;
+}
 export function mergeImportFile(ctx){
   const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json';
   inp.onchange=()=>{ const file=inp.files[0]; if(!file) return; const rd=new FileReader();
@@ -340,32 +362,62 @@ export function mergeImportFile(ctx){
       try{ preview=Store.previewMerge(text); }
       catch(e){ toast('Merge failed',{body:e.message,kind:'err'}); return; }
       const { tables, projects:incomingProjects } = preview;
-      let totalAdd=0, totalSkip=0;
-      const parts=[];
-      Object.entries(tables).forEach(([t,{add,skip}])=>{
-        totalAdd+=add; totalSkip+=skip;
-        if(add) parts.push(`${add} new ${MERGE_ROW_LABELS[t]}${add===1?'':'s'}`);
+      let totalAdd=0, totalSkip=0, totalUpdate=0;
+      const addParts=[];
+      Object.entries(tables).forEach(([t,{add,skip,update}])=>{
+        totalAdd+=add; totalSkip+=skip; totalUpdate+=update;
+        if(add) addParts.push(`${add} new ${MERGE_ROW_LABELS[t]}${add===1?'':'s'}`);
       });
-      if(!totalAdd){ toast('Nothing new to merge — every row in that file already exists here',{kind:'info'}); return; }
+      if(!totalAdd && !totalUpdate){ toast('Nothing to merge — every row in that file already exists here and matches',{kind:'info'}); return; }
 
       const body=el('div');
-      body.append(el('p',{class:'muted', text:`This file has ${parts.join(', ')}`
-        +(totalSkip?` (plus ${totalSkip} row${totalSkip===1?'':'s'} that already exist here, which will be left untouched)`:'')
-        +`. Merging only adds the new rows — nothing already in this workspace is changed.`}));
-      // A review step: expand to see exactly which rows are new, by name,
-      // before committing — not just a per-table count.
-      const details=el('details',{class:'merge-review'});
-      details.append(el('summary',{text:`Review the ${totalAdd} new row${totalAdd===1?'':'s'}`}));
-      Object.entries(tables).forEach(([t,{add,rows}])=>{
-        if(!add) return;
-        details.append(el('div',{class:'merge-review-head', text:`${add} new ${MERGE_ROW_LABELS[t]}${add===1?'':'s'}`}));
-        const list=el('ul',{class:'sync-preview'});
-        rows.forEach(r=>list.append(el('li',{html:`<span class="tag sync-new">new</span><span>${mergeRowHtml(t,r,incomingProjects)}</span>`})));
-        details.append(list);
-      });
-      body.append(details);
+      body.append(el('p',{class:'muted', text: addParts.length
+        ? `This file has ${addParts.join(', ')}`
+          +(totalSkip?` (plus ${totalSkip} row${totalSkip===1?'':'s'} identical to what's already here)`:'')
+          +`. Merging adds the new rows — nothing already in this workspace is changed`
+          +(totalUpdate?', unless you opt in below.':'.')
+        : `Every row in this file already exists here — ${totalUpdate} of them differ from your copy.`}));
 
-      const ok=el('button',{class:'btn primary', text:'Merge in'});
+      // Opt-in: by default a merge only ever adds rows, never overwrites —
+      // this checkbox is the one way to let it also refresh rows that exist
+      // in both places but drifted apart (e.g. edited on one machine after a
+      // backup was taken on another).
+      let applyUpdates=false;
+      if(totalUpdate){
+        const updRow=el('label',{class:'merge-update-opt'});
+        const cb=el('input',{type:'checkbox'});
+        cb.onchange=()=>{ applyUpdates=cb.checked; ok.disabled = !(totalAdd || applyUpdates); };
+        updRow.append(cb, el('span',{text:`Also update ${totalUpdate} row${totalUpdate===1?'':'s'} that already exist here but differ from the file`}));
+        body.append(updRow);
+      }
+
+      // A review step: expand to see exactly which rows are new (and, if any,
+      // which would update and how) by name, before committing — not just a
+      // per-table count.
+      const totalListed=totalAdd+totalUpdate;
+      if(totalListed){
+        const details=el('details',{class:'merge-review'});
+        details.append(el('summary',{text:`Review the ${totalListed} row${totalListed===1?'':'s'} in this file`}));
+        Object.entries(tables).forEach(([t,{add,rows,update,updateRows}])=>{
+          if(add){
+            details.append(el('div',{class:'merge-review-head', text:`${add} new ${MERGE_ROW_LABELS[t]}${add===1?'':'s'}`}));
+            const list=el('ul',{class:'sync-preview'});
+            rows.forEach(r=>list.append(el('li',{html:`<span class="tag sync-new">new</span><span>${mergeRowHtml(t,r,incomingProjects)}</span>`})));
+            details.append(list);
+          }
+          if(update){
+            details.append(el('div',{class:'merge-review-head', text:`${update} ${MERGE_ROW_LABELS[t]}${update===1?'':'s'} that would update`}));
+            const list=el('ul',{class:'sync-preview'});
+            updateRows.forEach(({local,incoming})=>list.append(el('li',{html:
+              `<span class="tag sync-upd">update</span><span>${mergeRowHtml(t,incoming,incomingProjects)}${mergeRowDiffHtml(local,incoming)}</span>`
+            })));
+            details.append(list);
+          }
+        });
+        body.append(details);
+      }
+
+      const ok=el('button',{class:'btn primary', text:'Merge in', disabled: !totalAdd});
       const cancel=el('button',{class:'btn', text:'Cancel'});
       const go=await new Promise(res=>{
         const {hide}=modal({ title:'Merge workspace', icon:'layers', body, foot:[cancel, ok] });
@@ -373,8 +425,9 @@ export function mergeImportFile(ctx){
       });
       if(!go) return;
       try{
-        const n=Store.mergeImport(text);
-        toast(`Merged ${n} new row${n===1?'':'s'}`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
+        const { added, updated }=Store.mergeImport(text, { applyUpdates });
+        const parts=[]; if(added) parts.push(`${added} added`); if(updated) parts.push(`${updated} updated`);
+        toast('Merged workspace',{kind:'ok', body:parts.join(', '), action:{label:'Undo', fn:()=>Store.undo()}});
         ctx.go('home');
       }catch(e){ toast('Merge failed',{body:e.message,kind:'err'}); }
     };

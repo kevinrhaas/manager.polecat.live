@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 30,
+    title: 'Merge & update, not just merge & add',
+    kind: 'feature',
+    ts: '2026-07-03T20:03:02.604Z',
+    items: [
+      'Merge JSON can now refresh rows that exist in both places but drifted apart (e.g. a release edited on one machine after the backup was made on another) — opt in with a new checkbox, off by default so a plain merge is still purely additive.',
+      'The review disclosure shows a field-by-field diff for every row that would update, old value → new value, before you commit to anything.',
+      'Undo reverts an update-applying merge exactly like an add-only one — one click restores every changed row to what it was.',
+    ],
+  },
+  {
     v: 29,
     title: 'Review a merge before committing it',
     kind: 'feature',

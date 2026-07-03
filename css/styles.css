@@ -483,6 +483,16 @@ input.lib-sel{width:16px;height:16px;accent-color:var(--brand-b);cursor:pointer;
 .merge-review-head{font-size:11.5px;font-weight:650;color:var(--text-3);text-transform:uppercase;letter-spacing:.03em;
   margin:14px 0 4px}
 .merge-review-head:first-of-type{margin-top:12px}
+/* per-field diff under a "would update" row — local → incoming, one line per changed field */
+.merge-diff{margin-top:4px;display:flex;flex-direction:column;gap:2px}
+.merge-diff-row{font-size:11.5px;color:var(--text-3);overflow-wrap:anywhere}
+.merge-diff-row b{color:var(--text-2);font-weight:650;font-family:var(--mono);font-size:11px;margin-right:4px}
+/* the "also update existing rows" opt-in checkbox — its own row (not .opt-row,
+   which flexes its last child 0-basis for a fixed-width switch; here the
+   label text is the thing that needs to wrap on narrow screens) */
+.merge-update-opt{display:flex;align-items:flex-start;gap:8px;margin-top:10px;cursor:pointer;font-size:13px;color:var(--text-2)}
+.merge-update-opt input{margin-top:2px;flex:0 0 auto}
+.merge-update-opt span{overflow-wrap:anywhere;min-width:0}
 
 /* sync-all modal (dashboard) */
 .sync-all-list{display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;

@@ -27,6 +27,16 @@ const TABLES   = ['projects', 'releases', 'credentials', 'runs', 'fieldDefs', 'd
 const MERGE_TABLES = TABLES.filter(t=>t!=='dismissals');
 const HIST_MAX = 40;
 
+// A JSON.stringify with object keys sorted, so two rows with identical
+// content built in a different key order (spread-construction order isn't
+// guaranteed to match across browsers/versions) compare equal — used by
+// Store._rowsDiffer() to decide whether a merge-import row actually changed.
+function stableStringify(v){
+  if(Array.isArray(v)) return '['+v.map(stableStringify).join(',')+']';
+  if(v && typeof v==='object') return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stableStringify(v[k])).join(',')+'}';
+  return JSON.stringify(v);
+}
+
 // A project's status is an editorial signal you set — it is NOT changed by
 // syncing (sync only pulls releases / "what's new"). The `desc` shows as a
 // hover tooltip so the difference between statuses is always explained.
@@ -636,59 +646,89 @@ export const Store = new (class {
     this._history = []; this._saveHistory();
     this.emit('change', {}); TABLES.forEach(t=>this.emit(t,{})); this.emit('history');
   }
-  // A dry-run per-table {add, skip, rows} preview for a merge import: `add`
-  // is the count of rows in the file whose id doesn't exist in this
-  // workspace yet (would be inserted), `rows` is those same rows themselves
-  // (so a "review" UI can list what's about to land by name, not just a
-  // count — mirroring how the per-project sync preview lists new/changed
-  // releases by name), `skip` is rows whose id already exists locally
-  // (merge never overwrites — that's what importJSON()'s replace mode is
-  // for). Excludes `dismissals`: that table is local "have I already seen
-  // this" state scoped to whichever browser raised it, and porting someone
-  // else's doesn't mean anything here. Also returns the file's raw incoming
-  // `projects` map so a caller can name a new release/credential's parent
-  // project even when that project is itself new in the same file (and so
-  // not yet in the live store to look up).
+  // True if two rows differ in anything but id/createdAt/updatedAt — the
+  // bookkeeping fields that are expected to differ (or be irrelevant) even
+  // when the row is otherwise "the same". Compares via a key-sorted
+  // stringify rather than raw JSON.stringify so two objects built with the
+  // same content in a different key order (e.g. spread-constructed on two
+  // different machines) don't falsely register as different.
+  _rowsDiffer(a, b){
+    const strip = r => { const { id, createdAt, updatedAt, ...rest } = r; return rest; };
+    return stableStringify(strip(a)) !== stableStringify(strip(b));
+  }
+  // A dry-run per-table {add, skip, update, rows, updateRows} preview for a
+  // merge import: `add`/`rows` are rows in the file whose id doesn't exist
+  // here yet (would be inserted); `update`/`updateRows` are rows whose id
+  // DOES already exist here but whose content differs from the file's
+  // version (only overwritten if the caller opts into mergeImport's
+  // `applyUpdates`) — each entry is `{id, local, incoming}` so a "review" UI
+  // can diff the two versions field by field; `skip` is rows that already
+  // exist here and are identical to the file, left out of both lists since
+  // there's nothing to show or do. Excludes `dismissals`: that table is
+  // local "have I already seen this" state scoped to whichever browser
+  // raised it, and porting someone else's doesn't mean anything here. Also
+  // returns the file's raw incoming `projects` map so a caller can name a
+  // new release/credential's parent project even when that project is
+  // itself new in the same file (and so not yet in the live store to look up).
   previewMerge(text){
     const parsed = this._parseWorkspace(text);
     const tables = {};
     MERGE_TABLES.forEach(t=>{
       const local = this._db[t];
-      const incoming = Object.values(parsed[t]);
-      const rows = incoming.filter(r=>!local[r.id]);
-      tables[t] = { add: rows.length, skip: incoming.length - rows.length, rows };
+      const rows = [], updateRows = [];
+      let skip = 0;
+      Object.values(parsed[t]).forEach(row=>{
+        const existing = local[row.id];
+        if(!existing) rows.push(row);
+        else if(this._rowsDiffer(existing, row)) updateRows.push({ id:row.id, local:existing, incoming:row });
+        else skip++;
+      });
+      tables[t] = { add: rows.length, skip, update: updateRows.length, rows, updateRows };
     });
     return { tables, projects: parsed.projects };
   }
   // Adds rows from `text` that don't already exist locally (by id) across
-  // every MERGE_TABLES table, leaving every existing row untouched — for
-  // combining a backup from one browser into another instead of always
-  // wiping the current workspace (see importJSON() for that replace mode).
-  // Recorded as one undo step spanning every table it touched, via the same
-  // `{table, items}` grouped shape bulkUpdate()/bulkRemove() use, generalized
-  // to `{tables: {table: items}}` so a single Undo removes everything a
-  // merge added — however many tables it landed rows in — in one click.
-  mergeImport(text){
+  // every MERGE_TABLES table, leaving every existing row completely
+  // untouched by default — for combining a backup from one browser into
+  // another instead of always wiping the current workspace (see
+  // importJSON() for that replace mode). Passing `{applyUpdates:true}` also
+  // opts into overwriting rows that exist in both places but differ (see
+  // previewMerge()'s `updateRows`) — a row identical in both places is still
+  // never touched either way. Recorded as one undo step spanning every table
+  // it touched, via the same `{table, items}` grouped shape
+  // bulkUpdate()/bulkRemove() use, generalized to `{tables: {table: items}}`
+  // so a single Undo removes every add and restores every update a merge
+  // made — however many tables it touched — in one click; an updated row's
+  // `prev` is the full previous row (not null, unlike a fresh add) so Undo
+  // puts back exactly what was overwritten. Returns `{added, updated}` counts.
+  mergeImport(text, { applyUpdates=false }={}){
     const parsed = this._parseWorkspace(text);
     const tables = {};
+    let added=0, updated=0;
     MERGE_TABLES.forEach(t=>{
       const local = this._db[t];
-      const added = [];
+      const items = [];
       Object.values(parsed[t]).forEach(row=>{
-        if(local[row.id]) return;
-        local[row.id] = row;
-        added.push({ id:row.id, prev:null });
+        const existing = local[row.id];
+        if(!existing){
+          local[row.id] = row;
+          items.push({ id:row.id, prev:null });
+          added++;
+        }else if(applyUpdates && this._rowsDiffer(existing, row)){
+          items.push({ id:row.id, prev:existing });
+          local[row.id] = row;
+          updated++;
+        }
       });
-      if(added.length) tables[t]=added;
+      if(items.length) tables[t]=items;
     });
-    const total = Object.values(tables).reduce((n,items)=>n+items.length, 0);
-    if(!total) return 0;
-    this._pushHistory({ tables, label:'Merge import' });
+    if(!added && !updated) return { added:0, updated:0 };
+    this._pushHistory({ tables, label: updated?'Merge import (with updates)':'Merge import' });
     this._save();
     Object.entries(tables).forEach(([table,items])=>{
       items.forEach(({id})=>{ this.emit('change',{table,id}); this.emit(table,{id}); });
     });
-    return total;
+    return { added, updated };
   }
   reset(){ localStorage.removeItem(LS_KEY); localStorage.removeItem(HIST_KEY); this._db=this._load(); this._history=[]; this.emit('change', {}); }
 })();
