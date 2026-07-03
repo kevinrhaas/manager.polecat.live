@@ -1,5 +1,5 @@
 // Project detail — the full what's-new timeline + health panel + links.
-import { Store, STATUSES, healthBand, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, DEFAULT_AUTO_SYNC_BACKOFF_CAP } from '../store.js';
+import { Store, STATUSES, healthBand, statusPill, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, DEFAULT_AUTO_SYNC_BACKOFF_CAP } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
@@ -25,7 +25,7 @@ export function renderProject(root, ctx, params){
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <h2>${escapeHtml(p.name)}</h2>
-        <span class="status ${st.cls}"><span class="dot"></span>${st.label}</span>
+        ${statusPill(p.status)}
       </div>
       <div class="tiny mono muted" style="margin-top:4px">${escapeHtml(p.repo||'')}</div>
       <p class="muted" style="margin:8px 0 0;max-width:60ch">${escapeHtml(p.assessment||p.description||'')}</p>
@@ -75,7 +75,7 @@ export function renderProject(root, ctx, params){
   const score=Store.healthScore(p.id);
   const band=healthBand(score);
   const rows=[
-    ['Status', `<span class="status ${st.cls}"><span class="dot"></span>${st.label}</span>`],
+    ['Status', statusPill(p.status)],
     ['Health score', `<span class="hchip ${band.cls}" title="Recency + release velocity + status">${score} · ${band.label}</span>`],
     ['Latest version', rel?`<span class="vchip mono">v${rel.v}</span>`:'—'],
     ['Last shipped', escapeHtml(fmtCT(Store.lastActivity(p.id)))],

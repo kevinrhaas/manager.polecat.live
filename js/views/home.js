@@ -1,5 +1,5 @@
 // Dashboard — a live wall of project tiles + fleet stats + quick actions.
-import { Store, STATUSES, healthBand } from '../store.js';
+import { Store, STATUSES, healthBand, statusPill } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline, makeRowClickable } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
@@ -204,7 +204,7 @@ export function tile(p, ctx){
   const top=el('div',{class:'tile-top'});
   top.innerHTML=`<span class="tavatar" style="background:${accent}">${icon(p.icon||'grid')}</span>
     <div class="thead"><b>${escapeHtml(p.name)}</b><div class="repo">${escapeHtml(p.repo||p.site||'—')}</div></div>
-    <span class="status ${st.cls}"><span class="dot"></span>${st.label}</span>`;
+    ${statusPill(p.status)}`;
   c.append(top);
   c.append(el('div',{class:'assessment', text:p.assessment||p.description||'No assessment yet — add one.'}));
   const meta=el('div',{class:'tmeta'});

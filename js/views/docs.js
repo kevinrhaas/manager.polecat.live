@@ -33,7 +33,8 @@ const SECTIONS = [
     <p>Click any row to open the project. Click <b>Add project</b> (or the ✎ on a row) to edit. Every project supports:</p>
     <ul>
       <li>Name, repository (<code>owner/name</code>), live site, and the Claude Code session URL.</li>
-      <li>Status, cadence, tags, an assessment, and an icon.</li>
+      <li><b>Status</b> — an editorial signal you set: <b>Live</b> (deployed &amp; in use), <b>Active</b> (worked on but not one deployed site), <b>Building</b> (toward launch), <b>Paused</b>, <b>Idea</b>, or <b>Archived</b>. Hover any status pill to see the difference. Syncing pulls a project’s releases — it never changes its status.</li>
+      <li>Cadence, tags, an assessment, and an icon.</li>
       <li><b>Custom fields</b> — track anything (model, owner, budget…). They show on the project page.</li>
     </ul>
     <p>Check any number of rows (the header checkbox selects every currently visible one) to open the <b>bulk action bar</b> — add a tag, set a status, or archive the whole selection in one shot. Each bulk action is a single Undo.</p>` },

@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 27,
+    title: 'Status pills now explain themselves',
+    kind: 'polish',
+    ts: '2026-07-03T17:54:49.612Z',
+    items: [
+      'Hover (or focus) any project status — Live, Active, Building, Paused, Idea, Archived — to see exactly what it means, everywhere a status shows.',
+      'Clarified that status is an editorial signal you set: syncing pulls a project’s releases, it never changes the status.',
+      'Manager’s own seed status is now “Live” (it’s deployed and in use), not “Building”.',
+    ],
+  },
+  {
     v: 26,
     title: 'Scroll hints on the projects table + a dead-code sweep',
     kind: 'polish',

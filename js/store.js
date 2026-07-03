@@ -27,14 +27,24 @@ const TABLES   = ['projects', 'releases', 'credentials', 'runs', 'fieldDefs', 'd
 const MERGE_TABLES = TABLES.filter(t=>t!=='dismissals');
 const HIST_MAX = 40;
 
+// A project's status is an editorial signal you set — it is NOT changed by
+// syncing (sync only pulls releases / "what's new"). The `desc` shows as a
+// hover tooltip so the difference between statuses is always explained.
 export const STATUSES = {
-  live:     { label:'Live',     cls:'s-live' },
-  active:   { label:'Active',   cls:'s-active' },
-  building: { label:'Building', cls:'s-building' },
-  paused:   { label:'Paused',   cls:'s-paused' },
-  idea:     { label:'Idea',     cls:'s-idea' },
-  archived: { label:'Archived', cls:'s-archived' },
+  live:     { label:'Live',     cls:'s-live',     desc:'Shipping to production — deployed and in active use.' },
+  active:   { label:'Active',   cls:'s-active',   desc:'Actively worked on, but not a single deployed site (e.g. a workspace or multi-project repo).' },
+  building: { label:'Building', cls:'s-building', desc:'In active development toward its first or next launch — not fully live yet.' },
+  paused:   { label:'Paused',   cls:'s-paused',   desc:'On hold — no active work right now, but not retired.' },
+  idea:     { label:'Idea',     cls:'s-idea',     desc:'A concept you haven’t started building yet.' },
+  archived: { label:'Archived', cls:'s-archived', desc:'Retired — kept for reference, no longer worked on.' },
 };
+
+// Render a status pill with a hover tooltip explaining what the status means.
+// Used everywhere a status is shown so they stay identical and self-documenting.
+export function statusPill(status){
+  const st = STATUSES[status] || STATUSES.idea;
+  return `<span class="status ${st.cls}" title="${st.label} — ${st.desc}" tabindex="0" aria-label="Status: ${st.label}. ${st.desc}"><span class="dot"></span>${st.label}</span>`;
+}
 
 // Fleet health bands — a project's healthScore() (0-100) maps to exactly one
 // of these, highest floor first. Shared between the dashboard tiles, the
@@ -651,7 +661,7 @@ function seed(db){
   db.meta.seededAt = now;
   const P = [
     { id:'manager', name:'Manager', repo:'kevinrhaas/manager.polecat.live', site:'https://manager.polecat.live',
-      status:'building', icon:'gauge', pinned:true, cadence:'GitHub Action · hourly',
+      status:'live', icon:'gauge', pinned:true, cadence:'GitHub Action · hourly',
       tags:['console','tooling','static'],
       description:'Mission control for the fleet — the app you are looking at.',
       assessment:'Mission control for the whole fleet — this very console. Freshly launched (v1) and set to self-improve hourly.' },

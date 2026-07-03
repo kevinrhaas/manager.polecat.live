@@ -108,6 +108,10 @@ try {
   console.log('Projects library');
   await openSec('projects');
   await check('library renders a table of projects', async () => (await count('.lib-table tbody tr')) >= 5);
+  await check('status pills carry an explanatory hover tooltip', async () => {
+    const title = await page.$eval('.lib-table .status', (s) => s.getAttribute('title') || '');
+    return /—/.test(title) && title.length > 12;   // "Live — Shipping to production…"
+  });
   await check('Latest column shows the version\'s ship time in CT', async () => {
     // a project with releases (relay is seeded with real ones) shows a CT date under its version chip
     const cell = await page.evaluate(() => {

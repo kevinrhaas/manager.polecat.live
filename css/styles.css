@@ -356,7 +356,8 @@ body{
 /* status pill */
 .status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
   padding:3px 9px;border-radius:999px;border:1px solid var(--border);white-space:nowrap;
-  text-transform:capitalize}
+  text-transform:capitalize;cursor:help}
+.status:focus-visible{outline:none;box-shadow:var(--ring)}
 .status .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
 .status.s-live{color:var(--st-live)} .status.s-live .dot{background:var(--st-live);box-shadow:0 0 8px var(--st-live)}
 .status.s-building{color:var(--st-build)} .status.s-building .dot{background:var(--st-build);animation:pulse 1.4s infinite}

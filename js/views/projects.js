@@ -1,6 +1,6 @@
 // Projects library — the source of truth for the fleet. Filter, sort, search,
 // pin, edit, and add rich metadata (including your own custom fields).
-import { Store, STATUSES } from '../store.js';
+import { Store, STATUSES, statusPill } from '../store.js';
 import { el, escapeHtml, toast, modal, confirmDialog, fmtCT, avatarColor, slugify, makeRowClickable } from '../ui.js';
 import { icon } from '../icons.js';
 import { editFieldDef } from './settings.js';
@@ -311,7 +311,7 @@ function projectRow(p, ctx, onSelectionChange){
     <span class="tavatar" style="width:30px;height:30px;font-size:13px;border-radius:8px;background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span>
     <div style="min-width:0"><b>${escapeHtml(p.name)}</b><div class="tiny mono muted" style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.repo||'')}</div></div></div>`;
   // status
-  const stTd=el('td',{html:`<span class="status ${st.cls}"><span class="dot"></span>${st.label}</span>`});
+  const stTd=el('td',{html:statusPill(p.status)});
   // version + when that version shipped (CT)
   const vTd=el('td',{class:'mono', html: rel
     ? `<span class="vchip">v${rel.v}</span><div class="tiny muted" style="margin-top:4px;font-family:var(--font)">${escapeHtml(fmtCT(rel.ts))}</div>`
