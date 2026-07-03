@@ -119,173 +119,123 @@ function formatFieldValue(d, val){
   return escapeHtml(val);
 }
 
-// Every project's health score normally rides the fleet-wide weighting from
-// Settings → "Fleet health weighting" — but the rare project on a
-// deliberately different cadence (e.g. one that should never be marked down
-// just for shipping slowly) can override just its own three dimensions.
-// This row shows which mode is active; the modal it opens is where that gets
-// dialed in, scoped to this project only.
-function weightingRow(p, ctx){
-  const ov=Store.projectHealthWeightsOverride(p.id);
+// -------------------------------------------------------------------------
+// Per-project "override the fleet default" plumbing — shared by every knob
+// that's normally fleet-wide (Settings) but can be dialed in per-project for
+// a deliberately different cadence: health weighting and needs-attention
+// thresholds today, and whatever's next (e.g. auto-sync backoff — see
+// ROADMAP). Each is a project-row toggle + N drag sliders that fall back to
+// the live fleet default when off, with the dialed-in numbers persisting
+// even while disabled so re-enabling restores them instead of resetting.
+// A `cfg` describes one override: how to read/write it on the project row,
+// its fleet defaults, and the sliders that edit it — see
+// HEALTH_WEIGHTING_OVERRIDE / ATTENTION_THRESHOLDS_OVERRIDE below.
+// -------------------------------------------------------------------------
+function overrideRow(p, ctx, cfg){
+  const ov=cfg.getOverride(p.id);
   const r=el('div',{class:'row'});
-  r.innerHTML=`<span class="k">Weighting</span>`;
+  r.innerHTML=`<span class="k">${cfg.rowLabel}</span>`;
   const v=el('span',{class:'v', style:'display:inline-flex;align-items:center;gap:8px;font-weight:400'});
   if(ov.enabled){
-    const w=Store.healthWeightsFor(p.id);
-    v.append(el('span',{class:'tiny muted', title:'Custom weighting for this project only', text:`Custom · R${Math.round(w.recency)}/V${Math.round(w.velocity)}/S${Math.round(w.status)}`}));
+    v.append(el('span',{class:'tiny muted', title:cfg.summaryTitle, text:`Custom · ${cfg.summary(cfg.getEffective(p.id))}`}));
   }else{
     v.append(el('span',{class:'tiny muted', text:'Fleet default'}));
   }
-  v.append(el('button',{class:'btn ghost sm', text:'Customize', onclick:()=>openHealthWeightingModal(p, ctx)}));
+  v.append(el('button',{class:'btn ghost sm', text:'Customize', onclick:()=>openOverrideModal(p, ctx, cfg)}));
   r.append(v);
   return r;
 }
 
-// Per-project override of the fleet health weighting — same three sliders as
-// Settings → "Fleet health weighting", scoped to just this project. Disabled
-// (the default) falls straight back to the live fleet-wide weights; the
-// dialed-in numbers persist even while disabled, so flipping it back on
-// restores what was there rather than resetting to the shipped default.
-function openHealthWeightingModal(p, ctx){
-  const ov=Store.projectHealthWeightsOverride(p.id);
+function openOverrideModal(p, ctx, cfg){
+  const ov=cfg.getOverride(p.id);
   const body=el('div');
-  body.append(el('p',{class:'muted tiny', style:'margin:0 0 12px', text:`${p.name}’s health score uses the fleet-wide weighting from Settings by default. Turn this on to dial in different weights just for this project — for a cadence that's deliberately different from the fleet norm.`}));
+  body.append(el('p',{class:'muted tiny', style:'margin:0 0 12px', text:cfg.description(p)}));
 
   const toggleRow=el('div',{class:'opt-row', style:'padding:0 0 14px'});
-  toggleRow.innerHTML=`<div class="sp"><b>Override fleet weighting</b><p>Only affects ${escapeHtml(p.name)}.</p></div>`;
-  const t=el('button',{class:'toggle'+(ov.enabled?' on':''), role:'switch', 'aria-checked':String(!!ov.enabled), 'aria-label':'Override fleet weighting for this project'});
-  toggleRow.append(t);
-  body.append(toggleRow);
-
-  const wRow=el('div',{style:'display:flex;flex-direction:column;gap:12px'});
-  const dims=[['recency','Recency','How recently the project last shipped something.'],['velocity','Velocity','How many releases it’s shipped in the last 90 days.'],['status','Status','Live/active projects score higher than paused or archived ones.']];
-  const pctEls={};
-  const renderPcts=()=>{
-    const norm=Store.healthWeightsFor(p.id);
-    dims.forEach(([k])=>{ if(pctEls[k]) pctEls[k].textContent=Math.round(norm[k])+'%'; });
-  };
-  dims.forEach(([k,label,desc])=>{
-    const cur=ov[k] ?? DEFAULT_HEALTH_WEIGHTS[k];
-    const row=el('div',{class:'field', style:'margin:0'});
-    const head=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
-    head.innerHTML=`<label style="margin:0">${escapeHtml(label)}</label><span class="tiny muted mono" style="min-width:34px;text-align:right"></span>`;
-    const pctEl=head.lastElementChild; pctEls[k]=pctEl;
-    const slider=el('input',{type:'range', min:'0', max:'100', step:'1', value:String(cur), class:'proj-weight-slider', 'data-dim':k});
-    slider.addEventListener('input',()=>{ Store.setProjectHealthWeights(p.id, { [k]:parseInt(slider.value,10) }); renderPcts(); });
-    row.append(head, slider, el('span',{class:'tiny muted', text:desc}));
-    wRow.append(row);
-  });
-  wRow.style.opacity = ov.enabled?'1':'.45';
-  wRow.style.pointerEvents = ov.enabled?'':'none';
-  body.append(wRow);
-  renderPcts();
-
-  t.addEventListener('click',()=>{
-    const now=!t.classList.contains('on');
-    t.classList.toggle('on', now); t.setAttribute('aria-checked',String(now));
-    Store.setProjectHealthWeights(p.id, { enabled:now });
-    wRow.style.opacity = now?'1':'.45';
-    wRow.style.pointerEvents = now?'':'none';
-  });
-
-  const resetBtn=el('button',{class:'btn sm', html:`${icon('refresh')} Reset to fleet default`, onclick:()=>{
-    Store.setProjectHealthWeights(p.id, { ...DEFAULT_HEALTH_WEIGHTS });
-    dims.forEach(([k])=>{ const s=wRow.querySelector(`[data-dim="${k}"]`); if(s) s.value=String(DEFAULT_HEALTH_WEIGHTS[k]); });
-    renderPcts(); toast('Weighting reset to fleet default',{kind:'ok'});
-  }});
-  body.append(resetBtn);
-
-  const {hide}=modal({ title:`Health weighting — ${p.name}`, icon:'gauge', body, foot:[el('button',{class:'btn primary', text:'Done', onclick:()=>{ hide(); ctx.go('project',{id:p.id}); }})] });
-}
-
-// Every project's "needs attention" flagging normally rides the fleet-wide
-// cutoffs from Settings → "Needs attention" — but a project on a
-// deliberately different cadence (say, one that's expected to ship rarely,
-// or a "manual cadence" project that should never be flagged just for being
-// slow) can override just its own health-score cutoff and auto-sync fail
-// count. This row shows which mode is active; the modal it opens is where
-// that gets dialed in, scoped to this project only.
-function attentionRow(p, ctx){
-  const ov=Store.projectAttentionThresholdsOverride(p.id);
-  const r=el('div',{class:'row'});
-  r.innerHTML=`<span class="k">Attention</span>`;
-  const v=el('span',{class:'v', style:'display:inline-flex;align-items:center;gap:8px;font-weight:400'});
-  if(ov.enabled){
-    const t=Store.attentionThresholdsFor(p.id);
-    v.append(el('span',{class:'tiny muted', title:'Custom "needs attention" cutoffs for this project only', text:`Custom · <${t.healthMax} / ×${t.autoSyncFails}`}));
-  }else{
-    v.append(el('span',{class:'tiny muted', text:'Fleet default'}));
-  }
-  v.append(el('button',{class:'btn ghost sm', text:'Customize', onclick:()=>openAttentionThresholdsModal(p, ctx)}));
-  r.append(v);
-  return r;
-}
-
-// Per-project override of the fleet "needs attention" thresholds — same two
-// sliders as Settings → "Needs attention", scoped to just this project.
-// Disabled (the default) falls straight back to the live fleet-wide
-// thresholds; the dialed-in numbers persist even while disabled, so flipping
-// it back on restores what was there rather than resetting to the shipped
-// default.
-function openAttentionThresholdsModal(p, ctx){
-  const ov=Store.projectAttentionThresholdsOverride(p.id);
-  const body=el('div');
-  body.append(el('p',{class:'muted tiny', style:'margin:0 0 12px', text:`${p.name} is flagged "needs attention" using the fleet-wide cutoffs from Settings by default. Turn this on to dial in a different health-score cutoff or auto-sync fail count just for this project.`}));
-
-  const toggleRow=el('div',{class:'opt-row', style:'padding:0 0 14px'});
-  toggleRow.innerHTML=`<div class="sp"><b>Override fleet thresholds</b><p>Only affects ${escapeHtml(p.name)}.</p></div>`;
-  const t=el('button',{class:'toggle'+(ov.enabled?' on':''), role:'switch', 'aria-checked':String(!!ov.enabled), 'aria-label':'Override fleet thresholds for this project'});
+  toggleRow.innerHTML=`<div class="sp"><b>${escapeHtml(cfg.toggleLabel)}</b><p>Only affects ${escapeHtml(p.name)}.</p></div>`;
+  const t=el('button',{class:'toggle'+(ov.enabled?' on':''), role:'switch', 'aria-checked':String(!!ov.enabled), 'aria-label':`${cfg.toggleLabel} for this project`});
   toggleRow.append(t);
   body.append(toggleRow);
 
   const fRow=el('div',{style:'display:flex;flex-direction:column;gap:12px'});
-
-  const hCur=ov.healthMax ?? DEFAULT_ATTENTION_THRESHOLDS.healthMax;
-  const hRow=el('div',{class:'field', style:'margin:0'});
-  const hHead=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
-  hHead.innerHTML=`<label style="margin:0">Health score</label><span class="tiny muted mono" style="min-width:120px;text-align:right"></span>`;
-  const hVal=hHead.lastElementChild;
-  const renderHVal=(v)=>{ const b=healthBand(Math.max(0,v-1)); hVal.textContent=`below ${v} (${b.label})`; };
-  const hSlider=el('input',{type:'range', min:'1', max:'100', step:'1', value:String(hCur), class:'proj-attn-slider', 'data-attn':'health'});
-  hSlider.addEventListener('input',()=>{ const val=parseInt(hSlider.value,10); renderHVal(val); Store.setProjectAttentionThresholds(p.id, { healthMax:val }); });
-  renderHVal(hCur);
-  hRow.append(hHead, hSlider, el('span',{class:'tiny muted', text:'Flag this project once its health score falls below this line.'}));
-  fRow.append(hRow);
-
-  const sCur=ov.autoSyncFails ?? DEFAULT_ATTENTION_THRESHOLDS.autoSyncFails;
-  const sRow=el('div',{class:'field', style:'margin:0'});
-  const sHead=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
-  sHead.innerHTML=`<label style="margin:0">Auto-sync failures</label><span class="tiny muted mono" style="min-width:70px;text-align:right"></span>`;
-  const sVal=sHead.lastElementChild;
-  const renderSVal=(v)=>{ sVal.textContent=`×${v} in a row`; };
-  const sSlider=el('input',{type:'range', min:'1', max:'10', step:'1', value:String(sCur), class:'proj-attn-slider', 'data-attn':'sync'});
-  sSlider.addEventListener('input',()=>{ const val=parseInt(sSlider.value,10); renderSVal(val); Store.setProjectAttentionThresholds(p.id, { autoSyncFails:val }); });
-  renderSVal(sCur);
-  sRow.append(sHead, sSlider, el('span',{class:'tiny muted', text:'Flag this project once its auto-sync has failed this many times in a row.'}));
-  fRow.append(sRow);
-
+  const valEls={};
+  const renderVals=()=>{
+    const eff=cfg.getEffective(p.id);
+    cfg.fields.forEach(f=>{ if(valEls[f.key]) valEls[f.key].textContent=f.format(eff[f.key]); });
+  };
+  cfg.fields.forEach(f=>{
+    const cur=ov[f.key] ?? cfg.defaults[f.key];
+    const row=el('div',{class:'field', style:'margin:0'});
+    const head=el('div',{style:'display:flex;justify-content:space-between;align-items:baseline;gap:8px'});
+    head.innerHTML=`<label style="margin:0">${escapeHtml(f.label)}</label><span class="tiny muted mono" style="min-width:${f.valueWidth||'34px'};text-align:right"></span>`;
+    valEls[f.key]=head.lastElementChild;
+    const slider=el('input',{type:'range', min:String(f.min), max:String(f.max), step:'1', value:String(cur), class:cfg.sliderClass, 'data-key':f.key});
+    slider.addEventListener('input',()=>{ cfg.setOverride(p.id, { [f.key]:parseInt(slider.value,10) }); renderVals(); });
+    row.append(head, slider, el('span',{class:'tiny muted', text:f.desc}));
+    fRow.append(row);
+  });
   fRow.style.opacity = ov.enabled?'1':'.45';
   fRow.style.pointerEvents = ov.enabled?'':'none';
   body.append(fRow);
+  renderVals();
 
   t.addEventListener('click',()=>{
     const now=!t.classList.contains('on');
     t.classList.toggle('on', now); t.setAttribute('aria-checked',String(now));
-    Store.setProjectAttentionThresholds(p.id, { enabled:now });
+    cfg.setOverride(p.id, { enabled:now });
     fRow.style.opacity = now?'1':'.45';
     fRow.style.pointerEvents = now?'':'none';
   });
 
   const resetBtn=el('button',{class:'btn sm', html:`${icon('refresh')} Reset to fleet default`, onclick:()=>{
-    Store.setProjectAttentionThresholds(p.id, { ...DEFAULT_ATTENTION_THRESHOLDS });
-    hSlider.value=String(DEFAULT_ATTENTION_THRESHOLDS.healthMax); renderHVal(DEFAULT_ATTENTION_THRESHOLDS.healthMax);
-    sSlider.value=String(DEFAULT_ATTENTION_THRESHOLDS.autoSyncFails); renderSVal(DEFAULT_ATTENTION_THRESHOLDS.autoSyncFails);
-    toast('Thresholds reset to fleet default',{kind:'ok'});
+    cfg.setOverride(p.id, { ...cfg.defaults });
+    cfg.fields.forEach(f=>{ const s=fRow.querySelector(`[data-key="${f.key}"]`); if(s) s.value=String(cfg.defaults[f.key]); });
+    renderVals(); toast(cfg.resetToast,{kind:'ok'});
   }});
   body.append(resetBtn);
 
-  const {hide}=modal({ title:`Needs-attention thresholds — ${p.name}`, icon:'warning', body, foot:[el('button',{class:'btn primary', text:'Done', onclick:()=>{ hide(); ctx.go('project',{id:p.id}); }})] });
+  const {hide}=modal({ title:`${cfg.modalTitle} — ${p.name}`, icon:cfg.modalIcon, body, foot:[el('button',{class:'btn primary', text:'Done', onclick:()=>{ hide(); ctx.go('project',{id:p.id}); }})] });
 }
+
+const HEALTH_WEIGHTING_OVERRIDE={
+  rowLabel:'Weighting',
+  summaryTitle:'Custom weighting for this project only',
+  summary:w=>`R${Math.round(w.recency)}/V${Math.round(w.velocity)}/S${Math.round(w.status)}`,
+  getOverride:id=>Store.projectHealthWeightsOverride(id),
+  getEffective:id=>Store.healthWeightsFor(id),
+  setOverride:(id,patch)=>Store.setProjectHealthWeights(id,patch),
+  defaults:DEFAULT_HEALTH_WEIGHTS,
+  toggleLabel:'Override fleet weighting',
+  description:p=>`${p.name}’s health score uses the fleet-wide weighting from Settings by default. Turn this on to dial in different weights just for this project — for a cadence that's deliberately different from the fleet norm.`,
+  modalTitle:'Health weighting', modalIcon:'gauge', sliderClass:'proj-weight-slider',
+  resetToast:'Weighting reset to fleet default',
+  fields:[
+    { key:'recency', label:'Recency', desc:'How recently the project last shipped something.', min:0, max:100, format:v=>Math.round(v)+'%' },
+    { key:'velocity', label:'Velocity', desc:'How many releases it’s shipped in the last 90 days.', min:0, max:100, format:v=>Math.round(v)+'%' },
+    { key:'status', label:'Status', desc:'Live/active projects score higher than paused or archived ones.', min:0, max:100, format:v=>Math.round(v)+'%' },
+  ],
+};
+
+const ATTENTION_THRESHOLDS_OVERRIDE={
+  rowLabel:'Attention',
+  summaryTitle:'Custom "needs attention" cutoffs for this project only',
+  summary:t=>`<${t.healthMax} / ×${t.autoSyncFails}`,
+  getOverride:id=>Store.projectAttentionThresholdsOverride(id),
+  getEffective:id=>Store.attentionThresholdsFor(id),
+  setOverride:(id,patch)=>Store.setProjectAttentionThresholds(id,patch),
+  defaults:DEFAULT_ATTENTION_THRESHOLDS,
+  toggleLabel:'Override fleet thresholds',
+  description:p=>`${p.name} is flagged "needs attention" using the fleet-wide cutoffs from Settings by default. Turn this on to dial in a different health-score cutoff or auto-sync fail count just for this project.`,
+  modalTitle:'Needs-attention thresholds', modalIcon:'warning', sliderClass:'proj-attn-slider',
+  resetToast:'Thresholds reset to fleet default',
+  fields:[
+    { key:'healthMax', label:'Health score', desc:'Flag this project once its health score falls below this line.', min:1, max:100, valueWidth:'120px', format:v=>`below ${v} (${healthBand(Math.max(0,v-1)).label})` },
+    { key:'autoSyncFails', label:'Auto-sync failures', desc:'Flag this project once its auto-sync has failed this many times in a row.', min:1, max:10, valueWidth:'70px', format:v=>`×${v} in a row` },
+  ],
+};
+
+function weightingRow(p, ctx){ return overrideRow(p, ctx, HEALTH_WEIGHTING_OVERRIDE); }
+function attentionRow(p, ctx){ return overrideRow(p, ctx, ATTENTION_THRESHOLDS_OVERRIDE); }
 
 // Per-project opt-in for the quiet, on-a-cadence auto-sync (also needs the
 // global switch in Settings → Auto-sync). Toggling here never fires a fetch

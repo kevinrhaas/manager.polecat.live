@@ -153,9 +153,9 @@ try {
     const otherBefore = await store(`(S)=>S.healthScore('games')`);
     await page.click('.health button:has-text("Customize")'); await page.waitForTimeout(300);
     await page.click('.modal .opt-row .toggle'); await page.waitForTimeout(150);
-    await page.$eval('.proj-weight-slider[data-dim="recency"]', (s) => { s.value = '0'; s.dispatchEvent(new Event('input', { bubbles: true })); });
-    await page.$eval('.proj-weight-slider[data-dim="velocity"]', (s) => { s.value = '0'; s.dispatchEvent(new Event('input', { bubbles: true })); });
-    await page.$eval('.proj-weight-slider[data-dim="status"]', (s) => { s.value = '100'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.$eval('.proj-weight-slider[data-key="recency"]', (s) => { s.value = '0'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.$eval('.proj-weight-slider[data-key="velocity"]', (s) => { s.value = '0'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.$eval('.proj-weight-slider[data-key="status"]', (s) => { s.value = '100'; s.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.waitForTimeout(150);
     const overridden = await store(`(S)=>({...S.healthWeightsFor('solution-engineering')})`);
     const otherAfter = await store(`(S)=>S.healthScore('games')`);
@@ -180,7 +180,7 @@ try {
     await page.click('.modal .opt-row .toggle'); await page.waitForTimeout(150);
     // cranking this project's own health cutoff to 100 must flag it (no project scores 100)
     // without touching any other project's flagged state
-    await page.$eval('.proj-attn-slider[data-attn="health"]', (s) => { s.value = '100'; s.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.$eval('.proj-attn-slider[data-key="healthMax"]', (s) => { s.value = '100'; s.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.waitForTimeout(150);
     const overridden = await store(`(S)=>({...S.attentionThresholdsFor('polecat')})`);
     const flaggedNow = await store(`(S)=>S.needsAttention().some(a=>a.project.id==='polecat')`);

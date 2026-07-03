@@ -14,15 +14,14 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Now that both the health-weighting override and the "Needs attention"
-      threshold override exist (see Done, 2026-07-03) and share the exact
-      same shape — a toggle + sliders on the project row, "Fleet default" vs.
-      "Custom · …" summary, Customize link, Reset to fleet default — consider
-      factoring the shared plumbing (the row-summary builder, the
-      enable/disable toggle + opacity dance, the modal chrome) into one small
-      helper in `js/views/project.js` so a *third* per-project override
-      (e.g. a future auto-sync backoff override, see Next) doesn't have to
-      hand-copy the pattern a third time.
+- [ ] Make the auto-sync backoff cap (currently a fixed constant,
+      `AUTO_SYNC_BACKOFF_CAP` in `js/ingest.js`) tunable from Settings →
+      Auto-sync, same spirit as the fail threshold shipped 2026-07-03 — the
+      fail threshold that decides *when* a project counts as "failing" is
+      tunable, but how much its retry cadence backs off while it stays that
+      way still isn't. With the shared per-project override plumbing now
+      factored out (see Done, 2026-07-03), a per-project backoff-cap override
+      would be a ~20-line `cfg` object away if it's wanted too.
 
 ## Next (discovered / queued)
 
@@ -35,12 +34,6 @@ with new, ambitious, fun ideas.
       list regularly has more than a handful of rows — right now it's a flat
       list sorted worst-score-first, fine at fleet scale today but won't
       stay scannable if the fleet grows a lot.
-- [ ] Make the auto-sync backoff cap (currently a fixed constant,
-      `AUTO_SYNC_BACKOFF_CAP` in `js/ingest.js`) tunable from Settings →
-      Auto-sync, same spirit as the fail threshold just shipped (2026-07-03,
-      see Done) — the fail threshold that decides *when* a project counts as
-      "failing" is now tunable, but how much its retry cadence backs off
-      while it stays that way still isn't.
 - [ ] One more pass on the wrap-then-center anti-pattern: this sweep
       (2026-07-03, see Done) grepped every `align-items:center` rule in
       `css/styles.css` plus every inline-styled row in `js/views/*.js` and
@@ -78,6 +71,28 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Factor the shared per-project override plumbing into one helper**
+      _(2026-07-03)_: the health-weighting override and the "needs attention"
+      threshold override (both shipped earlier this cadence) had grown into
+      two ~90-line, near-identical blocks in `js/views/project.js` — each its
+      own row-summary builder, enable/disable toggle + opacity dance, and
+      modal chrome, hand-copied from the first to build the second. Both are
+      now two small `cfg` objects (`HEALTH_WEIGHTING_OVERRIDE`,
+      `ATTENTION_THRESHOLDS_OVERRIDE` — row label, summary formatter,
+      Store getters/setters, fleet defaults, and a `fields` array of
+      slider definitions) driving one shared `overrideRow()` /
+      `openOverrideModal()` pair. `weightingRow`/`attentionRow` are now
+      one-line wrappers. Net effect: ~50 fewer lines, and the next
+      per-project override (e.g. the auto-sync backoff cap, see Now) is a
+      new `cfg` object rather than a third hand-copy of the pattern. Pure
+      refactor — no behavior change — verified by running the existing
+      per-project-override smoke checks against the new code (they exercise
+      both modals end to end: enable, drag every slider, verify isolation
+      from another project, reset, disable, confirm parity with the live
+      fleet default) and fixing the two slider selectors
+      (`.proj-weight-slider`/`.proj-attn-slider`) the checks used, which had
+      been keyed on override-specific attribute names (`data-dim`/`data-attn`)
+      now unified to one `data-key` attribute across both overrides.
 - [x] **Per-project "needs attention" threshold override** _(2026-07-03)_: the
       two cutoffs behind `Store.needsAttention()` — how low a health score has
       to sink, and how many auto-sync failures in a row — were fleet-wide
