@@ -6,11 +6,11 @@
 // out of the "active" set but stay one click away via the footer's "N
 // dismissed" link (openDismissedModal, also from home.js).
 import { Store } from '../store.js';
-import { el } from '../ui.js';
+import { el, trapFocus } from '../ui.js';
 import { icon } from '../icons.js';
 import { attentionRow, openDismissedModal } from './home.js';
 
-let btn=null, pop=null, cleanup=null, ctxFor=null; // ctxFor: the ctx the open popover was built with
+let btn=null, pop=null, cleanup=null, ctxFor=null, releaseFocus=null; // ctxFor: the ctx the open popover was built with
 
 export function buildNotifBell(ctx){
   btn = el('button',{class:'btn icon ghost notif-btn', title:'Notifications', 'aria-label':'Notifications',
@@ -42,12 +42,13 @@ function renderFoot(foot, ctx){
 
 function openPanel(ctx){
   ctxFor=ctx;
-  pop=el('div',{class:'notif-pop'});
+  pop=el('div',{class:'notif-pop', role:'dialog', 'aria-modal':'true', 'aria-label':'Notifications'});
   const head=el('div',{class:'notif-pop-head'});
   head.innerHTML=`<span style="color:var(--danger);display:inline-flex">${icon('bell')}</span><h3>Notifications</h3>`;
   head.append(el('span',{class:'sp'}));
   const body=el('div',{class:'notif-pop-body'});
-  head.append(el('button',{class:'btn ghost icon sm', title:'Close', 'aria-label':'Close', html:icon('x'), onclick:()=>closePanel()}));
+  const closeBtn=el('button',{class:'btn ghost icon sm', title:'Close', 'aria-label':'Close', html:icon('x'), onclick:()=>closePanel()});
+  head.append(closeBtn);
   pop.append(head, body);
   const foot=el('div',{class:'notif-pop-foot'});
   pop.append(foot);
@@ -56,6 +57,7 @@ function openPanel(ctx){
   renderList(body, ctx);
   renderFoot(foot, ctx);
   requestAnimationFrame(()=>pop.classList.add('show'));
+  releaseFocus=trapFocus(pop, { skip:closeBtn });
 
   const onDoc=(e)=>{ if(pop && !pop.contains(e.target) && e.target!==btn && !btn.contains(e.target)) closePanel(); };
   const onEsc=(e)=>{ if(e.key==='Escape') closePanel(); };
@@ -101,6 +103,7 @@ function closePanel(){
   if(!pop) return;
   pop.classList.remove('show');
   cleanup?.(); cleanup=null;
+  releaseFocus?.(); releaseFocus=null;
   const dying=pop; pop=null; ctxFor=null;
   setTimeout(()=>dying.remove(), 160);
 }

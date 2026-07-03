@@ -3,7 +3,7 @@ import { Store } from './store.js';
 import { Access } from './access.js';
 import { applyTheme, getThemePref, setTheme } from './theme.js';
 import { buildRail, SECTIONS } from './shell.js';
-import { el, $, escapeHtml, toast } from './ui.js';
+import { el, $, escapeHtml, toast, trapFocus } from './ui.js';
 import { icon } from './icons.js';
 import { renderHome } from './views/home.js';
 import { renderProjects, openProjectEditor } from './views/projects.js';
@@ -150,7 +150,7 @@ function doUndo(){
 // ---- command palette (⌘K) ------------------------------------------------
 function openPalette(){
   const overlay=el('div',{class:'cmdk'});
-  const box=el('div',{class:'cmdk-box'});
+  const box=el('div',{class:'cmdk-box', role:'dialog', 'aria-modal':'true', 'aria-label':'Command palette'});
   const input=el('input',{class:'cmdk-in', placeholder:'Jump to a project, section, or action…', spellcheck:'false'});
   const list=el('div',{class:'cmdk-list'});
   box.append(input, list); overlay.append(box); document.body.append(overlay);
@@ -187,8 +187,8 @@ function openPalette(){
     else if(e.key==='Escape'){ close(); }
   });
   overlay.addEventListener('mousedown',e=>{ if(e.target===overlay) close(); });
-  function close(){ overlay.classList.remove('show'); setTimeout(()=>overlay.remove(),160); }
-  setTimeout(()=>input.focus(),40);
+  const releaseFocus=trapFocus(box);
+  function close(){ overlay.classList.remove('show'); setTimeout(()=>overlay.remove(),160); releaseFocus(); }
 }
 
 // ---- live glue -----------------------------------------------------------

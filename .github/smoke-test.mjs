@@ -1243,6 +1243,61 @@ try {
     return /project\/games/.test(await page.evaluate(() => location.hash));
   });
 
+  // ---------- Accessibility: focus trap + restore on every overlay ----------
+  // All four "floats above the page" surfaces (modal, ⌘K palette, What's-new
+  // sheet, notification popover) share the same shape: opening one used to
+  // leave keyboard focus wherever it already was, so Tab could walk a
+  // keyboard user straight through the "on top" surface into the page
+  // underneath, and closing it never gave focus back to whatever opened it.
+  // trapFocus() (js/ui.js) now backs all four; these checks drive the real
+  // UI — click the trigger, confirm focus landed inside, confirm Tab can't
+  // escape, confirm Escape hands focus back to the exact trigger element.
+  console.log('Accessibility');
+  await check('the "Add project" modal moves focus inside itself, traps Tab within it, and Escape restores focus to the button that opened it', async () => {
+    await openSec('home');
+    const btn = await page.$('.topbar .btn.primary');
+    await btn.click(); await page.waitForTimeout(300);
+    const focusedInModal = await page.evaluate(() => !!document.querySelector('.overlay.show .modal')?.contains(document.activeElement));
+    let staysTrapped = true;
+    for (let i = 0; i < 15; i++) {
+      await page.keyboard.press('Tab');
+      const ok = await page.evaluate(() => !!document.querySelector('.overlay.show .modal')?.contains(document.activeElement));
+      if (!ok) staysTrapped = false;
+    }
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    const restored = await page.evaluate((b) => document.activeElement === b, btn);
+    return focusedInModal && staysTrapped && restored;
+  });
+  await check('the notification bell popover moves focus inside itself; Escape restores focus to the bell', async () => {
+    await openSec('home');
+    const bell = await page.$('.notif-btn');
+    await bell.click(); await page.waitForTimeout(300);
+    const focusedInPop = await page.evaluate(() => !!document.querySelector('.notif-pop')?.contains(document.activeElement));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    const restored = await page.evaluate((b) => document.activeElement === b, bell);
+    return focusedInPop && restored;
+  });
+  await check('the "What\'s new" sheet moves focus inside itself; Escape restores focus to the wn-btn that opened it', async () => {
+    await openSec('home');
+    const wn = await page.$('.wn-btn');
+    await wn.click(); await page.waitForTimeout(300);
+    const focusedInSheet = await page.evaluate(() => !!document.querySelector('.sheet')?.contains(document.activeElement));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+    const restored = await page.evaluate((b) => document.activeElement === b, wn);
+    return focusedInSheet && restored;
+  });
+  await check('the ⌘K palette keeps Tab from leaving its input, and Escape restores focus to the trigger button', async () => {
+    await openSec('home');
+    const cmdBtn = await page.$('.topbar button[title="Command palette"]');
+    await cmdBtn.click(); await page.waitForTimeout(250);
+    const focused = await page.evaluate(() => document.activeElement?.classList.contains('cmdk-in'));
+    await page.keyboard.press('Tab');
+    const staysOnInput = await page.evaluate(() => document.activeElement?.classList.contains('cmdk-in'));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(250);
+    const restored = await page.evaluate((b) => document.activeElement === b, cmdBtn);
+    return focused && staysOnInput && restored;
+  });
+
   // ---------- Mobile ----------
   console.log('Mobile');
   await check('mobile: hamburger opens the rail drawer', async () => {

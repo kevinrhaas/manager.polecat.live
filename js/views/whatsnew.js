@@ -3,7 +3,7 @@
 // the default sort are customizable in Settings.
 import { CHANGELOG, LATEST_VERSION } from '../changelog.js';
 import { Store } from '../store.js';
-import { el, escapeHtml, fmtCT } from '../ui.js';
+import { el, escapeHtml, fmtCT, trapFocus } from '../ui.js';
 import { icon } from '../icons.js';
 
 const SEEN_KEY = 'manager.whatsnew.seen';
@@ -22,12 +22,13 @@ export function openWhatsNew(){
   let query='';
 
   const overlay=el('div',{class:'sheet-overlay'});
-  const sheet=el('div',{class:'sheet', role:'dialog', 'aria-label':"What's new"});
+  const sheet=el('div',{class:'sheet', role:'dialog', 'aria-modal':'true', 'aria-label':"What's new"});
 
   const head=el('div',{class:'sheet-head'});
   head.innerHTML=`<div><h3>What’s new</h3>
     <div class="muted tiny">Manager · v${LATEST_VERSION} · ${CHANGELOG.length} release${CHANGELOG.length!==1?'s':''}</div></div>`;
-  head.append(el('button',{class:'btn ghost sm', text:'Close', onclick:()=>hide()}));
+  const closeBtn=el('button',{class:'btn ghost sm', text:'Close', onclick:()=>hide()});
+  head.append(closeBtn);
 
   // search
   const search=el('div',{class:'search', style:'margin:10px 20px 4px'});
@@ -82,9 +83,9 @@ export function openWhatsNew(){
   requestAnimationFrame(()=>overlay.classList.add('show'));
   markSeen();
 
-  function hide(){ overlay.classList.remove('show'); setTimeout(()=>overlay.remove(),240); document.removeEventListener('keydown',esc); }
+  const releaseFocus=trapFocus(sheet, { skip:closeBtn });
+  function hide(){ overlay.classList.remove('show'); setTimeout(()=>overlay.remove(),240); document.removeEventListener('keydown',esc); releaseFocus(); }
   function esc(e){ if(e.key==='Escape') hide(); }
   document.addEventListener('keydown',esc);
-  setTimeout(()=>input.focus(),60);
   return { hide };
 }

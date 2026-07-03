@@ -36,6 +36,36 @@ export function makeRowClickable(node, fn, label){
   return node;
 }
 
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+// Confines Tab/Shift+Tab to `container` (a modal/sheet/popover) and restores
+// focus to whatever had it before the surface opened once `release()` runs —
+// without this, a keyboard user can Tab straight through an "on top" overlay
+// into the page behind it, and loses their place entirely once it closes.
+// `skip` optionally excludes an element (e.g. a header close button) from
+// being the *initial* focus target, so a modal with a text field focuses the
+// field first rather than the X in the corner.
+export function trapFocus(container, { skip }={}){
+  const prev = document.activeElement;
+  function focusables(){ return [...container.querySelectorAll(FOCUSABLE)].filter(el=>el.offsetParent!==null); }
+  const initial = focusables().find(el=>el!==skip) || focusables()[0] || container;
+  if(initial===container) container.tabIndex = -1;
+  requestAnimationFrame(()=>initial.focus());
+  function onKeydown(e){
+    if(e.key!=='Tab') return;
+    const items = focusables();
+    if(!items.length) return;
+    const first = items[0], last = items[items.length-1];
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  }
+  container.addEventListener('keydown', onKeydown);
+  return function release(){
+    container.removeEventListener('keydown', onKeydown);
+    if(prev && document.contains(prev) && typeof prev.focus==='function') prev.focus();
+  };
+}
+
 export function escapeHtml(s){
   return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -116,9 +146,10 @@ export function toast(title, {body='', kind='info', ms=3800, action}={}){
 // ---- modal -------------------------------------------------------------
 export function modal({title='', body, foot, wide=false, icon:ic}={}){
   const overlay = el('div',{class:'overlay'});
-  const m = el('div',{class:'modal'+(wide?' wide':'')});
+  const titleId = 'modal-title-'+uuid();
+  const m = el('div',{class:'modal'+(wide?' wide':''), role:'dialog', 'aria-modal':'true', 'aria-labelledby':titleId});
   const head = el('div',{class:'modal-head', html:
-    `${ic?`<span style="color:var(--brand-b)">${icon(ic)}</span>`:''}<h3>${escapeHtml(title)}</h3>`});
+    `${ic?`<span style="color:var(--brand-b)">${icon(ic)}</span>`:''}<h3 id="${titleId}">${escapeHtml(title)}</h3>`});
   const close = el('button',{class:'btn ghost icon', title:'Close', 'aria-label':'Close', html:icon('x'), onclick:()=>hide()});
   head.append(close);
   const bodyEl = el('div',{class:'modal-body'});
@@ -129,7 +160,8 @@ export function modal({title='', body, foot, wide=false, icon:ic}={}){
   overlay.addEventListener('mousedown',e=>{if(e.target===overlay) hide()});
   document.body.append(overlay);
   requestAnimationFrame(()=>overlay.classList.add('show'));
-  function hide(){overlay.classList.remove('show');setTimeout(()=>overlay.remove(),220);document.removeEventListener('keydown',esc)}
+  const releaseFocus = trapFocus(m, { skip:close });
+  function hide(){overlay.classList.remove('show');setTimeout(()=>overlay.remove(),220);document.removeEventListener('keydown',esc);releaseFocus()}
   function esc(e){if(e.key==='Escape') hide()}
   document.addEventListener('keydown',esc);
   return {overlay, body:bodyEl, hide};
