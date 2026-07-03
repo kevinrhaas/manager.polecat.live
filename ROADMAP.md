@@ -14,20 +14,22 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Badge the rail's Dashboard nav item with the live "Needs attention"
-      count (see Done, 2026-07-02) so a slipping project is visible even
-      before you land on the dashboard — today the callout is silent until
-      you're already looking at it. The notification bell (2026-07-03)
-      already proves the shared-signal pattern for this.
+- [ ] Let a notification be dismissed/marked-read independently of the
+      underlying condition (see Next below, promoted) — today the bell and
+      the new rail badge (2026-07-03) both always mirror the live
+      `Store.needsAttention()` set with no per-item read state, so a problem
+      you've already seen keeps re-surfacing everywhere until it's actually
+      fixed.
 
 ## Next (discovered / queued)
 
-- [ ] Let a notification be dismissed/marked-read independently of the
-      underlying condition — today the bell (2026-07-03) always mirrors the
-      live `Store.needsAttention()` set with no per-item read state, so a
-      problem you've already seen keeps re-appearing in the popover until
-      it's actually fixed. Worth deciding deliberately: is "still true" the
-      right model, or should a user be able to snooze one they're aware of?
+- [ ] Now that three surfaces (bell, rail badge, dashboard callout) all
+      render `Store.needsAttention()`, consider whether the rail badge should
+      dim/deprioritize (rather than disappear) once a user has opened the
+      popover or dashboard this session — right now all three are always
+      "hot", which is correct today but worth revisiting once dismissal
+      (above) exists, so a seen-but-unfixed problem doesn't look identical to
+      a brand-new one.
 - [ ] Group the notification popover by reason (health vs. sync) once the
       list regularly has more than a handful of rows — right now it's a flat
       list sorted worst-score-first, fine at fleet scale today but won't
@@ -73,6 +75,20 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Rail badges the Dashboard nav item with the live "Needs attention"
+      count** _(2026-07-03)_: the bell already proved the shared-signal
+      pattern, but it's only visible once you look at the topbar — the rail
+      itself said nothing. `shell.js`'s `setBadge` helper (scaffolded but
+      never wired up) now drives a badge on the Dashboard rail item wired to
+      the same `Store.needsAttention()` count as the bell and dashboard
+      callout, kept in sync from one `refreshAttentionBadges()` call in
+      `app.js`. The harder part was the rail's collapsed (icon-only) state,
+      which is the default: a numeric pill has no room next to a hidden
+      label, so collapsed mode shows a small danger-colored dot pinned to the
+      icon's corner instead, and the full "N" pill appears once the rail is
+      opened — both states pull from the same badge element and the same
+      count, verified in both themes and covered by a new smoke check that
+      exercises the badge expanded and collapsed.
 - [x] **Notification center** _(2026-07-03)_: a bell in the topbar surfaces
       `Store.needsAttention()` from anywhere in the app, not just the
       dashboard — a live badge count (hidden when the fleet is healthy) and

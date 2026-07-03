@@ -52,7 +52,11 @@ export function buildRail(rail, { onNav, isAdmin=false, simple=false }){
   wireResize(rail, resize);
   return {
     setActive:(key)=>rail.querySelectorAll('.rail-item').forEach(n=>n.classList.toggle('active', n.dataset.sec===key)),
-    setBadge:(key,n)=>{ const b=rail.querySelector(`.rail-item[data-sec="${key}"] .badge`); if(!b) return; if(n>0){ b.textContent=n; b.hidden=false; } else b.hidden=true; },
+    setBadge:(key,n,tone)=>{
+      const b=rail.querySelector(`.rail-item[data-sec="${key}"] .badge`); if(!b) return;
+      b.classList.toggle('tone-danger', tone==='danger');
+      if(n>0){ b.textContent=n>99?'99+':String(n); b.hidden=false; } else b.hidden=true;
+    },
     setOpen:(v)=>setOpen(rail,v),
   };
 }

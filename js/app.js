@@ -116,10 +116,17 @@ function render(){
   view.scrollTop=0;
   RENDERERS[currentSection](view, ctx, currentParams);
   refreshUndo();
-  refreshNotifBadge();
+  refreshAttentionBadges();
 }
 function refresh(){ rebuildRail(); render(); }
 function refreshUndo(){ if(undoBtn) undoBtn.disabled = !Store.canUndo(); }
+// the bell and the rail's Dashboard item both mirror Store.needsAttention() —
+// keep them refreshing together so a slipping project never shows in one and
+// not the other.
+function refreshAttentionBadges(){
+  refreshNotifBadge();
+  window.__rail?.setBadge('home', Store.needsAttention().length, 'danger');
+}
 
 // context handed to every view
 const ctx = {
@@ -185,7 +192,7 @@ function openPalette(){
 
 // ---- live glue -----------------------------------------------------------
 function wireEvents(){
-  Store.on('change', ()=>{ refreshUndo(); refreshNotifBadge(); });
+  Store.on('change', ()=>{ refreshUndo(); refreshAttentionBadges(); });
   Store.on('history', refreshUndo);
   // re-render when the data behind the current view changes
   const rerenderOn = { projects:['projects','releases'], home:['projects','releases','runs'],

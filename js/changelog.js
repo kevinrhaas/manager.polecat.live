@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 14,
+    title: 'Rail badges Dashboard with the "Needs attention" count',
+    kind: 'feature',
+    ts: '2026-07-03T02:08:38.911Z',
+    items: [
+      'The rail\'s Dashboard item now shows the same live "Needs attention" count as the notification bell and dashboard callout, so a slipping project is visible in the nav itself — even before you land on the dashboard.',
+      'With the rail collapsed to icons (the default), the count shrinks to a small dot on the Dashboard icon; opening the rail reveals the full number.',
+    ],
+  },
+  {
     v: 13,
     title: 'Notification center',
     kind: 'feature',

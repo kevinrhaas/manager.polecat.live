@@ -159,8 +159,17 @@ body{
   display:flex;align-items:center;justify-content:center;
   opacity:0;transition:.2s
 }
+.rail-item .badge.tone-danger{background:var(--danger)}
 #rail.open .rail-item .badge{opacity:1}
 .rail-item .badge[hidden]{display:none}
+/* collapsed rail: the pill has no room next to a hidden label, so it shrinks
+   to a plain dot pinned over the icon's corner instead of disappearing —
+   otherwise a flagged project stays invisible until the rail is opened */
+#rail:not(.open) .rail-item .badge:not([hidden]){
+  opacity:1;position:absolute;top:6px;left:30px;
+  min-width:9px;width:9px;height:9px;padding:0;border-radius:50%;
+  font-size:0;box-shadow:0 0 0 2px var(--rail-bg)
+}
 
 .rail-foot{border-top:1px solid var(--border);padding:6px 0 10px;
   display:flex;flex-direction:column;gap:2px}

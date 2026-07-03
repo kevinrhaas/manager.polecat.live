@@ -370,6 +370,30 @@ try {
     const closed = (await count('.notif-pop.show')) === 0;
     return badgeMatches && popShown && listMatches && closed;
   });
+  await check('rail Dashboard item badges the same "Needs attention" count, expanded and collapsed', async () => {
+    const changelogUrl = `${base}/js/changelog.js`;
+    await store(`(S)=>{
+      const p=S.project('games');
+      S.put('projects', {...p, autoSync:true, autoSyncFailCount:3, autoSyncLastError:'HTTP 404', lastAutoSyncAt:Date.now(), changelogUrl:'${changelogUrl}'}, {silent:true});
+    }`);
+    await openSec('home');
+    const expected = await store(`(S)=>S.needsAttention().length`);
+    const railBadgeText = () => page.$eval('.rail-item[data-sec="home"] .badge', (e) => (e.hidden ? null : e.textContent)).catch(() => null);
+    const railBadgeVisible = () => page.$eval('.rail-item[data-sec="home"] .badge', (e) => !e.hidden && getComputedStyle(e).opacity !== '0');
+    const railOpenBefore = await page.$eval('#rail', (e) => e.classList.contains('open'));
+    if (!railOpenBefore) { await page.click('.rail-toggle'); await page.waitForTimeout(300); }
+    const openBadgeText = await railBadgeText();
+    const openVisible = await railBadgeVisible();
+    await page.click('.rail-toggle'); await page.waitForTimeout(300); // collapse
+    const collapsedVisible = await railBadgeVisible();
+    if (railOpenBefore) { await page.click('.rail-toggle'); await page.waitForTimeout(300); } // restore original rail state
+    // clean up
+    await store(`(S)=>{
+      S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
+      const p=S.project('games'); S.put('projects', {...p, autoSync:false, changelogUrl:'', lastSyncAt:0, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:''}, {silent:true});
+    }`);
+    return expected > 0 && openBadgeText === String(expected) && openVisible && collapsedVisible;
+  });
   await check('notification popover "Retry now" recovers a failing project and updates the badge', async () => {
     const changelogUrl = `${base}/js/changelog.js`;
     await store(`(S)=>{
