@@ -6,7 +6,7 @@ import { buildRail, SECTIONS } from './shell.js';
 import { el, $, escapeHtml, toast, trapFocus } from './ui.js';
 import { icon } from './icons.js';
 import { renderHome } from './views/home.js';
-import { renderProjects, openProjectEditor } from './views/projects.js';
+import { renderProjects, openProjectEditor, applyDefaultSavedView } from './views/projects.js';
 import { renderProject } from './views/project.js';
 import { renderReleases, unreadReleasesCount, markReleasesSeen } from './views/releases.js';
 import { renderActivity } from './views/activity.js';
@@ -134,6 +134,11 @@ function go(section, params={}){
   topTitle.textContent = section==='project' && Store.project(params.id) ? Store.project(params.id).name : (TITLES[section]||'Manager');
   window.__rail.setActive(section);
   if(window.innerWidth<=720) window.__rail.setOpen(false);
+  // Apply the default saved view (if any) only on a fresh navigation into
+  // Projects — never from the reactive re-render a Store change triggers
+  // while the user is already there — so it can't yank an active filter out
+  // from under them mid-visit. Same guard shape as markReleasesSeen() below.
+  if(section==='projects') applyDefaultSavedView();
   render();
   // mark the fleet-wide release feed "read" only once the user has actually
   // landed on it — a live re-render triggered by an auto-sync elsewhere in

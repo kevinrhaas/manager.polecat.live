@@ -29,7 +29,7 @@ const SECTIONS = [
     </ul>
     <p>Pinned projects float to the top. The stat row up top tracks fleet size, live count, releases in the last 7 days, and where you are in the feature/sweep cadence.</p>` },
   { id:'library', title:'Projects & the library', body:`
-    <p>The <b>Projects</b> view is the source of truth. Use the search box, the status dropdown, and the sort controls — or tap a <b>saved view</b> chip (All, Live only, Recently active, Pinned) for a one-click preset. Your last view is remembered. Dial in any filter you like and click <b>Save view</b> to pin it as your own chip; once you’ve saved two or more, a <b>Reorder saved views</b> button appears to drag (or arrow-key) them into whichever order you check most often.</p>
+    <p>The <b>Projects</b> view is the source of truth. Use the search box, the status dropdown, and the sort controls — or tap a <b>saved view</b> chip (All, Live only, Recently active, Pinned) for a one-click preset. Your last view is remembered. Dial in any filter you like and click <b>Save view</b> to pin it as your own chip; once you’ve saved two or more, a <b>Reorder saved views</b> button appears to drag (or arrow-key) them into whichever order you check most often — the same modal has a pin toggle on each row to mark one your <b>default</b>: it opens automatically the next time you land on Projects, instead of always resuming whatever filter you left it on.</p>
     <p>Click any row to open the project. Click <b>Add project</b> (or the ✎ on a row) to edit. Every project supports:</p>
     <ul>
       <li>Name, repository (<code>owner/name</code>), live site, and the Claude Code session URL.</li>

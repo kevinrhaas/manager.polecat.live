@@ -14,17 +14,33 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **A "default" saved view** — now that saved views are user-definable
-      and reorderable (see Done, 2026-07-04 ×2), let one be marked default:
-      opened automatically the next time the library loads, instead of
-      always falling back to whatever `manager.lib.view` last held. A small
-      star/pin toggle on each saved-view chip (or in the new reorder modal,
-      alongside its up/down arrows) should do it — one `Store` field
-      (`isDefault`) on the `savedViews` row, cleared on any other view when a
-      new one is marked default, checked once at library-load time.
+- [ ] **Public site: an animated live "fleet" showcase driven by demo data.**
+      The landing page's fleet section (see `index.html`) is static cards
+      today; give it real motion — a subtle live-updating feel (staggered
+      entrance, a status pulse, maybe a fake-but-plausible "ticking" activity
+      indicator) using the same demo/seed-shaped data already described in
+      the page, no backend needed. Keep it tasteful and performant (prefers-
+      reduced-motion respected), and keep Manager's own card wired to the
+      real `js/changelog.js` import the way the hero banner already is (see
+      Done, 2026-07-04) rather than reverting to a hand-typed string.
 
 ## Next (discovered / queued)
 
+- [ ] The new default-saved-view pin (see Done, 2026-07-04) lives only in the
+      "Reorder saved views" modal — a saved-view chip has no room of its own
+      for a third button beyond apply/delete. Fine today since that modal is
+      already the one-stop shop for saved-view housekeeping, but worth a
+      one-click "pin as default" directly on the chip (e.g. a small overflow
+      menu) if reaching the modal just to flip the flag is ever reported as
+      friction.
+- [ ] The default saved view (see Done, 2026-07-04) is applied once, on a
+      fresh navigation into Projects — deliberately not reapplied on every
+      reactive re-render while you're already there, so it can never yank an
+      active filter out from under you mid-visit. One consequence: deleting
+      the currently-default view while sitting on the Projects page doesn't
+      restore the plain "last used" filter until you navigate away and back.
+      Low priority — deleting your own default view is a rare, deliberate
+      action, and the very next visit self-corrects.
 - [ ] The saved-views reorder modal (see Done, 2026-07-04) only reorders the
       *custom*, user-saved chips — the five built-in ones (All/Live/Recent/
       Pinned/Needs attention) are still a fixed leading block the custom
@@ -238,6 +254,35 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **A "default" saved view** _(2026-07-04)_: saved views (see Done below,
+      ×2 earlier this cadence) were user-definable and reorderable, but the
+      library still always fell back to whatever `manager.lib.view` last
+      held — there was no way to say "open with *this* filter every time." A
+      new `isDefault` boolean on the `savedViews` row, toggled via a small
+      pin button that now sits in the "Reorder saved views" modal's row
+      actions (alongside the up/down arrows — a saved-view chip itself has
+      no spare room for a third button beyond apply/delete, so the modal that
+      already handles saved-view housekeeping was the natural home). A new
+      `Store.setDefaultSavedView(id)` mirrors `reorderSavedViews()`'s shape —
+      one grouped `bulkUpdate()` across every saved view so marking a new one
+      default atomically clears the flag off whichever view held it before,
+      one Undo step for the swap; pass `null` to just turn the current
+      default off. `Store.defaultSavedView()` is the single getter every
+      consumer reads. The default chip gets a small pin badge ahead of its
+      own icon so which view is pinned is visible at a glance without
+      opening the modal. Applying it lives in a new `applyDefaultSavedView()`
+      (`js/views/projects.js`), called once from `app.js`'s `go()` on a
+      *fresh navigation* into Projects — never from the reactive re-render a
+      Store change triggers while the user is already there, mirroring the
+      exact guard `markReleasesSeen()` already uses for the Releases feed's
+      "since you last looked" marker — so a default view can never yank an
+      active filter out from under someone mid-visit; it only takes hold the
+      next time they actually land on the section. One new smoke check
+      drives the real UI end to end: pin a saved view default via the modal,
+      confirm the badge and the single-default invariant, dial in a
+      different filter and navigate away and back to confirm the default
+      wins on the fresh load, then unmark it and confirm a fresh load no
+      longer overrides the active filter. Docs updated.
 - [x] **Reorderable saved views** _(2026-07-04)_: `savedViews` rows had carried
       the same append-only `order` column `fieldDefs` did before last
       cadence's fix, with the same gap — a saved view always joined the

@@ -422,7 +422,7 @@ export const Store = new (class {
   savedView(id){ return this.get('savedViews', id); }
   addSavedView(data){
     const order = this.savedViews().length;
-    return this.put('savedViews', { label:'', icon:'star', state:{}, order, ...data }, { label:'Save view' });
+    return this.put('savedViews', { label:'', icon:'star', state:{}, order, isDefault:false, ...data }, { label:'Save view' });
   }
   removeSavedView(id, opts={}){ return this.remove('savedViews', id, { label:'Delete saved view', ...opts }); }
   // Re-sequence saved views to a new display order — same shape as
@@ -434,6 +434,22 @@ export const Store = new (class {
       const order = orderedIds.indexOf(v.id);
       return order===v.order ? null : { ...v, order };
     }, { label:'Reorder saved views' });
+  }
+  // The one saved view (if any) that should open automatically the next time
+  // the library loads, instead of always falling back to whatever
+  // `manager.lib.view` last held.
+  defaultSavedView(){ return this.savedViews().find(v=>v.isDefault) || null; }
+  // Mark `id` as the default saved view, clearing the flag off every other
+  // one — at most one view can be default at a time. Pass `null` to just
+  // clear whichever view currently holds it (a toggle-off). One grouped
+  // undo step via bulkUpdate, same pattern as reorderSavedViews(); rows
+  // whose flag doesn't actually change are skipped, so toggling the same
+  // view on twice in a row (a no-op) pushes no history.
+  setDefaultSavedView(id){
+    return this.bulkUpdate('savedViews', this.savedViews().map(v=>v.id), (v)=>{
+      const want = v.id===id;
+      return (v.isDefault||false)===want ? null : { ...v, isDefault:want };
+    }, { label:'Set default view' });
   }
 
   // ---- releases (per-project "what's new") -------------------------------

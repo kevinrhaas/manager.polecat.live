@@ -514,6 +514,46 @@ try {
     await store(`(S)=>{ ['Smoke Order A','Smoke Order B'].forEach(label=>{ const v=S.savedViews().find(x=>x.label===label); if(v) S.removeSavedView(v.id, {silent:true}); }); }`);
     return !(await store(`(S)=>S.savedViews().some(v=>v.label==='Smoke Order A' || v.label==='Smoke Order B')`));
   });
+  await check('marking a saved view "default" applies it automatically the next time the library loads; unmarking stops it', async () => {
+    // a second saved view is only there so "Reorder saved views" (which needs 2+) appears —
+    // the default-view toggle itself lives in that modal (chips have no room for a third button)
+    await store(`(S)=>{
+      S.addSavedView({ label:'Smoke Default View', state:{ status:'live', sort:'name', dir:'asc' } });
+      S.addSavedView({ label:'Smoke Default Sibling', state:{ status:'all', sort:'name', dir:'asc' } });
+    }`);
+    await openSec('projects');
+    // pin it default from the reorder modal
+    await page.click('.saved-views button[title="Reorder saved views"]'); await page.waitForTimeout(300);
+    const pinBtn = await page.$('.modal .field-row:has-text("Smoke Default View") .default-view-btn');
+    if (!pinBtn) { await page.click('.modal button:has-text("Done")'); return false; }
+    await pinBtn.click(); await page.waitForTimeout(250);
+    const markedInStore = await store(`(S)=>{const v=S.savedViews().find(x=>x.label==='Smoke Default View'); return !!v && v.isDefault===true;}`);
+    const onlyOneDefault = await store(`(S)=>S.savedViews().filter(v=>v.isDefault).length===1`);
+    await page.click('.modal button:has-text("Done")'); await page.waitForTimeout(200);
+    const badgeShown = !!(await page.$('.filter-chip-custom:has-text("Smoke Default View") .fc-default-badge'));
+
+    // dial in a *different* filter, navigate away and back — the default view's filter should win on the fresh load
+    await page.evaluate(() => localStorage.setItem('manager.lib.view', JSON.stringify({ q: '', status: 'archived', sort: 'version', dir: 'desc', field: '', fieldValue: '' })));
+    await openSec('home');
+    await openSec('projects');
+    const appliedOnLoad = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem('manager.lib.view') || '{}'); return v.status === 'live' && v.sort === 'name' && v.dir === 'asc'; });
+
+    // unmark it — reapplied nav no longer overrides the active filter
+    await page.click('.saved-views button[title="Reorder saved views"]'); await page.waitForTimeout(300);
+    await page.click('.modal .field-row:has-text("Smoke Default View") .default-view-btn'); await page.waitForTimeout(250);
+    const unmarkedInStore = await store(`(S)=>{const v=S.savedViews().find(x=>x.label==='Smoke Default View'); return !!v && v.isDefault===false;}`);
+    await page.click('.modal button:has-text("Done")'); await page.waitForTimeout(200);
+    const badgeGone = !(await page.$('.filter-chip-custom:has-text("Smoke Default View") .fc-default-badge'));
+    await page.evaluate(() => localStorage.setItem('manager.lib.view', JSON.stringify({ q: '', status: 'archived', sort: 'version', dir: 'desc', field: '', fieldValue: '' })));
+    await openSec('home');
+    await openSec('projects');
+    const noLongerApplied = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem('manager.lib.view') || '{}'); return v.status === 'archived' && v.sort === 'version'; });
+
+    // clean up regardless of outcome
+    await store(`(S)=>{ ['Smoke Default View','Smoke Default Sibling'].forEach(label=>{ const v=S.savedViews().find(x=>x.label===label); if(v) S.removeSavedView(v.id, {silent:true}); }); }`);
+    await page.evaluate(() => localStorage.removeItem('manager.lib.view'));
+    return markedInStore && onlyOneDefault && badgeShown && appliedOnLoad && unmarkedInStore && badgeGone && noLongerApplied;
+  });
 
   // ---------- Project detail / releases ----------
   console.log('Project detail');

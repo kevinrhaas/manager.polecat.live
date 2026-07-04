@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 47,
+    title: 'A default saved view',
+    kind: 'feature',
+    ts: '2026-07-04T12:54:09.594Z',
+    items: [
+      'One saved view can now be pinned as your default — a small pin toggle in the "Reorder saved views" modal — so it opens automatically the next time you land on Projects, instead of always resuming whatever filter you left the library on.',
+      'The default chip gets a small pin badge so it\'s obvious at a glance which one is pinned; marking a new view default automatically un-pins the old one.',
+      'Only applies on a fresh navigation into Projects, never mid-visit, so an active filter is never yanked out from under you while you\'re already there.',
+    ],
+  },
+  {
     v: 46,
     title: 'Reorderable saved views',
     kind: 'feature',

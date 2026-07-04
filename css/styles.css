@@ -402,6 +402,16 @@ body{
   opacity:.6;cursor:pointer}
 .filter-chip-custom .fc-del:hover{opacity:1}
 .filter-chip-custom .fc-del svg{width:11px;height:11px}
+/* the default saved view — opens automatically the next time the library
+   loads — gets a small pin badge ahead of its own icon/label */
+.filter-chip-custom.is-default-view{border-color:var(--brand-c)}
+.fc-default-badge{display:inline-flex;color:var(--brand-c)}
+.fc-default-badge svg{width:11px;height:11px}
+
+/* "Reorder saved views" modal: the pin toggle that marks a view default,
+   and a subtle highlight on the row already carrying that flag */
+.default-view-btn.on{color:var(--brand-c)}
+.field-row.is-default-view{border-color:var(--brand-c)}
 
 .lib-table{position:relative;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);
   background:color-mix(in srgb,var(--surface) 90%,transparent)}

@@ -19,6 +19,21 @@ const selected = new Set();
 function state(){ try{ return { ...DEFAULT_STATE, ...(JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')) }; }catch{ return { ...DEFAULT_STATE }; } }
 function saveState(s){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify(s)); }catch{} }
 
+// If a saved view is marked default, applying it here — right before the
+// library actually renders — makes it "open automatically the next time the
+// library loads", instead of always falling back to whatever `manager.lib.view`
+// last held. Called once from app.js's go() on a fresh navigation into
+// Projects, never from a reactive re-render while already there, so it can't
+// yank the user's active filter out from under them mid-visit (same guard
+// shape as markReleasesSeen() in js/views/releases.js).
+export function applyDefaultSavedView(){
+  const def = Store.defaultSavedView();
+  if(!def) return;
+  const cur=state();
+  saveState({ ...cur, status:def.state.status, sort:def.state.sort, dir:def.state.dir,
+    field:def.state.field||'', fieldValue:def.state.fieldValue||'', fieldMin:def.state.fieldMin||'', fieldMax:def.state.fieldMax||'' });
+}
+
 const SAVED_VIEWS = [
   { id:'all',       label:'All',             icon:'grid',    apply:s=>({...s,status:'all'}) },
   { id:'live',      label:'Live only',       icon:'globe',   apply:s=>({...s,status:'live',sort:'activity',dir:'desc'}) },
@@ -79,13 +94,17 @@ function openReorderSavedViews(ctx){
 }
 
 function savedViewRow(v, onChange, index, total){
-  const row=el('div',{class:'card field-row', 'data-id':v.id});
+  const row=el('div',{class:'card field-row'+(v.isDefault?' is-default-view':''), 'data-id':v.id});
   row.innerHTML=`<span class="field-row-grip" draggable="true" title="Drag to reorder" aria-hidden="true">${icon('grip')}</span>
     <span class="qicon" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--brand-b),var(--consensus));color:#05121a">${icon(v.icon||'star')}</span>`;
   const mid=el('div',{class:'field-row-mid'});
-  mid.innerHTML=`<b>${escapeHtml(v.label)}</b>`;
+  mid.innerHTML=`<b>${escapeHtml(v.label)}</b>${v.isDefault?` <span class="tiny muted">— opens automatically</span>`:''}`;
   row.append(mid);
   const actions=el('div',{class:'field-row-actions'});
+  actions.append(el('button',{class:'btn ghost icon sm default-view-btn'+(v.isDefault?' on':''),
+    title: v.isDefault?'Stop opening this view automatically':'Open this view automatically when the library loads',
+    'aria-label': v.isDefault?`Unset "${v.label}" as the default view`:`Set "${v.label}" as the default view`,
+    html:icon('pin'), onclick:()=>toggleDefaultSavedView(v, onChange)}));
   actions.append(el('button',{class:'btn ghost icon sm', title:'Move up', 'aria-label':`Move ${v.label} up`, html:icon('chevronUp'), disabled: index===0, onclick:()=>moveSavedView(v.id, -1, onChange)}));
   actions.append(el('button',{class:'btn ghost icon sm', title:'Move down', 'aria-label':`Move ${v.label} down`, html:icon('chevronDown'), disabled: index===total-1, onclick:()=>moveSavedView(v.id, 1, onChange)}));
   row.append(actions);
@@ -96,6 +115,21 @@ function moveSavedView(id, dir, onChange){
   const ids = swapNeighbor(Store.savedViews().map(v=>v.id), id, dir);
   if(!ids) return;
   if(Store.reorderSavedViews(ids)) toast('Saved-view order updated',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
+  onChange();
+}
+
+// Marking a view "default" means it's applied automatically the next time
+// the library loads (see applyDefaultSavedView(), called from app.js on
+// navigation into Projects) instead of always falling back to whatever
+// `manager.lib.view` last held. Clicking the pin on the view that's already
+// default turns it back off; clicking it on any other view moves the flag
+// over (Store.setDefaultSavedView() clears every other row in one step).
+function toggleDefaultSavedView(v, onChange){
+  const turningOn = !v.isDefault;
+  if(Store.setDefaultSavedView(turningOn ? v.id : null)){
+    toast(turningOn ? `"${v.label}" opens automatically now` : `"${v.label}" is no longer the default view`,
+      {kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
+  }
   onChange();
 }
 
@@ -187,8 +221,9 @@ export function renderProjects(root, ctx){
   });
   Store.savedViews().forEach(v=>{
     const on = customViewMatches(v, s);
-    const chip=el('span',{class:'filter-chip-custom'+(on?' on':'')});
-    chip.append(el('button',{class:'fc-apply', type:'button', html:`${icon(v.icon||'star')} ${escapeHtml(v.label)}`, title:`Apply saved view "${v.label}"`,
+    const chip=el('span',{class:'filter-chip-custom'+(on?' on':'')+(v.isDefault?' is-default-view':'')});
+    const badge=v.isDefault?`<span class="fc-default-badge" title="Opens automatically when the library loads">${icon('pin')}</span>`:'';
+    chip.append(el('button',{class:'fc-apply', type:'button', html:`${badge}${icon(v.icon||'star')} ${escapeHtml(v.label)}`, title:`Apply saved view "${v.label}"`,
       onclick:()=>{ const ns={ ...state(), status:v.state.status, sort:v.state.sort, dir:v.state.dir, field:v.state.field||'', fieldValue:v.state.fieldValue||'', fieldMin:v.state.fieldMin||'', fieldMax:v.state.fieldMax||'' }; saveState(ns); renderProjects(root,ctx); }}));
     chip.append(el('button',{class:'fc-del', type:'button', title:`Delete saved view "${v.label}"`, 'aria-label':`Delete saved view "${v.label}"`, html:icon('x'),
       onclick:()=>{
