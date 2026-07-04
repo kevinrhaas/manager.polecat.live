@@ -826,6 +826,29 @@ a.link:hover{text-decoration:underline}
 .cred-row-mid{flex:1 1 160px;min-width:0}
 .cred-row-actions{display:flex;align-items:flex-start;gap:6px;flex:0 0 auto;margin-left:auto}
 
+/* ---- project notes scratchpad ------------------------------------------ */
+.notes-card .section-title{flex-wrap:wrap;row-gap:6px}
+.notes-status{min-width:0}
+.notes-editor{width:100%;font-size:13px;line-height:1.55;min-height:160px}
+.notes-md{font-size:13.5px;line-height:1.6;color:var(--text-2);overflow-wrap:anywhere}
+.notes-md h3,.notes-md h4,.notes-md h5,.notes-md h6{color:var(--text);margin:14px 0 6px}
+.notes-md h3:first-child,.notes-md h4:first-child,.notes-md h5:first-child{margin-top:0}
+.notes-md p{margin:0 0 10px}
+.notes-md ul,.notes-md ol{margin:0 0 10px;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.notes-md blockquote{margin:0 0 10px;padding:2px 12px;border-left:3px solid var(--border);color:var(--text-3)}
+.notes-md code{font-family:var(--mono);font-size:12px;background:var(--surface-2);
+  padding:1px 5px;border-radius:5px}
+.notes-md pre{margin:0 0 10px;padding:10px 12px;background:var(--surface-2);border-radius:10px;
+  overflow:auto}
+.notes-md pre code{background:none;padding:0}
+.notes-md a{color:var(--brand-b)}
+.notes-hist-list{display:flex;flex-direction:column;gap:10px}
+.notes-hist-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 12px;
+  padding:12px;border:1px solid var(--border);border-radius:12px}
+.notes-hist-mid{flex:1 1 200px;min-width:0}
+.notes-hist-row>.btn{flex:0 0 auto}
+.notes-hist-preview{margin-top:4px;overflow-wrap:anywhere;white-space:pre-wrap}
+
 /* ---- mobile ------------------------------------------------------------ */
 @media (max-width:720px){
   #rail{position:absolute;top:0;left:0;height:100%;box-shadow:var(--shadow);

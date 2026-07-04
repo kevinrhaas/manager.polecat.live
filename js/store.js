@@ -94,6 +94,11 @@ export const DEFAULT_ATTENTION_THRESHOLDS = { healthMax: 35, autoSyncFails: AUTO
 // source that's deliberately flakier or steadier than the fleet norm.
 export const DEFAULT_AUTO_SYNC_BACKOFF_CAP = 8;
 
+// A project's free-form "notes" scratchpad (Markdown) keeps this many prior
+// versions in its revision trail (`notesHistory`, newest first) — capped so
+// journaling paragraphs of context over months doesn't grow the row forever.
+export const NOTES_HISTORY_MAX = 20;
+
 // Typed custom-field schema (`fieldDefs` table) — a project's free-form
 // `fields` map is keyed by a def's `key`, but the def gives it a real type so
 // it can render, filter, and sort correctly instead of always being text.
@@ -291,7 +296,7 @@ export const Store = new (class {
     const row = { id:slug, slug, status:'idea', tags:[], icon:'grid', pinned:false, fields:{},
       name:'', repo:'', site:'', sessionUrl:'', description:'', assessment:'', cadence:'',
       autoSync:false, lastAutoSyncAt:0, autoSyncFailCount:0, autoSyncLastError:'',
-      statusLocked:false, statusAuto:false, ...data };
+      statusLocked:false, statusAuto:false, notes:'', notesHistory:[], ...data };
     row.id = row.slug = data.slug || slugify(row.name||slug);
     return this.put('projects', row, { label:'Add project' });
   }
@@ -538,6 +543,42 @@ export const Store = new (class {
   setProjectAutoSyncBackoffCap(projectId, patch){
     const cur = this.projectAutoSyncBackoffCapOverride(projectId);
     this.updateProject(projectId, { autoSyncBackoffCapOverride:{ ...cur, ...patch } }, { silent:true });
+  }
+
+  // ---- per-project notes scratchpad (Markdown, autosaved) ----------------
+  // Free-form working context — "why this is paused", "next thing to try", a
+  // link to a design doc — that doesn't belong in the curated `description`/
+  // `assessment` blurbs. Autosaves on pause (debounced in the view) rather
+  // than an explicit Save button, so this deliberately bypasses put(): it
+  // neither bumps the project's `updatedAt` (typing notes isn't "shipping
+  // activity" the way a release is, and updatedAt feeds recency/health) nor
+  // emits a reactive `projects` event, which would re-render the whole
+  // project page mid-keystroke and steal the textarea's focus/cursor. Every
+  // save keeps the text it's about to overwrite as a capped revision
+  // snapshot (`notesHistory`, newest first) — cheap undo-style safety for a
+  // text box people will type paragraphs into, no new Store table needed.
+  // Returns true if anything was actually saved (false if `text` is
+  // unchanged from the live value, so callers can skip a "Saved" flash).
+  saveProjectNotes(id, text){
+    const p = this.project(id);
+    if(!p || (p.notes||'')===text) return false;
+    if(p.notes) p.notesHistory = [{ ts:Date.now(), text:p.notes }, ...(p.notesHistory||[])].slice(0, NOTES_HISTORY_MAX);
+    p.notes = text;
+    this._save();
+    return true;
+  }
+  notesHistoryFor(id){ return this.project(id)?.notesHistory || []; }
+  // Restoring a snapshot IS a deliberate, explicit click (not autosave), so —
+  // unlike saveProjectNotes() above — it goes through the normal put() path:
+  // it bumps updatedAt and re-renders the page, same as any other edit. What
+  // was live just before the restore is itself kept as a fresh snapshot, so
+  // restoring an older version is never a dead end.
+  restoreProjectNotes(id, ts){
+    const p = this.project(id);
+    const snap = (p?.notesHistory||[]).find(h=>h.ts===ts);
+    if(!p || !snap) return;
+    const history = [{ ts:Date.now(), text:p.notes||'' }, ...p.notesHistory.filter(h=>h.ts!==ts)].slice(0, NOTES_HISTORY_MAX);
+    this.updateProject(id, { notes:snap.text, notesHistory:history }, { silent:true });
   }
 
   // ---- fleet health (recency + release velocity + status), 0-100 --------

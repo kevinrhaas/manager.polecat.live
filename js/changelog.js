@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 38,
+    title: 'Per-project notes, with autosave and a revision history',
+    kind: 'feature',
+    ts: '2026-07-04T03:46:36.762Z',
+    items: [
+      'Every project page now has a Notes card — a free-form Markdown scratchpad for context that doesn\'t belong in the curated assessment: why something\'s paused, what to try next, a link to a design doc.',
+      'It autosaves as you pause typing, no Save button, and toggles between an Edit view and a rendered Preview.',
+      'A History button lists every earlier version so you can review or restore one — a lightweight undo trail just for this text box.',
+    ],
+  },
+  {
     v: 37,
     title: 'Manager now tracks its own real version',
     kind: 'polish',

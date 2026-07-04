@@ -53,6 +53,7 @@ export const ICONS = {
   warning:   'M12 2 1 21h22L12 2ZM12 9v5M12 17h.01',
   eyeOff:    'M17.9 17.9A9.96 9.96 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5-5.9M9.9 4.24A9.5 9.5 0 0 1 12 4c7 0 11 8 11 8a18.4 18.4 0 0 1-2.16 3.19M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22',
   archive:   'M3 4h18v5H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4',
+  notes:     'M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM14 2v6h6M8 13h8M8 17h5',
 };
 
 export function icon(name, cls){

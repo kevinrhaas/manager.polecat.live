@@ -14,22 +14,35 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Per-project "notes" markdown scratchpad with autosave + history** — every
-      project page has structured fields (status, version, health) but nowhere
-      to jot free-form context ("why this is paused", "next thing to try",
-      links to a design doc) without hijacking the `description`/`assessment`
-      fields. Add a `notes` field on the project row (a new Store table isn't
-      needed — one more string column, like `description`), rendered as a
-      lightweight markdown editor/preview toggle on the project detail page,
-      autosaving on pause (debounced, no explicit Save button — matching how
-      the rest of the app treats edits as live rather than form submissions).
-      "History" means every autosave keeps a small local revision trail (a
-      capped list of `{ts, text}` snapshots on the project row) with a way to
-      view or restore an older version — cheap, no new table, and it gives
-      undo-style safety for a text box people will type paragraphs into.
+- [ ] **Bulk "remove tag"** — the library's bulk action bar (checkbox-select
+      rows, then act on all of them at once) has `Store.bulkAddTag()` but no
+      opposite: removing a tag that was applied too broadly, or retiring one
+      across the fleet, means unchecking it project-by-project in the editor.
+      Add a `Store.bulkRemoveTag(ids, tag)` mirroring `bulkAddTag()`'s shape
+      exactly — same `bulkUpdate()` grouped-undo plumbing, same "skip a row
+      that doesn't have the tag" no-op rule (so undo never "reverts" a
+      project that was never touched) — and a "Remove tag" button in the bulk
+      bar next to "Add tag", prompting for which tag the same way. Since a
+      user won't remember every tag spelling by hand, make the prompt a
+      datalist/select sourced from the union of tags already on the checked
+      projects (not the whole fleet's tags — only ones that could actually
+      apply to this selection) rather than a bare text input. One undo step
+      for the whole batch, exactly like every other bulk action.
 
 ## Next (discovered / queued)
 
+- [ ] Now that per-project notes exist (see Done, 2026-07-04), the merge-review
+      diff for an updated `projects` row would show a raw `notesHistory` array
+      as `JSON.stringify(...)` (truncated to 70 chars) same as any other
+      field — fine today since notes are local scratch text nobody expects to
+      diff row-by-row across browsers, but worth a dedicated "N notes edits"
+      summary in `mergeRowDiffHtml` (settings.js) if someone actually merges
+      workspaces with divergent notes in practice.
+- [ ] The notes scratchpad's revision trail (see Done, 2026-07-04) is capped
+      at 20 snapshots per project with no way to see how many were dropped —
+      worth a quiet "and N older versions were trimmed" line in the History
+      modal if anyone actually fills a project's notes with enough edit
+      churn to hit the cap.
 - [ ] Now that Manager syncs its own real `CHANGELOG` into its releases (see
       Done, 2026-07-04), its per-project auto-sync toggle is still off by
       default like every other project's — but Manager is the one project
@@ -124,8 +137,6 @@ with new, ambitious, fun ideas.
       single-slot undo stack) — undo covers the "oops, right after" case, but
       once a few more actions have happened since a bulk delete, a project is
       gone with no path back short of restoring a JSON export.
-- [ ] Bulk "remove tag" (today's bulk tag action only adds) — for cleaning up
-      a tag that was applied too broadly, or retiring one across the fleet.
 - [ ] Now that dismissal exists (see Done, 2026-07-03), consider whether the
       rail badge should dim/deprioritize (rather than disappear) once a user
       has opened the popover or dashboard this session but hasn't dismissed
@@ -156,11 +167,6 @@ with new, ambitious, fun ideas.
       view too (e.g. "everything mentioning 'webrtc'"); left out deliberately
       for now since search reads as transient, matching the built-in chips'
       same choice not to touch it.
-- [ ] Scheduled/automatic fleet sync (not just on-demand from the dashboard) —
-      e.g. re-sync on app load if a project's last sync is >N hours old, with a
-      quiet badge rather than a modal.
-- [ ] Surface a "sync all" entry point from the projects library toolbar too,
-      not just the dashboard quick action, for people who live in that view.
 - [ ] "Promote to field" on a legacy free-form custom-field value — one click
       turns an untyped key entered before the schema existed into a proper
       typed field definition, prefilled from that value.
@@ -177,6 +183,38 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Per-project "notes" markdown scratchpad with autosave + history**
+      _(2026-07-04)_: every project page had structured fields (status,
+      version, health) but nowhere to jot free-form working context ("why
+      this is paused", "next thing to try", a link to a design doc) without
+      hijacking the curated `description`/`assessment` fields. A new **Notes**
+      card on the project detail page is a Markdown scratchpad — one more
+      string column on the project row (`notes`), no new Store table needed —
+      with an **Edit / Preview** toggle (defaulting to Preview once there's
+      content, Edit when blank) rendered through a new small, dependency-free
+      `mdToHtml()` in `ui.js` (headings, bold/italic, inline code, fenced code
+      blocks, links, lists, block quotes — escaped first, so pasted HTML is
+      always shown as text, never executed). It **autosaves on pause**
+      (debounced ~800ms, no Save button) via a new `Store.saveProjectNotes()`
+      that deliberately bypasses the normal `put()` path for two reasons: it
+      shouldn't bump the project's `updatedAt` (typing notes isn't "shipping
+      activity" the way a release is, and `updatedAt` feeds recency/health
+      scoring), and it shouldn't emit the reactive `projects` event that
+      would re-render the whole project page mid-keystroke and steal the
+      textarea's focus/cursor — a real bug, verified by actually typing
+      through a save cycle before landing on this design. **History** is a
+      capped revision trail (`notesHistory`, newest first, 20-deep) kept on
+      the project row itself: every autosave stashes the text it's about to
+      overwrite, and a History button opens a modal listing each snapshot
+      (timestamp + preview) with a one-click **Restore** — which, unlike
+      autosave, *is* a deliberate explicit action, so it goes through the
+      normal `put()` path (bumps `updatedAt`, re-renders) and itself snapshots
+      whatever was live just before the restore, so restoring an old version
+      is never a dead end. One new smoke check drives the real UI end to end:
+      autosave landing in the Store after a pause, a second edit producing a
+      one-entry history with the first draft's exact text, the Preview toggle
+      rendering a heading/bold/list from real Markdown, and History → Restore
+      putting the original draft back.
 - [x] **Sweep: Manager stops lying about its own version** _(2026-07-04)_: the
       "Keep the seed honest" rule already protected the other five fleet
       projects from fabricated version numbers, but Manager's own dashboard

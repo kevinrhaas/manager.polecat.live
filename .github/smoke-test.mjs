@@ -457,6 +457,28 @@ try {
     await store(`(S)=>{const r=S.releasesFor('relay').find(x=>x.title==='Smoke release'); if(r) S.remove('releases', r.id, {silent:true});}`);
     return after === before + 1;
   });
+  await check('project notes: autosaves on pause, keeps a revision history, and renders Markdown in Preview', async () => {
+    await page.fill('.notes-editor', 'Notes draft one');
+    await page.waitForTimeout(1150);
+    const afterFirst = await store(`(S)=>({notes:S.project('relay').notes, histLen:S.notesHistoryFor('relay').length})`);
+    const md = '# Heading\n\n**Bold** point and a normal line.\n\n- item one\n- item two';
+    await page.fill('.notes-editor', md);
+    await page.waitForTimeout(1150);
+    const afterSecond = await store(`(S)=>({notes:S.project('relay').notes, hist:S.notesHistoryFor('relay')})`);
+    await page.click('.notes-card button:has-text("Preview")'); await page.waitForTimeout(150);
+    const previewOk = (await page.$eval('.notes-md h3', (e) => e.textContent).catch(() => '')) === 'Heading'
+      && (await count('.notes-md b')) >= 1 && (await count('.notes-md li')) >= 2;
+    await page.click('.notes-card button:has-text("History")'); await page.waitForTimeout(300);
+    const histRows = await count('.notes-hist-row');
+    await page.click('.modal .notes-hist-row button:has-text("Restore")'); await page.waitForTimeout(500);
+    const afterRestore = await store(`(S)=>({notes:S.project('relay').notes, histLen:S.notesHistoryFor('relay').length})`);
+    // clean up
+    await store(`(S)=>{const p=S.project('relay'); S.put('projects', {...p, notes:'', notesHistory:[]}, {silent:true});}`);
+    return afterFirst.notes === 'Notes draft one' && afterFirst.histLen === 0
+      && afterSecond.notes === md && afterSecond.hist.length === 1 && afterSecond.hist[0].text === 'Notes draft one'
+      && previewOk && histRows === 1
+      && afterRestore.notes === 'Notes draft one' && afterRestore.histLen === 1;
+  });
   await check('project health panel: per-project weighting override is isolated to that project and resettable', async () => {
     await openSec('projects');
     await page.evaluate(() => { location.hash = 'project/solution-engineering'; });

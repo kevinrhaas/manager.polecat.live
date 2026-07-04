@@ -125,6 +125,56 @@ export function sparkline(data, { width=64, height=20, color='var(--brand-b)', g
 }
 export function slugify(s){ return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 
+// Delays calling `fn` until `ms` has passed with no further calls — the
+// autosave pattern (type, pause, save) used by the notes scratchpad.
+export function debounce(fn, ms=700){
+  let t;
+  return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
+}
+
+// ---- tiny Markdown → HTML (notes scratchpad preview) ----------------------
+// Deliberately small: headings, bold/italic, inline code, fenced code blocks,
+// links, block quotes, ordered/unordered lists, and paragraphs. Escapes HTML
+// first so pasted markup is always rendered as text, never executed.
+export function mdToHtml(src){
+  const text = String(src||'').replace(/\r\n/g,'\n');
+  if(!text.trim()) return '';
+  const inline = s=>escapeHtml(s)
+    .replace(/`([^`]+)`/g,(m,c)=>`<code>${c}</code>`)
+    .replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<i>$2</i>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const lines = text.split('\n');
+  const out = [];
+  let list = null; // 'ul' | 'ol' | null — the list currently open in `out`
+  const closeList = ()=>{ if(list){ out.push(`</${list}>`); list=null; } };
+  for(let i=0;i<lines.length;i++){
+    const line = lines[i];
+    if(/^```/.test(line)){
+      closeList();
+      const code=[]; i++;
+      while(i<lines.length && !/^```/.test(lines[i])){ code.push(lines[i]); i++; }
+      out.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`);
+      continue;
+    }
+    const h = line.match(/^(#{1,4})\s+(.*)$/);
+    if(h){ closeList(); const lvl=Math.min(h[1].length+2,6); out.push(`<h${lvl}>${inline(h[2])}</h${lvl}>`); continue; }
+    const ul = line.match(/^[-*]\s+(.*)$/);
+    if(ul){ if(list!=='ul'){ closeList(); out.push('<ul>'); list='ul'; } out.push(`<li>${inline(ul[1])}</li>`); continue; }
+    const ol = line.match(/^\d+\.\s+(.*)$/);
+    if(ol){ if(list!=='ol'){ closeList(); out.push('<ol>'); list='ol'; } out.push(`<li>${inline(ol[1])}</li>`); continue; }
+    const bq = line.match(/^>\s?(.*)$/);
+    if(bq){ closeList(); out.push(`<blockquote>${inline(bq[1])}</blockquote>`); continue; }
+    if(!line.trim()){ closeList(); continue; }
+    closeList();
+    const para=[line];
+    while(i+1<lines.length && lines[i+1].trim() && !/^(#{1,4})\s|^[-*]\s|^\d+\.\s|^>\s?|^```/.test(lines[i+1])){ i++; para.push(lines[i]); }
+    out.push(`<p>${para.map(inline).join('<br>')}</p>`);
+  }
+  closeList();
+  return out.join('\n');
+}
+
 // ---- toasts ------------------------------------------------------------
 export function toast(title, {body='', kind='info', ms=3800, action}={}){
   const host = $('#toasts') || document.body.appendChild(el('div',{id:'toasts'}));

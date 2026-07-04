@@ -1,6 +1,6 @@
 // Project detail — the full what's-new timeline + health panel + links.
 import { Store, STATUSES, healthBand, statusPill, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, DEFAULT_AUTO_SYNC_BACKOFF_CAP } from '../store.js';
-import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline } from '../ui.js';
+import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline, debounce, mdToHtml } from '../ui.js';
 import { icon } from '../icons.js';
 import { openProjectEditor } from './projects.js';
 import { fetchChangelog, parseChangelogSource, guessChangelogUrl, forceSyncProject, attemptAutoSync } from '../ingest.js';
@@ -109,7 +109,92 @@ export function renderProject(root, ctx, params){
   }
   grid.append(side);
   wrap.append(grid);
+  wrap.append(notesSection(p, ctx));
   root.append(wrap);
+}
+
+// -------------------------------------------------------------------------
+// Notes — a free-form Markdown scratchpad, separate from the curated
+// description/assessment blurbs, for working context that doesn't fit
+// either ("why this is paused", "next thing to try", a link to a design
+// doc). Autosaves on pause rather than an explicit Save button, matching how
+// the rest of the app treats edits as live; see Store.saveProjectNotes() for
+// why that save deliberately skips the usual reactive re-render (it would
+// steal the textarea's focus mid-keystroke). A capped revision trail
+// (Store.notesHistoryFor()) gives undo-style safety without a new table.
+// -------------------------------------------------------------------------
+function notesSection(p, ctx){
+  const wrap=el('div',{class:'card notes-card', style:'margin-top:22px'});
+  const head=el('div',{class:'section-title', style:'margin-top:0'});
+  head.innerHTML=`<span style="color:var(--brand-b);display:inline-flex">${icon('notes')}</span><h2>Notes</h2>`;
+  head.append(el('span',{class:'sp'}));
+  const status=el('span',{class:'tiny muted notes-status'});
+  head.append(status);
+  const modeBtn=el('button',{class:'btn ghost sm'});
+  const histBtn=el('button',{class:'btn ghost sm', html:`${icon('clock')} History`, title:'View or restore an earlier version',
+    onclick:()=>openNotesHistory(p, ctx)});
+  histBtn.style.display = Store.notesHistoryFor(p.id).length ? '' : 'none';
+  head.append(modeBtn, histBtn);
+  wrap.append(head);
+
+  const body=el('div',{class:'notes-body'});
+  wrap.append(body);
+
+  let mode = (p.notes||'').trim() ? 'preview' : 'edit';
+  const textarea=el('textarea',{class:'input mono notes-editor', rows:'8',
+    placeholder:'Free-form notes for this project — why it’s paused, what to try next, links to a design doc… Markdown supported, autosaves as you pause.',
+    value:p.notes||''});
+
+  function renderMode(){
+    body.innerHTML='';
+    if(mode==='edit'){
+      body.append(textarea);
+      modeBtn.innerHTML=`${icon('eye')} Preview`;
+    }else{
+      const html=mdToHtml(Store.project(p.id)?.notes||'');
+      body.append(el('div',{class:'notes-md', html: html || '<p class="muted tiny">Nothing here yet — switch to Edit to start writing.</p>'}));
+      modeBtn.innerHTML=`${icon('edit')} Edit`;
+    }
+  }
+  modeBtn.addEventListener('click',()=>{ mode = mode==='edit'?'preview':'edit'; renderMode(); });
+  renderMode();
+
+  const doSave=debounce(()=>{
+    const saved=Store.saveProjectNotes(p.id, textarea.value);
+    if(saved){
+      status.textContent='Saved just now';
+      histBtn.style.display = Store.notesHistoryFor(p.id).length ? '' : 'none';
+    }
+  }, 800);
+  textarea.addEventListener('input',()=>{ status.textContent='Saving…'; doSave(); });
+
+  return wrap;
+}
+
+function openNotesHistory(p, ctx){
+  const hist=Store.notesHistoryFor(p.id);
+  const body=el('div');
+  if(!hist.length){
+    body.append(el('p',{class:'muted tiny', text:'No earlier versions yet — a snapshot is kept each time your notes change.'}));
+  }else{
+    const list=el('div',{class:'notes-hist-list'});
+    hist.forEach(h=>{
+      const row=el('div',{class:'notes-hist-row'});
+      const preview=h.text.length>160 ? h.text.slice(0,160)+'…' : h.text;
+      const mid=el('div',{class:'notes-hist-mid'});
+      mid.innerHTML=`<div><b>${escapeHtml(fmtCT(h.ts))}</b> <span class="tiny muted">${escapeHtml(ago(h.ts))}</span></div>
+        <div class="tiny muted notes-hist-preview">${escapeHtml(preview||'(empty)')}</div>`;
+      row.append(mid, el('button',{class:'btn ghost sm', text:'Restore', onclick:()=>{
+        Store.restoreProjectNotes(p.id, h.ts);
+        hide();
+        toast('Notes restored',{kind:'ok'});
+        ctx.go('project',{id:p.id});
+      }}));
+      list.append(row);
+    });
+    body.append(list);
+  }
+  const {hide}=modal({ title:`Notes history — ${p.name}`, icon:'clock', body });
 }
 
 // Status source + a Lock toggle. Sync derives status from release activity;
