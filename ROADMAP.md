@@ -14,28 +14,35 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Public site: an animated live "fleet" showcase driven by demo data.**
-      The landing page's fleet section (see `index.html`) is static cards
-      today; give it real motion — a subtle live-updating feel (staggered
-      entrance, a status pulse, maybe a fake-but-plausible "ticking" activity
-      indicator) using the same demo/seed-shaped data already described in
-      the page, no backend needed. Keep it tasteful and performant (prefers-
-      reduced-motion respected), and keep Manager's own card wired to the
-      real `js/changelog.js` import the way the hero banner already is (see
-      Done, 2026-07-04) rather than reverting to a hand-typed string.
+- [ ] **Give the app-side rail the same keyboard-focus ring treatment as
+      everything else.** The last piece of "Keyboard-first navigation
+      everywhere; focus rings audited": this sweep's landing-page focus rings
+      + skip link (see Done, 2026-07-04) only touched links/buttons (`a`,
+      `.btn`, `.whats-new`). The app-side rail (`.rail-item`, `.rail-brand`,
+      `.rail-toggle` in `js/shell.js`) is already keyboard-reachable via the
+      browser's own default focus outline — never broken — but unlike every
+      button/pill/row elsewhere in the app (`.btn`, `.status`, `.rel-card`,
+      table rows), it was never given the app's own branded `--ring`
+      treatment. Give the rail items the same ring the rest of the app
+      already has.
 
 ## Next (discovered / queued)
 
-- [ ] This sweep's landing-page focus rings + skip link (see Done, 2026-07-04)
-      only touched links/buttons (`a`, `.btn`, `.whats-new`). The app-side
-      rail (`.rail-item`, `.rail-brand`, `.rail-toggle` in `js/shell.js`) is
-      already keyboard-reachable via the browser's own default focus outline
-      — never broken — but unlike every button/pill/row elsewhere in the app
-      (`.btn`, `.status`, `.rel-card`, table rows), it was never given the
-      app's own branded `--ring` treatment. Worth a small follow-up pass
-      giving the rail items the same ring the rest of the app already has,
-      finishing off the "focus rings audited" half of the long-standing
-      Now/Next item below.
+- [ ] The new fleet-showcase status pulse + staggered entrance (see Done,
+      2026-07-04) hardcodes its cascade delays and dot-pulse offsets per
+      `nth-child(1)` through `nth-child(6)` in `css/landing.css` — exactly
+      matching today's six fleet chips. If a seventh project ever joins the
+      showcase, that chip would fall out of the cascade (default `0s` delay,
+      popping in with the rest of the "in" transition instead of trailing
+      it) and its status dot would pulse with no offset assigned. Fine today
+      since the fleet is a small, known, hand-edited set of six cards; worth
+      generalizing to a CSS custom property set from a tiny inline `style`
+      (or an `:nth-child` formula) if the fleet showcase ever grows past six.
+- [ ] The new fleet-showcase status pulse (see Done, 2026-07-04) only
+      animates on `is-live`/`is-active` — the same latent gap as the item
+      below (no `is-building`/`is-paused`/`is-archived` variant exists yet
+      for either the color or the pulse), so a future third status would
+      need both added together in one pass rather than two.
 - [ ] The new fleet-showcase status colors (see Done, 2026-07-04) only handle
       the two statuses actually in use today (`live`/`active`) — if a seeded
       fleet project's real status ever legitimately becomes `building`,
@@ -255,8 +262,6 @@ with new, ambitious, fun ideas.
       (`.modal-head`, `.sheet-head`, `.notif-pop-head`) were skipped because
       their titles are short static strings today — if any of those ever grow
       a dynamic, potentially-long title, re-check them at 320px too.
-- [ ] Keyboard-first navigation everywhere; focus rings audited.
-- [ ] Public site: an animated live "fleet" showcase driven by demo data.
 - [ ] SQLite adapter behind the same Store interface (design already relational).
 - [ ] Saved views only capture status/sort/dir/field — worth revisiting if a
       free-text search (`q`) ever becomes something worth pinning to a saved
@@ -270,6 +275,38 @@ with new, ambitious, fun ideas.
       row that's still actually flagged.
 
 ## Done
+
+- [x] **Public site: an animated live "fleet" showcase** _(2026-07-04)_: the
+      landing page's fleet section (`index.html`) was six static cards with
+      no motion at all. Each chip's status text (`.fchip .st`) now carries a
+      small CSS-only "heartbeat": the bullet dot got pulled out of the
+      hand-typed `● Live · v16` string into its own `<span class="dot"
+      aria-hidden="true">` + a `<span class="label">` for the visible text,
+      so a radiating `::after` ring (`@keyframes fleet-ping`, matching the
+      existing `.status .dot` pulse the app itself already uses for a
+      "building" status) can glow and fade around just the dot — only on
+      `is-live`/`is-active` chips, the two statuses that mean "currently
+      shipping" today. Every chip pulses on its own `animation-delay`
+      offset (0s/.5s/1s/1.5s/2s/.3s) rather than one synced blink, so the
+      showcase reads as several independent projects each quietly shipping
+      on their own clock — a deliberately honest "fake" (no fabricated
+      per-project timestamps or activity numbers, just an ambient motion cue
+      tied to the real, true "each project runs its own loop" claim already
+      on the page) rather than a literal but made-up ticker, keeping
+      "keep the seed honest" intact. The grid itself also now cascades in
+      on scroll — a `transition-delay` ladder (0/.07/.14/.21/.28/.35s) per
+      `nth-child` on top of the existing `.reveal` IntersectionObserver
+      fade-up — instead of every card popping in at once. Manager's own
+      chip (`#fleet-manager-status`) keeps reading its real version from
+      `js/changelog.js` exactly as before (Done, 2026-07-04 below); the
+      sync script now writes into the new `.label` child specifically so it
+      doesn't clobber the dot markup. All of it inherits the page's existing
+      global `prefers-reduced-motion` kill-switch (no separate opt-out
+      needed). Three new smoke checks drive the real landing page: the
+      showcase still renders >=5 chips, the Live/Active dots' `::after`
+      pulse animation is present and genuinely offset per chip (not one flat
+      synced blink), and the chips' `transition-delay` values differ across
+      the grid (a real cascade, not a uniform pop).
 
 - [x] **Sweep: keyboard-focus rings + a skip-to-content link everywhere, and
       honest fleet-showcase status colors** _(2026-07-04)_: the public landing

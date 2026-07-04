@@ -136,12 +136,12 @@
         <div class="sec-head reveal"><div class="kick">The fleet</div><h2>Built to run a family of products.</h2>
           <p>Manager ships knowing about the whole polecat.live family — including itself.</p></div>
         <div class="fleet">
-          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#22d3ee,#6366f1)"><svg viewBox="0 0 24 24"><use href="#i-chat"/></svg></span><div><b>Relay</b><div class="st is-live">● Live · v16</div></div></div><p>Serverless, peer-to-peer tables + chat that live in your browser.</p></div>
-          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#a855f7,#6366f1)"><svg viewBox="0 0 24 24"><use href="#i-play"/></svg></span><div><b>Games</b><div class="st is-live">● Live</div></div></div><p>An arcade of 8-bit games built from public-domain legends.</p></div>
-          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#34d399,#22d3ee)"><svg viewBox="0 0 24 24"><use href="#i-compass"/></svg></span><div><b>Polecat</b><div class="st is-live">● Live</div></div></div><p>Ask once, hear from everyone — multi-model consensus answers.</p></div>
-          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#38bdf8,#0369a1)"><svg viewBox="0 0 24 24"><use href="#i-bolt"/></svg></span><div><b>Polecat App</b><div class="st is-live">● Live</div></div></div><p>The product itself: every model, one synthesized answer.</p></div>
-          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#818cf8,#4f46e5)"><svg viewBox="0 0 24 24"><use href="#i-layers"/></svg></span><div><b>Solution Eng.</b><div class="st is-active">● Active</div></div></div><p>A mixed workspace of analytics, AI experiments, and automation.</p></div>
-          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#a3e635,#65a30d)"><svg viewBox="0 0 24 24"><use href="#i-gauge"/></svg></span><div><b>Manager</b><div class="st is-live" id="fleet-manager-status">● Live · v43</div></div></div><p>This console — mission control for the whole fleet, improving hourly.</p></div>
+          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#22d3ee,#6366f1)"><svg viewBox="0 0 24 24"><use href="#i-chat"/></svg></span><div><b>Relay</b><div class="st is-live"><span class="dot" aria-hidden="true"></span><span class="label">Live · v16</span></div></div></div><p>Serverless, peer-to-peer tables + chat that live in your browser.</p></div>
+          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#a855f7,#6366f1)"><svg viewBox="0 0 24 24"><use href="#i-play"/></svg></span><div><b>Games</b><div class="st is-live"><span class="dot" aria-hidden="true"></span><span class="label">Live</span></div></div></div><p>An arcade of 8-bit games built from public-domain legends.</p></div>
+          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#34d399,#22d3ee)"><svg viewBox="0 0 24 24"><use href="#i-compass"/></svg></span><div><b>Polecat</b><div class="st is-live"><span class="dot" aria-hidden="true"></span><span class="label">Live</span></div></div></div><p>Ask once, hear from everyone — multi-model consensus answers.</p></div>
+          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#38bdf8,#0369a1)"><svg viewBox="0 0 24 24"><use href="#i-bolt"/></svg></span><div><b>Polecat App</b><div class="st is-live"><span class="dot" aria-hidden="true"></span><span class="label">Live</span></div></div></div><p>The product itself: every model, one synthesized answer.</p></div>
+          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#818cf8,#4f46e5)"><svg viewBox="0 0 24 24"><use href="#i-layers"/></svg></span><div><b>Solution Eng.</b><div class="st is-active"><span class="dot" aria-hidden="true"></span><span class="label">Active</span></div></div></div><p>A mixed workspace of analytics, AI experiments, and automation.</p></div>
+          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#a3e635,#65a30d)"><svg viewBox="0 0 24 24"><use href="#i-gauge"/></svg></span><div><b>Manager</b><div class="st is-live" id="fleet-manager-status"><span class="dot" aria-hidden="true"></span><span class="label">Live · v43</span></div></div></div><p>This console — mission control for the whole fleet, improving hourly.</p></div>
         </div>
       </div>
     </section>
@@ -205,7 +205,8 @@
       const whatsNew = document.getElementById('whats-new');
       if (whatsNew) whatsNew.textContent = `✦ New — v${latest.v} ${latest.title}`;
       const status = document.getElementById('fleet-manager-status');
-      if (status) status.textContent = `● Live · v${latest.v}`;
+      const statusLabel = status && status.querySelector('.label');
+      if (statusLabel) statusLabel.textContent = `Live · v${latest.v}`;
     }
   </script>
 </body>

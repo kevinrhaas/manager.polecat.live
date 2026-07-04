@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 49,
+    title: 'Public site: the fleet showcase feels alive — status pulse + staggered entrance',
+    kind: 'feature',
+    ts: '2026-07-04T14:12:55.238Z',
+    items: [
+      'Every project chip in the landing page\'s fleet showcase now shows a small pulsing "heartbeat" ring on its status dot for Live/Active projects — a quiet, always-on signal that the loop behind it is really running, not a static label.',
+      'Each chip ticks on its own offset instead of pulsing in lockstep, so the showcase reads as several independent projects each shipping on their own clock rather than one synced blink.',
+      'The chips themselves now cascade into view one after another on scroll instead of popping in all at once.',
+      'Respects reduced-motion (all animation drops out, same as the rest of the landing page) and stays screen-reader-clean — the dot is decorative and hidden from assistive tech, the status text reads exactly as before.',
+    ],
+  },
+  {
     v: 48,
     title: 'Sweep: keyboard-focus rings and a skip-to-content link, fleet-showcase status colors',
     kind: 'polish',

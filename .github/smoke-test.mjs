@@ -88,6 +88,20 @@ try {
     const activeColor = await page.$eval('.fchip .st.is-active', (el) => getComputedStyle(el).color);
     return !!liveColor && !!activeColor && liveColor !== activeColor;
   });
+  await check('fleet showcase status dots pulse (a live "the loop is running" heartbeat), each chip ticking on its own offset', async () => {
+    const anims = await page.$$eval('#fleet .fchip .st.is-live .dot, #fleet .fchip .st.is-active .dot', (dots) =>
+      dots.map((d) => {
+        const s = getComputedStyle(d, '::after');
+        return { name: s.animationName, delay: s.animationDelay };
+      }));
+    const allPulse = anims.length >= 5 && anims.every((a) => a.name !== 'none');
+    const delays = new Set(anims.map((a) => a.delay));
+    return allPulse && delays.size > 1; // not one flat synced blink
+  });
+  await check('fleet showcase chips cascade in with a staggered entrance delay, not one flat pop', async () => {
+    const delays = await page.$$eval('#fleet .fchip', (chips) => chips.map((c) => getComputedStyle(c).transitionDelay));
+    return delays.length >= 5 && new Set(delays).size > 1;
+  });
 
   // ---------- App shell ----------
   console.log('App shell');
