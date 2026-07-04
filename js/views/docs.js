@@ -54,7 +54,8 @@ const SECTIONS = [
     <p><b>Simple mode</b> (Settings) trims the navigation to the essentials — great for a calmer, beginner-friendly view. The <b>welcome tour</b> can be replayed any time from Settings. Switch between <b>dark, light, and system</b> themes from the top bar or Settings.</p>` },
   { id:'data', title:'Your data, history & undo', body:`
     <p>Most actions can be <b>undone</b> — look for the “Undo” link in the toast, or use the undo control (⌘Z / Ctrl-Z). Manager keeps a bounded history of your recent edits.</p>
-    <p>Export your whole workspace to JSON (Settings → Data) for backup, and import it on another device. Reset wipes local data back to the seeded fleet.</p>` },
+    <p>Deleted a project a few actions ago and moved on? Settings → Data → <b>Recently deleted</b> lists every project removed recently — single or bulk — so you can restore just the one you need (with its releases and credentials) without undoing everything that happened since.</p>
+    <p>Export your whole workspace to JSON (Settings → Data) for backup, and import it on another device — or <b>Merge JSON</b> to add in another workspace's rows without replacing your own. Reset wipes local data back to the seeded fleet.</p>` },
   { id:'shortcuts', title:'Keyboard & tips', body:`
     <ul>
       <li><code>⌘K</code> / <code>Ctrl-K</code> — command palette: jump to any project, section, or action.</li>

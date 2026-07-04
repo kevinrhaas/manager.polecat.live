@@ -161,7 +161,12 @@ export const Store = new (class {
     return db;
   }
   _save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(this._db)); }catch{} }
-  _loadHistory(){ try{ return JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); }catch{ return []; } }
+  // Older persisted ops predate `hid` (added for the "Recently deleted" tray,
+  // which needs to address one op among many stably — an array index shifts
+  // under it the moment anything else pushes/pops history). Backfilled once
+  // on load rather than migrated in place, since it only needs to be unique
+  // for the life of this session.
+  _loadHistory(){ try{ const h=JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); h.forEach(op=>{ if(!op.hid) op.hid=uuid(); }); return h; }catch{ return []; } }
   _saveHistory(){ try{ localStorage.setItem(HIST_KEY, JSON.stringify(this._history.slice(-HIST_MAX))); }catch{} }
 
   // ---- events ------------------------------------------------------------
@@ -256,7 +261,7 @@ export const Store = new (class {
   }
 
   // ---- history / undo ----------------------------------------------------
-  _pushHistory(op){ this._history.push({ ...op, at:Date.now() }); if(this._history.length>HIST_MAX) this._history=this._history.slice(-HIST_MAX); this._saveHistory(); this.emit('history'); }
+  _pushHistory(op){ this._history.push({ ...op, at:Date.now(), hid:uuid() }); if(this._history.length>HIST_MAX) this._history=this._history.slice(-HIST_MAX); this._saveHistory(); this.emit('history'); }
   canUndo(){ return this._history.length>0; }
   lastLabel(){ const o=this._history[this._history.length-1]; return o?o.label:''; }
   undo(){
@@ -281,6 +286,53 @@ export const Store = new (class {
     });
     this.emit('history');
     return op;
+  }
+  // "Recently deleted" tray — undo only ever reverses the *most recent* op,
+  // so a project deleted a few actions ago is only reachable by undoing
+  // everything after it too. This scans the same history stack (nothing new
+  // to persist) for delete-shaped ops on `projects` — a single remove()
+  // (`{id,prev,cascade}`) or a bulkRemove() (`{items:[{id,prev,cascade}]}`),
+  // both tagged with the 'Delete' label those two call sites already share —
+  // and flattens them into one list, newest first.
+  recentlyDeletedProjects(){
+    const out=[];
+    this._history.forEach(op=>{
+      if(op.table!=='projects' || op.label!=='Delete') return;
+      if(op.items) op.items.forEach(it=>{ if(it.prev) out.push({ hid:op.hid, id:it.id, project:it.prev, cascade:it.cascade, at:op.at }); });
+      else if(op.prev) out.push({ hid:op.hid, id:op.id, project:op.prev, cascade:op.cascade, at:op.at });
+    });
+    return out.sort((a,b)=>b.at-a.at);
+  }
+  // Restores one project out of a delete op, addressed by the op's `hid` (see
+  // `_pushHistory`) plus the project id — not an array index, since deleting
+  // one row out of a batched bulk-delete op must leave the rest of that
+  // batch's undo record intact for its own remaining rows. Removes just the
+  // matched entry (and the whole op if that was its last row) rather than
+  // reversing the op wholesale, so restoring one project from a 3-project
+  // bulk delete doesn't also resurrect the other two.
+  restoreDeletedProject(hid, id){
+    const op = this._history.find(o=>o.hid===hid);
+    if(!op) return null;
+    let restored=null, cascade=[];
+    if(op.items){
+      const i=op.items.findIndex(it=>it.id===id);
+      if(i<0) return null;
+      restored=op.items[i].prev; cascade=op.items[i].cascade||[];
+      op.items.splice(i,1);
+      if(!op.items.length) this._history=this._history.filter(o=>o!==op);
+    }else if(op.id===id && op.prev){
+      restored=op.prev; cascade=op.cascade||[];
+      this._history=this._history.filter(o=>o!==op);
+    }
+    if(!restored) return null;
+    this._db.projects[restored.id]=restored;
+    const touched=new Set(['projects']);
+    cascade.forEach(c=>{ this._db[c.table][c.row.id]=c.row; touched.add(c.table); });
+    this._saveHistory(); this._save();
+    touched.forEach(t=>this.emit(t,{}));
+    this.emit('change',{table:'projects', id:restored.id});
+    this.emit('history');
+    return restored;
   }
 
   // ---- settings ----------------------------------------------------------

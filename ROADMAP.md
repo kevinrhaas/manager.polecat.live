@@ -14,14 +14,29 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **"Promote to field" on a legacy free-form custom-field value** — one
-      click turns an untyped key entered before the schema existed into a
-      proper typed field definition, prefilled from that value. (Promoted
-      from Next — the schema/editor plumbing it needs has been stable for
-      several cadences now with no blockers surfaced.)
+- [ ] **Number-type custom fields as filter range sliders (min/max) in the
+      library** — exact-match/contains filtering already works for select and
+      text fields; a Number field (e.g. a score, a headcount) has no way to
+      filter by range today, only by exact value. (Promoted from Next — the
+      typed custom-field schema and the library's existing field-filter UI it
+      would slot into have both been stable for several cadences.)
 
 ## Next (discovered / queued)
 
+- [ ] The new "Recently deleted" tray (see Done, 2026-07-04) only reaches as
+      far back as the 40-op undo history (`HIST_MAX` in `store.js`) — a
+      project deleted long enough ago to have aged out of that stack has no
+      recovery path short of a JSON backup. Worth a dedicated persisted "tomb"
+      log (independent of the undo stack's size, maybe capped by count or age
+      instead) if that gap ever bites someone in practice; today's version
+      piggybacks on the existing history stack specifically because it needed
+      zero new persistence to ship.
+- [ ] "Recently deleted" only surfaces `projects` (with their cascaded
+      releases/credentials riding along) — a `fieldDefs`/`savedViews` row
+      deleted on its own has no equivalent tray, only the single-shot Undo
+      toast. Low priority: those tables don't cascade anything and are edited
+      far less often than projects, so the "oops, a few actions later" gap
+      the tray closes for projects is much rarer for them.
 - [ ] Now that bulk "remove tag" exists (see Done, 2026-07-04) alongside bulk
       "add tag", the two prompts share almost no code — Add tag is a bare
       text input (any spelling is valid, it's creating a tag), Remove tag is
@@ -167,9 +182,6 @@ with new, ambitious, fun ideas.
       view too (e.g. "everything mentioning 'webrtc'"); left out deliberately
       for now since search reads as transient, matching the built-in chips'
       same choice not to touch it.
-- [ ] Number-type custom fields as filter range sliders (min/max) in the
-      library, to match the exact-match/contains filtering select/text fields
-      already get.
 - [ ] Reorderable custom fields (drag to set the `order` the schema already
       tracks) so the most-used ones surface first in the editor and health panel.
 - [ ] Auto-expire old dismissals: `Store.dismissals` rows for a project that
@@ -180,6 +192,58 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **"Recently deleted" tray for projects** _(2026-07-04)_: a bulk or
+      single project delete has always been one click to Undo — but only the
+      *most recent* change, via a toast that disappears, or the Settings →
+      Data "Undo last change" button. A project noticed missing a few actions
+      later meant undoing everything since, or nothing. Rather than build a
+      second, parallel deletion log, this reuses the existing bounded undo
+      history (`Store._history`, capped at 40 ops) as its source of truth: a
+      new `Store.recentlyDeletedProjects()` scans that stack for delete-shaped
+      ops on `projects` — both a single `remove()` and a batched
+      `bulkRemove()` — and flattens them into one newest-first list. Each op
+      now carries a stable `hid` (generated in `_pushHistory`, backfilled for
+      pre-existing persisted history on load) so a specific project can be
+      addressed independent of its position in the array, which matters
+      because `Store.restoreDeletedProject(hid, id)` needs to pull *one* row
+      out of a multi-project bulk-delete op without disturbing the rest of
+      that batch's own undo record — restoring one project out of a 3-project
+      bulk delete no longer resurrects the other two, and leaves them still
+      individually restorable afterward. A new "Recently deleted" button in
+      Settings → Data (next to "Undo last change") opens a tray listing every
+      recently deleted project with when it was deleted and what else rides
+      back with it (its cascaded releases/credentials), each with its own
+      one-click Restore — reusing the notes-history modal's row layout
+      (`.notes-hist-row`) since the shape is identical, and the same
+      "list shrinks, closes itself once empty" behavior the dismissed-
+      notifications review modal already established. One new smoke check
+      drives the real UI end to end: seeds a single delete and a two-project
+      bulk delete, opens the tray, confirms all three are listed with the
+      cascaded release called out, restores one project out of the bulk pair
+      and confirms its sibling stays gone, restores the singly-deleted
+      project and confirms its release comes back with it, then restores the
+      last row and confirms the tray closes itself.
+- [x] **"Promote to field" on a legacy free-form custom-field value**
+      _(2026-07-04)_: a custom-field value entered before the typed schema
+      existed showed up in the project editor as a bare, untyped key/value
+      pair with no path to formalizing it besides deleting it and recreating
+      it under a real field definition by hand. Every legacy row in the
+      editor's custom-fields section now gets a "Promote to field" button
+      (upload icon, next to its existing delete button); clicking it opens the
+      same add-field dialog Settings' schema editor and the "+ New field type"
+      shortcut already share (`editFieldDef()`, now taking an `extra` option
+      for a prefill/title/save-label/on-added callback rather than a second
+      near-duplicate modal), prefilled with a best-effort guess — the key
+      humanized into a label ("smoke_docs_link" → "Smoke Docs Link"), and a
+      type inferred from the value's shape (a URL, an ISO date, a number, or
+      falling back to text). Saving both creates the new fleet-wide field
+      definition and carries the project's existing value over onto it in one
+      step, deleting the old free-form key. Two new smoke checks cover
+      defining/using a plain custom field end to end, and the promote flow
+      itself: confirms the dialog opens prefilled with the guessed label and
+      type, that saving creates the typed field def and moves the value onto
+      its new key, and that the project page renders it as a clickable link
+      like any other URL-type field.
 - [x] **Bulk "remove tag" in the projects library** _(2026-07-04)_: the bulk
       action bar's `Store.bulkAddTag()` had no opposite — removing a tag that
       was applied too broadly, or retiring one across the fleet, meant

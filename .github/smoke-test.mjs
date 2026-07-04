@@ -1119,6 +1119,40 @@ try {
       return canUndoBefore && hasTemp && !canUndoAfter;
     } finally { fs.unlinkSync(tmpFile); }
   });
+  await check('"Recently deleted" tray lists deleted projects (single + bulk) and restores one at a time, leaving the rest of a bulk delete intact', async () => {
+    await store(`(S)=>{
+      S.addProject({ slug:'smoke-recently-deleted-1', name:'Smoke Recently Deleted 1' });
+      S.put('releases', { id:'smoke-rd-rel', projectId:'smoke-recently-deleted-1', v:1, title:'x', ts:Date.now() }, { silent:true });
+      S.addProject({ slug:'smoke-recently-deleted-2', name:'Smoke Recently Deleted 2' });
+      S.addProject({ slug:'smoke-recently-deleted-3', name:'Smoke Recently Deleted 3' });
+      S.remove('projects','smoke-recently-deleted-1');
+      S.bulkRemove('projects', ['smoke-recently-deleted-2','smoke-recently-deleted-3']);
+    }`);
+    await openSec('settings');
+    await page.waitForTimeout(250);
+    await page.click('button:has-text("Recently deleted")');
+    await page.waitForTimeout(300);
+    const rowsText = await page.$$eval('.modal .notes-hist-row', (els) => els.map((e) => e.textContent));
+    const sawAllThree = ['Smoke Recently Deleted 1', 'Smoke Recently Deleted 2', 'Smoke Recently Deleted 3']
+      .every((n) => rowsText.some((t) => t.includes(n)));
+    const releaseNoted = rowsText.some((t) => t.includes('Smoke Recently Deleted 1') && t.includes('1 release'));
+    // restore just one project out of the bulk-deleted pair — its sibling must stay gone
+    await page.click('.modal .notes-hist-row:has-text("Smoke Recently Deleted 2") button:has-text("Restore")');
+    await page.waitForTimeout(300);
+    const partialRestore = await store(`(S)=>!!S.project('smoke-recently-deleted-2') && !S.project('smoke-recently-deleted-3')`);
+    const modalStillOpen = !!(await $('.overlay.show'));
+    // restore the singly-deleted project — its cascaded release should come back with it
+    await page.click('.modal .notes-hist-row:has-text("Smoke Recently Deleted 1") button:has-text("Restore")');
+    await page.waitForTimeout(300);
+    const releaseRestored = await store(`(S)=>S.releasesFor('smoke-recently-deleted-1').length===1`);
+    // restoring the last remaining row should empty the list and auto-close the modal
+    await page.click('.modal .notes-hist-row:has-text("Smoke Recently Deleted 3") button:has-text("Restore")');
+    await page.waitForTimeout(400);
+    const allBack = await store(`(S)=>['smoke-recently-deleted-1','smoke-recently-deleted-2','smoke-recently-deleted-3'].every(id=>!!S.project(id))`);
+    const modalClosed = !(await $('.overlay.show'));
+    await store(`(S)=>{ ['smoke-recently-deleted-1','smoke-recently-deleted-2','smoke-recently-deleted-3'].forEach(id=>S.remove('projects', id, {silent:true})); }`);
+    return sawAllThree && releaseNoted && partialRestore && modalStillOpen && releaseRestored && allBack && modalClosed;
+  });
 
   // ---------- Data: merge import ----------
   console.log('Data (merge import)');

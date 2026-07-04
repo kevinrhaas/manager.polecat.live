@@ -9,6 +9,27 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 42,
+    title: '"Recently deleted" tray for projects',
+    kind: 'feature',
+    ts: '2026-07-04T07:57:39.752Z',
+    items: [
+      'A single Undo only ever reverses your most recent change — if you noticed a wrongly-deleted project a few actions later, the only way back was undoing everything since.',
+      'Settings → Data → "Recently deleted" now lists every project removed recently (single or bulk delete), newest first, each with its own one-click Restore.',
+      'Restoring a project brings its releases and credentials back with it; restoring one project out of a bulk delete leaves the rest of that batch untouched.',
+    ],
+  },
+  {
+    v: 41,
+    title: '"Promote to field" for legacy custom-field values',
+    kind: 'feature',
+    ts: '2026-07-04T06:37:30Z',
+    items: [
+      'A custom-field value entered before its typed schema existed showed up in the project editor as a bare key/value pair with no way to formalize it besides recreating it by hand.',
+      'That legacy row now gets a "Promote to field" button — it opens the usual add-field dialog prefilled with a guessed name and type (URL, number, date, or text) from the existing value, and carries the value over on save.',
+    ],
+  },
+  {
     v: 40,
     title: 'Fixed: couldn’t scroll to the bottom on mobile',
     kind: 'fix',

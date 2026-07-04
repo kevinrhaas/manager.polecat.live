@@ -3,7 +3,7 @@
 import { Store, FIELD_TYPES, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, DEFAULT_AUTO_SYNC_BACKOFF_CAP, healthBand } from '../store.js';
 import { Access } from '../access.js';
 import { getThemePref, setTheme } from '../theme.js';
-import { el, escapeHtml, toast, modal, confirmDialog } from '../ui.js';
+import { el, escapeHtml, toast, modal, confirmDialog, ago } from '../ui.js';
 import { icon } from '../icons.js';
 
 export function renderSettings(root, ctx){
@@ -192,6 +192,8 @@ export function renderSettings(root, ctx){
   dataBtns.append(el('button',{class:'btn sm', html:`${icon('upload')} Import JSON`, onclick:()=>importJSON(ctx)}));
   dataBtns.append(el('button',{class:'btn sm', html:`${icon('layers')} Merge JSON`, onclick:()=>mergeImportFile(ctx)}));
   dataBtns.append(el('button',{class:'btn sm', html:`${icon('undo')} Undo last change`, onclick:()=>{ if(Store.canUndo()){ const o=Store.undo(); toast('Undone: '+(o?.label||''),{kind:'ok'}); ctx.render&&ctx.render(); } else toast('Nothing to undo',{kind:'info'}); }}));
+  const deletedCount=Store.recentlyDeletedProjects().length;
+  dataBtns.append(el('button',{class:'btn sm', html:`${icon('trash')} Recently deleted${deletedCount?` (${deletedCount})`:''}`, onclick:()=>openRecentlyDeleted(ctx)}));
   dataBtns.append(el('button',{class:'btn sm danger', html:`${icon('trash')} Reset workspace`, onclick:async()=>{ if(await confirmDialog('Reset workspace','This wipes your local Manager data and restores the seeded fleet. This cannot be undone.',{danger:true,okLabel:'Reset'})){ Store.reset(); toast('Workspace reset',{kind:'ok'}); ctx.go('home'); } }}));
   data.append(dataBtns);
   wrap.append(data);
@@ -281,6 +283,43 @@ export function editFieldDef(id, onChange, extra={}){
   }});
   const {hide}=modal({ title:extra.title || (isNew?'Add custom field':'Edit custom field'), icon:'sliders', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
   setTimeout(()=>label.focus(),50);
+}
+
+// "Recently deleted" tray — a project's undo toast covers "oops, right
+// after," but the underlying history stack (see Store.recentlyDeletedProjects)
+// holds up to 40 ops deep, so a project deleted a few actions ago is still
+// recoverable without undoing everything that happened since. Reuses the
+// notes-history modal's row layout (`.notes-hist-*`) since the shape —
+// a timestamp + one line of context on the left, a single action on the
+// right — is identical.
+function openRecentlyDeleted(ctx){
+  const list=Store.recentlyDeletedProjects();
+  const body=el('div');
+  if(!list.length){
+    body.append(el('p',{class:'muted tiny', text:'Nothing deleted recently. Deleted projects (single or bulk) stay listed here until they age out of the undo history.'}));
+  }else{
+    const wrap=el('div',{class:'notes-hist-list'});
+    list.forEach(d=>{
+      const row=el('div',{class:'notes-hist-row'});
+      const relCount=(d.cascade||[]).filter(c=>c.table==='releases').length;
+      const credCount=(d.cascade||[]).filter(c=>c.table==='credentials').length;
+      const bits=[]; if(relCount) bits.push(`${relCount} release${relCount===1?'':'s'}`); if(credCount) bits.push(`${credCount} credential${credCount===1?'':'s'}`);
+      const mid=el('div',{class:'notes-hist-mid'});
+      mid.innerHTML=`<div><b>${escapeHtml(d.project.name)}</b> <span class="tiny muted">deleted ${escapeHtml(ago(d.at))}</span></div>
+        <div class="tiny muted notes-hist-preview">${bits.length?`Also restores ${bits.join(' and ')}.`:'No releases or credentials attached.'}</div>`;
+      row.append(mid, el('button',{class:'btn ghost sm', html:`${icon('undo')} Restore`, onclick:()=>{
+        const restored=Store.restoreDeletedProject(d.hid, d.id);
+        if(!restored) return;
+        row.remove();
+        toast(`“${restored.name}” restored`,{kind:'ok'});
+        ctx.refresh&&ctx.refresh();
+        if(!body.querySelector('.notes-hist-row')) hide();
+      }}));
+      wrap.append(row);
+    });
+    body.append(wrap);
+  }
+  const {hide}=modal({ title:'Recently deleted', icon:'trash', body });
 }
 
 // ---- data helpers --------------------------------------------------------
