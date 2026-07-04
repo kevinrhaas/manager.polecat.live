@@ -14,15 +14,33 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Number-type custom fields as filter range sliders (min/max) in the
-      library** — exact-match/contains filtering already works for select and
-      text fields; a Number field (e.g. a score, a headcount) has no way to
-      filter by range today, only by exact value. (Promoted from Next — the
-      typed custom-field schema and the library's existing field-filter UI it
-      would slot into have both been stable for several cadences.)
+- [ ] **Reorderable custom fields** (drag to set the `order` the schema
+      already tracks) so the most-used ones surface first in the editor and
+      health panel. (Promoted from Next — the typed custom-field schema has
+      carried an `order` column since it shipped, but nothing in the UI lets
+      a user actually change it; new fields just append to the end forever.)
 
 ## Next (discovered / queued)
 
+- [ ] Now that a Number-type custom field gets a real dual-handle range-slider
+      filter (see Done, 2026-07-04), its bounds (the slider's min/max travel)
+      are computed fresh from the live fleet's actual data every time the
+      field is picked in the toolbar — if a saved view captured a specific
+      `fieldMin`/`fieldMax` and the underlying data's real range later shifts
+      (e.g. someone edits a project's value to a new extreme), the saved
+      view's numbers still apply as a filter correctly, but the slider's
+      visual travel will have quietly widened or narrowed around them. Not a
+      correctness bug (the stored numbers are still exact), just a cosmetic
+      "the handles aren't quite where you last left them" — worth revisiting
+      only if that mismatch actually confuses someone in practice.
+- [ ] The new range-slider filter's "every value is identical" edge case
+      (see Done, 2026-07-04) synthesizes a 1-wide fake span (`hi = lo+1`) so
+      the two handles never collapse into an unusable zero-width slider —
+      reasonable for now (rare in practice: it only triggers when literally
+      every project sharing that field has the exact same number), but worth
+      a small "only one value in use" note near the readout if a fleet ever
+      grows enough number-type fields that this becomes a regular sight
+      rather than an edge case.
 - [ ] Now that Manager's own landing-page version copy self-corrects from
       `js/changelog.js` (see Done, 2026-07-04), the other five fleet chips on
       the same page (Relay, Games, Polecat, Polecat App, Solution Eng.) are
@@ -200,8 +218,6 @@ with new, ambitious, fun ideas.
       view too (e.g. "everything mentioning 'webrtc'"); left out deliberately
       for now since search reads as transient, matching the built-in chips'
       same choice not to touch it.
-- [ ] Reorderable custom fields (drag to set the `order` the schema already
-      tracks) so the most-used ones surface first in the editor and health panel.
 - [ ] Auto-expire old dismissals: `Store.dismissals` rows for a project that
       later becomes healthy (and so drops out of `needsAttention()` entirely)
       are harmless but never garbage-collected — a low-priority cleanup, not
@@ -210,6 +226,37 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Number-type custom fields as filter range sliders (min/max) in the
+      library** _(2026-07-04)_: exact-match/contains filtering already worked
+      for Select and Text/URL/Date fields, but a Number field (a score, a
+      headcount, a budget) had no way to filter by range — only by typing an
+      exact value into the same "contains" box everything else used, which
+      barely worked for numbers at all. Picking a Number-type field in the
+      library's custom-field filter now shows a **dual-handle range slider**
+      instead: two overlapping native `<input type=range>` tracks (the
+      standard vanilla dual-slider technique — both transparent and
+      full-width, with `pointer-events` scoped to just their thumbs via CSS
+      so each stays independently draggable) sitting over a shared base track
+      and an accent-gradient fill between the two handles. The slider's
+      bounds aren't a fixed 0–100: `buildRangeFilter()` computes the real
+      min/max in use across the fleet for that field right now, so a "budget"
+      field in the thousands and a "score" field 0–10 both get a travel range
+      that actually means something. A live "N – M" readout tracks both
+      handles, and a small "×" button resets the filter back to the field's
+      full range in one click. State grew two new keys, `fieldMin`/`fieldMax`
+      (alongside the existing `field`/`fieldValue`), persisted the same way
+      as every other library filter dimension — including into **saved
+      views**: `customViewMatches()`, `openSaveViewPrompt()`, and the saved-
+      view chip's apply handler all now capture and restore the range too, so
+      a pinned view like "budget over $500" reapplies exactly. Select and
+      Text/URL/Date fields are untouched — same dropdown, same "contains" box
+      as before; only Number changed. Two new smoke checks drive the real UI
+      end to end: defining a Number field, giving two real projects distinct
+      values, confirming the slider renders with both projects visible
+      before narrowing, dragging the min handle past one project's value but
+      not the other's and confirming the list narrows to exactly the one
+      project, then confirming the reset button restores the full range —
+      followed by a cleanup check removing the smoke field and values.
 - [x] **Sweep: the public landing page stops lying about Manager's own
       version** _(2026-07-04)_: the app-side version of this exact bug (the
       dashboard tile eternally reading "v1") was fixed earlier this cadence

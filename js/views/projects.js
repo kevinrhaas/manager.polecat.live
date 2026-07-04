@@ -6,8 +6,8 @@ import { icon } from '../icons.js';
 import { editFieldDef } from './settings.js';
 import { openSyncAll } from './home.js';
 
-const VIEW_KEY = 'manager.lib.view';   // { q, status, sort, dir, field, fieldValue }
-const DEFAULT_STATE = { q:'', status:'all', sort:'activity', dir:'desc', field:'', fieldValue:'' };
+const VIEW_KEY = 'manager.lib.view';   // { q, status, sort, dir, field, fieldValue, fieldMin, fieldMax }
+const DEFAULT_STATE = { q:'', status:'all', sort:'activity', dir:'desc', field:'', fieldValue:'', fieldMin:'', fieldMax:'' };
 
 // Bulk-select checkbox state for the library table. Module-level (not
 // per-render) so it survives the view's own internal re-renders (search,
@@ -33,7 +33,8 @@ const SAVED_VIEWS = [
 function customViewMatches(v, s){
   const vs=v.state||{};
   return s.status===vs.status && s.sort===vs.sort && s.dir===vs.dir &&
-    (s.field||'')===(vs.field||'') && (s.fieldValue||'')===(vs.fieldValue||'');
+    (s.field||'')===(vs.field||'') && (s.fieldValue||'')===(vs.fieldValue||'') &&
+    (s.fieldMin||'')===(vs.fieldMin||'') && (s.fieldMax||'')===(vs.fieldMax||'');
 }
 
 // "Save view": name the current status/sort/field filter and it joins the
@@ -47,13 +48,77 @@ function openSaveViewPrompt(s, ctx){
     const label=input.value.trim();
     if(!label){ input.focus(); return; }
     hide();
-    Store.addSavedView({ label, icon:'star', state:{ status:s.status, sort:s.sort, dir:s.dir, field:s.field||'', fieldValue:s.fieldValue||'' } });
+    Store.addSavedView({ label, icon:'star', state:{ status:s.status, sort:s.sort, dir:s.dir, field:s.field||'', fieldValue:s.fieldValue||'', fieldMin:s.fieldMin||'', fieldMax:s.fieldMax||'' } });
     toast(`Saved view "${label}"`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
     ctx.refresh();
   }});
   input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); save.click(); } });
   const {hide}=modal({ title:'Save current view', icon:'star', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
   setTimeout(()=>input.focus(),50);
+}
+
+// A Number-type custom field gets a dual-handle range slider instead of the
+// "contains" text box every other type uses — exact/contains matching makes
+// no sense for a score or a headcount, only "between X and Y" does. Built as
+// two overlapping native <input type=range> tracks (the standard vanilla
+// dual-slider trick: both transparent and full-width, pointer-events limited
+// to their thumbs via CSS) rather than a single custom-drawn widget, so
+// keyboard/touch/focus-ring behavior all come free from the browser.
+// Bounds are the field's real min/max across the fleet today, not a fixed
+// 0–100 — a "budget" field in the thousands and a "score" field 0–10 both
+// get a slider whose full travel actually means something.
+function buildRangeFilter(def, s, fieldSel, rerenderList){
+  const raw = Store.projects().map(p=>p.fields?.[def.key]).filter(v=>v!=null && v!=='');
+  const nums = raw.map(Number).filter(n=>!Number.isNaN(n));
+  const lo = nums.length ? Math.min(...nums) : 0;
+  let hi = nums.length ? Math.max(...nums) : 100;
+  if(hi<=lo) hi = lo+1; // avoid a zero-width slider when every value is identical (or there's no data yet)
+  const span = hi-lo;
+  const step = span<=20 ? 1 : Math.max(1, Math.round(span/100));
+
+  const clamp=v=>Math.min(Math.max(v, lo), hi);
+  let curMin = clamp(s.fieldMin!==''&&s.fieldMin!=null ? Number(s.fieldMin) : lo);
+  let curMax = clamp(s.fieldMax!==''&&s.fieldMax!=null ? Number(s.fieldMax) : hi);
+  if(curMin>curMax) curMin=curMax;
+
+  const box=el('div',{class:'range-filter'});
+  const body=el('div',{class:'range-filter-body'});
+  const readout=el('span',{class:'tiny mono range-filter-readout'});
+  const track=el('div',{class:'range-filter-track'});
+  const base=el('div',{class:'range-filter-base'});
+  const fill=el('div',{class:'range-filter-fill'});
+  const minSlider=el('input',{type:'range', class:'range-filter-min', min:String(lo), max:String(hi), step:String(step), value:String(curMin), 'aria-label':`Minimum ${def.label}`});
+  const maxSlider=el('input',{type:'range', class:'range-filter-max', min:String(lo), max:String(hi), step:String(step), value:String(curMax), 'aria-label':`Maximum ${def.label}`});
+  track.append(base, fill, minSlider, maxSlider);
+  const clearBtn=el('button',{class:'btn ghost icon sm range-filter-clear', type:'button', title:'Reset range', 'aria-label':'Reset range filter', html:icon('x')});
+  body.append(readout, track);
+  box.append(body, clearBtn);
+
+  const updateVisual=()=>{
+    readout.textContent = `${minSlider.value} – ${maxSlider.value}`;
+    const pctMin=((Number(minSlider.value)-lo)/span)*100;
+    const pctMax=((Number(maxSlider.value)-lo)/span)*100;
+    fill.style.left=pctMin+'%';
+    fill.style.width=Math.max(0,pctMax-pctMin)+'%';
+  };
+  const commit=()=>{ const ns={...state(), field:fieldSel.value, fieldMin:minSlider.value, fieldMax:maxSlider.value}; saveState(ns); rerenderList(); };
+  updateVisual();
+
+  minSlider.addEventListener('input',()=>{
+    if(Number(minSlider.value)>Number(maxSlider.value)) minSlider.value=maxSlider.value;
+    updateVisual(); commit();
+  });
+  maxSlider.addEventListener('input',()=>{
+    if(Number(maxSlider.value)<Number(minSlider.value)) maxSlider.value=minSlider.value;
+    updateVisual(); commit();
+  });
+  clearBtn.addEventListener('click',()=>{
+    minSlider.value=String(lo); maxSlider.value=String(hi);
+    updateVisual();
+    const ns={...state(), field:fieldSel.value, fieldMin:'', fieldMax:''};
+    saveState(ns); rerenderList();
+  });
+  return box;
 }
 
 export function renderProjects(root, ctx){
@@ -82,7 +147,7 @@ export function renderProjects(root, ctx){
     const on = customViewMatches(v, s);
     const chip=el('span',{class:'filter-chip-custom'+(on?' on':'')});
     chip.append(el('button',{class:'fc-apply', type:'button', html:`${icon(v.icon||'star')} ${escapeHtml(v.label)}`, title:`Apply saved view "${v.label}"`,
-      onclick:()=>{ const ns={ ...state(), status:v.state.status, sort:v.state.sort, dir:v.state.dir, field:v.state.field||'', fieldValue:v.state.fieldValue||'' }; saveState(ns); renderProjects(root,ctx); }}));
+      onclick:()=>{ const ns={ ...state(), status:v.state.status, sort:v.state.sort, dir:v.state.dir, field:v.state.field||'', fieldValue:v.state.fieldValue||'', fieldMin:v.state.fieldMin||'', fieldMax:v.state.fieldMax||'' }; saveState(ns); renderProjects(root,ctx); }}));
     chip.append(el('button',{class:'fc-del', type:'button', title:`Delete saved view "${v.label}"`, 'aria-label':`Delete saved view "${v.label}"`, html:icon('x'),
       onclick:()=>{
         Store.removeSavedView(v.id);
@@ -137,6 +202,8 @@ export function renderProjects(root, ctx){
         sel.value = s.fieldValue||'';
         sel.addEventListener('change',()=>{ const ns={...state(),field:fieldSel.value,fieldValue:sel.value}; saveState(ns); rerenderList(); });
         valWrap.append(sel);
+      }else if(d.type==='number'){
+        valWrap.append(buildRangeFilter(d, s, fieldSel, rerenderList));
       }else{
         const inp=el('input',{class:'input field-filter-value', style:'max-width:150px', placeholder:'contains…', value:s.fieldValue||''});
         inp.addEventListener('input',()=>{ const ns={...state(),field:fieldSel.value,fieldValue:inp.value}; saveState(ns); rerenderList(); });
@@ -144,7 +211,7 @@ export function renderProjects(root, ctx){
       }
     };
     renderValControl();
-    fieldSel.addEventListener('change',()=>{ const ns={...state(),field:fieldSel.value,fieldValue:''}; saveState(ns); renderValControl(); rerenderList(); });
+    fieldSel.addEventListener('change',()=>{ const ns={...state(),field:fieldSel.value,fieldValue:'',fieldMin:'',fieldMax:''}; saveState(ns); renderValControl(); rerenderList(); });
     bar.append(fieldSel, valWrap);
   }
   wrap.append(bar);
@@ -281,12 +348,23 @@ function buildList(ctx, renderBulk){
   else if(s.status!=='all') rows=rows.filter(p=>p.status===s.status);
   if(s.field){
     const def=Store.fieldDefs().find(d=>d.key===s.field);
-    rows=rows.filter(p=>{
-      const val=(p.fields||{})[s.field];
-      if(!s.fieldValue) return val!=null && val!=='';
-      if(def?.type==='select') return val===s.fieldValue;
-      return String(val||'').toLowerCase().includes(s.fieldValue.toLowerCase());
-    });
+    if(def?.type==='number' && (s.fieldMin!=='' || s.fieldMax!=='')){
+      const lo = s.fieldMin!==''? Number(s.fieldMin) : -Infinity;
+      const hi = s.fieldMax!==''? Number(s.fieldMax) : Infinity;
+      rows=rows.filter(p=>{
+        const val=(p.fields||{})[s.field];
+        if(val==null||val==='') return false;
+        const n=Number(val);
+        return !Number.isNaN(n) && n>=lo && n<=hi;
+      });
+    }else{
+      rows=rows.filter(p=>{
+        const val=(p.fields||{})[s.field];
+        if(!s.fieldValue) return val!=null && val!=='';
+        if(def?.type==='select') return val===s.fieldValue;
+        return String(val||'').toLowerCase().includes(s.fieldValue.toLowerCase());
+      });
+    }
   }
 
   const dir = s.dir==='asc'?1:-1;

@@ -1443,6 +1443,44 @@ try {
     }`);
     return !(await store(`(S)=>S.fieldDefs().some(f=>f.label==='Tier')`));
   });
+  await check('define a number-type custom field and narrow the library with its range-slider filter', async () => {
+    await openSec('settings');
+    await page.click('.card:has-text("Custom fields") button:has-text("Add field")'); await page.waitForTimeout(300);
+    await page.fill('.modal input.input', 'Score');
+    await page.selectOption('.modal select.input', 'number'); await page.waitForTimeout(150);
+    await page.click('.modal button:has-text("Add field")'); await page.waitForTimeout(300);
+    const defined = await store(`(S)=>S.fieldDefs().some(f=>f.label==='Score' && f.type==='number')`);
+    // give two real projects distinct values so the slider has a real range to narrow
+    await store(`(S)=>{
+      const a=S.project('games'); S.put('projects', {...a, fields:{...(a.fields||{}), score:90}}, {silent:true});
+      const b=S.project('relay'); S.put('projects', {...b, fields:{...(b.fields||{}), score:10}}, {silent:true});
+    }`);
+    await openSec('projects');
+    await page.selectOption('.toolbar select.field-filter', 'score'); await page.waitForTimeout(200);
+    const hasSlider = !!(await $('.range-filter-min'));
+    const bothBeforeNarrowing = await page.$eval('.lib-table tbody', (tb) => tb.textContent.includes('Games') && tb.textContent.includes('Relay')).catch(() => false);
+    // drag the min handle past Relay's 10 but not Games' 90
+    await page.$eval('.range-filter-min', (el) => { el.value = '50'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(250);
+    const narrowedCount = await count('.lib-table tbody tr');
+    const onlyGames = await page.$eval('.lib-table tbody', (tb) => tb.textContent.includes('Games') && !tb.textContent.includes('Relay')).catch(() => false);
+    // the reset button clears the filter back to the field's full range
+    await page.click('.range-filter-clear');
+    await page.waitForTimeout(250);
+    const restored = await page.$eval('.lib-table tbody', (tb) => tb.textContent.includes('Games') && tb.textContent.includes('Relay')).catch(() => false);
+    await page.selectOption('.toolbar select.field-filter', ''); await page.waitForTimeout(200);
+    return defined && hasSlider && bothBeforeNarrowing && narrowedCount === 1 && onlyGames && restored;
+  });
+  await check('cleanup: remove the smoke Score field and its values', async () => {
+    await store(`(S)=>{
+      const f=S.fieldDefs().find(x=>x.label==='Score'); if(f) S.removeFieldDef(f.id, {silent:true});
+      ['games','relay'].forEach(id=>{
+        const p=S.project(id);
+        if(p && p.fields && 'score' in p.fields){ const nf={...p.fields}; delete nf.score; S.put('projects', {...p, fields:nf}, {silent:true}); }
+      });
+    }`);
+    return !(await store(`(S)=>S.fieldDefs().some(f=>f.label==='Score')`));
+  });
   await check('"Promote to field" turns a legacy free-form value into a typed field, prefilled and carrying the value over', async () => {
     await store(`(S)=>{ const g=S.project('games'); S.put('projects', {...g, fields:{...(g.fields||{}), smoke_docs_link:'https://example.com/docs'}}, {silent:true}); }`);
     await page.evaluate(() => { location.hash = 'project/games'; });

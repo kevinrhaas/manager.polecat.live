@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 44,
+    title: 'Number-field filters get a real range slider',
+    kind: 'feature',
+    ts: '2026-07-04T10:46:15.514Z',
+    items: [
+      'Filtering the library by a Number-type custom field (a score, a headcount, a budget) used to only do text "contains" matching — no way to ask for "between X and Y".',
+      'It now shows a dual-handle range slider bounded to the real min/max already in use across the fleet, with a live readout and a one-click reset.',
+      'Select-type fields still get their exact-match dropdown, and every other type still filters by "contains" — only Number changed.',
+      'Saved views now remember a dialed-in range too, so a pinned filter like "budget over $500" reapplies exactly.',
+    ],
+  },
+  {
     v: 43,
     title: "The landing page stops lying about Manager's own version",
     kind: 'polish',
