@@ -482,6 +482,52 @@ export const Store = new (class {
     const v = data.v ?? ((this.latestRelease(projectId)?.v||0)+1);
     return this.put('releases', { projectId, v, title:'', kind:'feature', items:[], ts:new Date().toISOString(), ...data, v }, { label:'Add release', ...opts });
   }
+
+  // ---- milestones + recommended release point ---------------------------
+  // Mark/unmark a release as a milestone — a deliberate "this is a real
+  // release point" marker (optionally labelled, e.g. "1.0", "Public beta").
+  setMilestone(releaseId, on, label=''){
+    const r=this.get('releases', releaseId); if(!r) return;
+    return this.put('releases', { ...r, milestone:!!on, milestoneLabel:on?(label||r.milestoneLabel||''):'' }, { label:on?'Mark milestone':'Unmark milestone' });
+  }
+  milestonesFor(projectId){ return this.releasesFor(projectId).filter(r=>r.milestone); }
+  allMilestones(){ return this.all('releases').filter(r=>r.milestone && this.project(r.projectId)); }
+
+  // Recommend the release that reads as the best recent "stable stopping
+  // point": the moment a burst of feature work settled into polish/fixes and
+  // then paused. A pure heuristic over (kind, version, ts) — no network, no
+  // stored state. Returns { release, score(0..10), reasons[] } or null when a
+  // project is still mid-churn or too new to call one.
+  recommendedMilestone(projectId){
+    const rel = this.releasesFor(projectId);                 // newest-first
+    if(rel.length < 2) return null;
+    const asc = rel.slice().sort((a,b)=>(a.v||0)-(b.v||0));   // oldest-first
+    const now = Date.now();
+    const isFeat = r => (r.kind||'feature')==='feature';
+    let best=null;
+    asc.forEach((r,i)=>{
+      const next = asc[i+1];
+      const gapDays = ((next? +new Date(next.ts) : now) - +new Date(r.ts))/86400000;
+      let tail=0; for(let j=i; j>=0 && !isFeat(asc[j]); j--) tail++;          // polish/fix run ending here
+      let feats=0; for(let j=i-tail; j>=0 && isFeat(asc[j]); j--) feats++;     // feature run before that tail
+      const ageDays = (now - +new Date(r.ts))/86400000;
+      const round = (r.v%10===0)?2 : (r.v%5===0)?1 : 0;
+      const recency = Math.max(0, 1 - ageDays/180);
+      const gapScore = Math.min(Math.max(gapDays,0), 30)/30;
+      // a candidate needs SOME "it settled / paused / round" signal — a project
+      // that just ships features non-stop has no natural stopping point yet.
+      const candidate = tail>=1 || gapDays>=5 || round>0;
+      const score = gapScore*3 + Math.min(tail,4)*1.5 + Math.min(feats,6)*0.9 + round*1.2 + recency*3;
+      const reasons=[];
+      if(feats>=2) reasons.push(`${feats} features shipped, then ${tail||'no'} polish/fix release${tail===1?'':'s'}`);
+      else if(tail>=2) reasons.push(`${tail} polish/fix releases with no new features`);
+      if(gapDays>=5) reasons.push(`${Math.round(gapDays)} quiet day${Math.round(gapDays)===1?'':'s'} ${next?'before the next release':'since'}`);
+      if(round) reasons.push(`round version v${r.v}`);
+      if(candidate && (!best || score>best.score)) best={ release:r, score, reasons, ageDays };
+    });
+    if(!best || best.score < 4.5 || best.ageDays > 120) return null;   // notable + still relevant
+    return { release:best.release, score:Math.min(10, Math.round(best.score*10)/10), reasons:best.reasons.slice(0,3) };
+  }
   // Reconcile a project's releases with a fetched/pasted changelog: add rows
   // for versions we don't have, overwrite rows for versions whose content
   // changed. Silent (no undo entry per row) — nothing is written until the

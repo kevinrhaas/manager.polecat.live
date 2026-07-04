@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 54,
+    title: 'Milestones + a recommended “stable release point”',
+    kind: 'feature',
+    ts: '2026-07-04T19:21:10.000Z',
+    items: [
+      'Every project page now surfaces a Recommended release point — Manager reads the shape of the release history (a burst of features, then a stabilizing tail of polish/fixes, a quiet pause, a round version, how recent it is) and nominates the version that looks most like a complete, stable milestone, with a 0–10 confidence and the reasons why.',
+      'You can mark any release as a major milestone (with an optional label like “1.0” or “Public launch”) from the 🚩 button; marked milestones get a badge everywhere the release shows.',
+      'The fleet-wide Releases feed gained a Milestones filter to see just those stable points across every project.',
+      'It’s all advisory — the heuristic suggests, you decide what actually gets the flag.',
+    ],
+  },
+  {
     v: 53,
     title: 'Sweep: Docs cover health scoring, weighting & notifications; landing page catches up on its own version',
     kind: 'polish',

@@ -660,6 +660,50 @@ try {
     await store(`(S)=>{const r=S.releasesFor('relay').find(x=>x.title==='Smoke release'); if(r) S.remove('releases', r.id, {silent:true});}`);
     return after === before + 1;
   });
+  await check('milestones: flag toggles a release, badge renders, and the store persists it', async () => {
+    // flag the newest timeline release, verify badge + store, then unflag
+    await page.evaluate(() => { location.hash = 'project/relay'; });
+    await page.waitForTimeout(400);
+    const rid = await store(`(S)=>S.releasesFor('relay')[0].id`);
+    const before = await store(`(S)=>!!S.releasesFor('relay')[0].milestone`);
+    await page.click('.timeline .tl-item .tl-actions button[aria-label*="milestone" i]'); await page.waitForTimeout(300);
+    // the flag modal appears when marking (not when unmarking); mark path
+    const modal = await page.$('.modal button:has-text("Mark milestone")');
+    if (modal) { await modal.click(); await page.waitForTimeout(400); }
+    const marked = await store(`(S)=>!!S.get('releases','${rid}').milestone`);
+    const badge = (await count('.timeline .tl-item.is-milestone .ms-badge')) >= 1;
+    // clean up: unmark
+    await store(`(S)=>S.setMilestone('${rid}', false)`);
+    return before === false && marked === true && badge;
+  });
+  await check('milestones: recommendedMilestone heuristic returns a scored suggestion or null (never throws)', async () => {
+    const rec = await store(`(S)=>{
+      // synth a project with a feature burst → stabilizing tail → pause
+      const pid='smoke-ms-proj';
+      S.put('projects',{id:pid,name:'Smoke MS',status:'active'},{silent:true});
+      const day=86400000, base=Date.now()-40*day;
+      const mk=(v,kind,d)=>S.put('releases',{id:pid+'-r'+v,projectId:pid,v,kind,title:'r'+v,ts:new Date(base+d*day).toISOString()},{silent:true});
+      mk(1,'feature',0); mk(2,'feature',1); mk(3,'feature',2); mk(4,'polish',3); mk(5,'fix',4);
+      const r=S.recommendedMilestone(pid);
+      S.remove('projects',pid,{silent:true});
+      return r && { v:r.release.v, score:r.score, reasons:r.reasons.length };
+    }`);
+    // v5 (or the stabilizing tail) should be picked, with a score and reasons
+    return rec && typeof rec.score === 'number' && rec.score > 0 && rec.reasons >= 1;
+  });
+  await check('releases feed has a "Milestones" filter that narrows to marked releases', async () => {
+    await store(`(S)=>{const r=S.releasesFor('relay')[0]; S.setMilestone(r.id, true, 'Smoke milestone');}`);
+    await openSec('releases');
+    await page.waitForTimeout(200);
+    const badgeInFeed = (await count('.rel-card .ms-badge')) >= 1;
+    await page.click('.filter-chip.ms-chip'); await page.waitForTimeout(250);
+    const allMilestones = await page.$$eval('.rel-card', (cards) => cards.length > 0 && cards.every((c) => c.classList.contains('is-milestone')));
+    await page.click('.filter-chip.ms-chip'); await page.waitForTimeout(150);   // clear filter
+    await store(`(S)=>{const r=S.releasesFor('relay').find(x=>x.milestone); if(r) S.setMilestone(r.id, false);}`);
+    return badgeInFeed && allMilestones;
+  });
+  await page.evaluate(() => { location.hash = 'project/relay'; });
+  await page.waitForTimeout(400);
   await check('project notes: autosaves on pause, keeps a revision history, and renders Markdown in Preview', async () => {
     await page.fill('.notes-editor', 'Notes draft one');
     await page.waitForTimeout(1150);

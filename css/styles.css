@@ -741,6 +741,36 @@ a.link:hover{text-decoration:underline}
   padding:14px 16px;display:flex;gap:12px;align-items:flex-start;font-size:13px}
 .callout svg{width:18px;height:18px;color:var(--brand-b);flex:0 0 auto;margin-top:1px}
 
+/* ---- milestones + recommended release point -------------------------- */
+:root{--ms:#f2b93b}
+.ms-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:650;
+  padding:2px 8px;border-radius:999px;white-space:nowrap;
+  color:var(--ms);border:1px solid color-mix(in srgb,var(--ms) 45%,transparent);
+  background:color-mix(in srgb,var(--ms) 14%,transparent)}
+.ms-badge svg{width:11px;height:11px}
+.filter-chip.ms-chip svg{width:12px;height:12px;vertical-align:-1px;margin-right:2px}
+.filter-chip.ms-chip.on{background:linear-gradient(180deg,color-mix(in srgb,var(--ms) 95%,#fff),var(--ms));color:#241a02}
+.tl-item.is-milestone::before{border-color:var(--ms);background:color-mix(in srgb,var(--ms) 40%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--ms) 20%,transparent)}
+.rel-card.is-milestone{border-left:3px solid var(--ms);padding-left:13px}
+.tl-actions .btn.icon.active{color:var(--ms)}
+.tl-actions .btn.icon.active svg{fill:color-mix(in srgb,var(--ms) 25%,transparent)}
+/* the recommendation callout is a stacked card, not the default flex-row callout */
+.callout.rec-milestone{flex-direction:column;gap:10px;align-items:stretch;
+  border-color:color-mix(in srgb,var(--ms) 38%,var(--border));
+  background:color-mix(in srgb,var(--ms) 8%,transparent);margin-bottom:16px}
+.rec-milestone .rec-head{display:flex;gap:12px;align-items:flex-start}
+.rec-milestone .rec-ic{flex:0 0 auto;margin-top:1px}
+.rec-milestone .rec-ic svg{width:22px;height:22px;color:var(--ms)}
+.rec-milestone .rec-lead{min-width:0}
+.rec-milestone .rec-title{font-weight:680;font-size:13.5px;display:flex;align-items:center;gap:8px}
+.rec-milestone .rec-score{font-family:var(--mono);font-size:11px;font-weight:700;color:#241a02;
+  background:var(--ms);border-radius:6px;padding:1px 7px}
+.rec-milestone .rec-sub{font-size:13px;color:var(--text-2);margin-top:3px;overflow-wrap:anywhere}
+.rec-milestone .rec-why{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
+.rec-milestone .rec-why li{font-size:12.5px;color:var(--text-2);line-height:1.45}
+.rec-milestone .rec-foot{display:flex;gap:8px;flex-wrap:wrap}
+.rec-detail{margin:10px 0 4px}
+
 /* ---- what's new (slide-in sheet) -------------------------------------- */
 .sheet-overlay{position:fixed;inset:0;z-index:1300;background:rgba(4,5,10,.5);
   backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.24s;

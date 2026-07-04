@@ -178,6 +178,18 @@ with new, ambitious, fun ideas.
       toast. Low priority: those tables don't cascade anything and are edited
       far less often than projects, so the "oops, a few actions later" gap
       the tray closes for projects is much rarer for them.
+- [ ] Now that milestones + a recommended "stable release point" exist (see
+      Done, 2026-07-04), the next natural steps: (a) a fleet-wide **Milestones**
+      view/row on the dashboard or Releases feed that lists just the marked
+      stable points across every project, as a "here's where each thing last
+      settled" board; (b) fold milestone-density into the health score or the
+      "needs attention" heuristic (a project that shipped a burst then a
+      stabilizing tail but was never milestone-marked could nudge a gentle
+      "want to mark v_N_?"); (c) let the recommendation look back further than
+      the 120-day relevance window when a project is dormant, so an archived
+      project still shows its last real release point. Hold until the current
+      single-project callout has been exercised for a few cadences — don't
+      over-build the heuristic before real release histories stress it.
 - [ ] Now that bulk "remove tag" exists (see Done, 2026-07-04) alongside bulk
       "add tag", the two prompts share almost no code — Add tag is a bare
       text input (any spelling is valid, it's creating a tag), Remove tag is
@@ -323,6 +335,24 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Milestones + a recommended "stable release point"** _(2026-07-04)_:
+      answering "when/which release is a good, complete stopping point?" —
+      raised directly by the user. Two halves. (1) **Recommendation**:
+      `Store.recommendedMilestone(projectId)` scores each release over the
+      shape of the history — a run of shipped features, then a stabilizing
+      tail of polish/fix releases, a quiet pause before the next change, a
+      round version number, and recency — gated by a "candidate" signal so a
+      project that just ships features non-stop gets *no* false milestone, and
+      capped at a 120-day relevance window. Returns `{release, score(0..10),
+      reasons[]}` or null. The project page renders it as a "Recommended
+      release point" callout above the what's-new timeline, with a confidence
+      chip, the reasons, a "Why this one?" explainer, and a one-click "Mark as
+      milestone". (2) **Marking**: `Store.setMilestone(releaseId, on, label)`
+      flags any release (optional label like "1.0" / "Public launch"); a 🚩
+      button on every timeline row toggles it, marked releases carry an
+      `.ms-badge` everywhere they show (project timeline + fleet Releases
+      feed), and the Releases feed gained a **Milestones** filter chip. Pure
+      heuristic over `(kind, v, ts)` — no network, no stored derivation.
 - [x] **Sweep: Docs cover health scoring, weighting & notifications; landing
       page catches up on its own version** _(2026-07-04)_: a design & feature
       sweep across the app and the public site, following the "keep it lean,

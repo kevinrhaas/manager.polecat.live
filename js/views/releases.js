@@ -6,7 +6,7 @@ import { el, escapeHtml, fmtCT, avatarColor, toast, modal } from '../ui.js';
 import { icon } from '../icons.js';
 
 const VIEW_KEY = 'manager.releases.view';
-const DEFAULT = { q:'', project:'all', range:'all', kind:'all', group:'day', density:'full' };
+const DEFAULT = { q:'', project:'all', range:'all', kind:'all', group:'day', density:'full', milestones:false };
 function state(){ try{ return { ...DEFAULT, ...(JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')) }; }catch{ return { ...DEFAULT }; } }
 function save(s){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify(s)); }catch{} }
 
@@ -272,6 +272,10 @@ export function renderReleases(root, ctx){
       onclick:()=>{ const ns={...state(),kind:k}; save(ns); rerender(); }});
     kinds.append(c);
   });
+  const msChip=el('button',{class:'filter-chip ms-chip'+(s.milestones?' on':''), html:`${icon('flag')} Milestones`,
+    title:'Show only releases marked as major milestones',
+    onclick:()=>{ const ns={...state(),milestones:!state().milestones}; save(ns); rerender(); }});
+  kinds.append(msChip);
   const groupLabel=(g)=>g==='project'?'By project':'By day';
   const groupIcon=(g)=>g==='project'?'layers':'calendar';
   const groupBtn=el('button',{class:'btn sm', title:'Toggle how the feed is grouped',
@@ -317,6 +321,7 @@ export function renderReleases(root, ctx){
     const rows=all.filter(x=>{
       if(cur.project!=='all' && x.p.id!==cur.project) return false;
       if(cur.kind!=='all' && (x.r.kind||'feature')!==cur.kind) return false;
+      if(cur.milestones && !x.r.milestone) return false;
       if(days!==Infinity && !within(x, days)) return false;
       if(q && !(x.r.title.toLowerCase().includes(q) || (x.r.items||[]).some(i=>i.toLowerCase().includes(q)) || x.p.name.toLowerCase().includes(q))) return false;
       return true;
@@ -405,7 +410,7 @@ export function renderReleases(root, ctx){
 function relCard(x, ctx, sinceTs){
   const { r, p } = x;
   const isNew = sinceTs!=null && +new Date(r.ts) > sinceTs;
-  const card=el('div',{class:'rel-card'+(isNew?' is-new':''), tabindex:'0', role:'button', 'data-day':ctDayKey(r.ts), 'aria-label':`${p.name} v${r.v}: ${r.title}${isNew?' — new since your last visit':''}`,
+  const card=el('div',{class:'rel-card'+(isNew?' is-new':'')+(r.milestone?' is-milestone':''), tabindex:'0', role:'button', 'data-day':ctDayKey(r.ts), 'aria-label':`${p.name} v${r.v}: ${r.title}${r.milestone?' — milestone':''}${isNew?' — new since your last visit':''}`,
     onclick:()=>ctx.go('project',{id:p.id}),
     onkeydown:(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); ctx.go('project',{id:p.id}); } }});
   const av=el('span',{class:'rc-av', style:`background:${avatarColor(p.id)}`, html:icon(p.icon||'grid')});
@@ -414,6 +419,7 @@ function relCard(x, ctx, sinceTs){
       ${isNew ? `<span class="tag sync-new">new</span>` : ''}
       <span class="rc-proj">${escapeHtml(p.name)}</span>
       <span class="vchip mono">v${r.v}</span>
+      ${r.milestone ? `<span class="ms-badge" title="${escapeHtml(r.milestoneLabel||'Marked milestone')}">${icon('flag')} ${escapeHtml(r.milestoneLabel||'Milestone')}</span>` : ''}
       ${r.kind && r.kind!=='feature' ? `<span class="wn-kind">${escapeHtml(r.kind)}</span>` : ''}
       ${r.source==='sync' ? `<span class="tag" title="Synced from ${escapeHtml(r.sourceUrl||'')}">synced</span>` : ''}
       <span class="rc-when" title="${escapeHtml(fmtCT(r.ts))}">${escapeHtml(timeCT(r.ts))}</span>
