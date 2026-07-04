@@ -23,6 +23,24 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [ ] Now that Manager's own landing-page version copy self-corrects from
+      `js/changelog.js` (see Done, 2026-07-04), the other five fleet chips on
+      the same page (Relay, Games, Polecat, Polecat App, Solution Eng.) are
+      still hand-typed strings that will drift the same way Manager's did —
+      left alone deliberately, since "keep the seed honest" means those
+      numbers can only be updated from real verified evidence about someone
+      else's repo, not synced automatically the way Manager's self-knowledge
+      can be. Worth a lightweight periodic "does this still match reality"
+      prompt (or a comment marker with the date last verified) if the fleet
+      grows enough that a chip going stale for months becomes likely to slip
+      past notice.
+- [ ] The public landing page has no equivalent of the in-app "what's new"
+      panel's full history — the hero banner (see Done, 2026-07-04) only ever
+      shows the single latest entry. A fun, low-risk idea for a future sweep:
+      a small "recent activity" ticker under the hero (last 3-5 entries,
+      auto-rotating or a tiny scrollable strip) using the same
+      `js/changelog.js` import, so a first-time visitor gets a feel for the
+      hourly cadence before ever unlocking the app.
 - [ ] The new "Recently deleted" tray (see Done, 2026-07-04) only reaches as
       far back as the 40-op undo history (`HIST_MAX` in `store.js`) — a
       project deleted long enough ago to have aged out of that stack has no
@@ -191,6 +209,54 @@ with new, ambitious, fun ideas.
       row that's still actually flagged.
 
 ## Done
+
+- [x] **Sweep: the public landing page stops lying about Manager's own
+      version** _(2026-07-04)_: the app-side version of this exact bug (the
+      dashboard tile eternally reading "v1") was fixed earlier this cadence
+      by wiring the `manager` project's releases to the real imported
+      `CHANGELOG` — but the *public* landing page (`index.html`) never got
+      the same treatment, because it's plain static HTML with no Store and
+      no build step to inject a value at deploy time. Its hero "what's new"
+      banner still read "v1 Mission Control is live" and the fleet showcase's
+      Manager card still said "Building · v1", even though the real app was
+      on v42 and long since live — both hand-typed once at initial build and
+      never revisited since nothing forced a revisit. Fixed the same way the
+      app-side bug was fixed: reuse the existing source of truth instead of
+      hand-editing a number that will just go stale again. A new
+      `<script type="module">` at the bottom of `index.html` imports the
+      already-deployed `js/changelog.js` (a pure data export, safe to import
+      from a page with no Store) and overwrites both spots with the real
+      latest version and title on every page load — `#whats-new` and
+      `#fleet-manager-status` are the two elements it targets by id. The
+      baked-in static text is now also correct as of this run (a correct
+      fallback if JS is ever disabled) but the point is it can't silently
+      drift again: next run's changelog entry updates the landing page for
+      free, no manual edit required. Along the way, also tightened
+      `js/views/docs.js`'s hand-copied paraphrase of the "Active" status
+      description, which had drifted slightly from `store.js`'s canonical
+      wording (`STATUS_META.active.desc`) into a slightly ungrammatical
+      shorthand. Writing this run's own changelog entry surfaced a genuine,
+      previously-latent bug in `js/ingest.js`'s safe-parse sync path: its
+      "requote every string to JSON" step used two independent blind regexes
+      (strip comments, then convert `'…'` spans to `"…"`) with no idea what
+      either had already done — so a double-quoted title containing an
+      apostrophe (`"Manager's own version"`, exactly this run's own entry)
+      made the *later* regex treat that lone apostrophe as the start of a
+      new single-quoted span and corrupt every field after it in that
+      object. This wasn't a one-off typo to word around — every project's
+      changelog is parsed through this exact function on every sync, and any
+      real project could publish an entry with the same ordinary quoting
+      choice. Replaced it with a single left-to-right pass that tracks
+      whether it's inside a string (mirroring the existing
+      `extractArrayLiteral`'s approach) so comment-stripping, bare-key
+      quoting, and string requoting can never misfire on each other's
+      output — verified against all 42 pre-existing changelog entries
+      (byte-identical output to the old parser) plus the exact bug case and
+      several other quoting edge cases before landing. New smoke checks
+      confirm the landing page's banner and fleet-card text always match
+      `CHANGELOG[0]`'s real version and title (not a frozen string), and
+      that `parseChangelogSource` correctly handles a double-quoted string
+      with an apostrophe.
 
 - [x] **"Recently deleted" tray for projects** _(2026-07-04)_: a bulk or
       single project delete has always been one click to Undo — but only the

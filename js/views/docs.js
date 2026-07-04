@@ -33,7 +33,7 @@ const SECTIONS = [
     <p>Click any row to open the project. Click <b>Add project</b> (or the ✎ on a row) to edit. Every project supports:</p>
     <ul>
       <li>Name, repository (<code>owner/name</code>), live site, and the Claude Code session URL.</li>
-      <li><b>Status</b> — <b>Live</b> (deployed &amp; in use), <b>Active</b> (worked on but not one deployed site), <b>Building</b> (toward launch), <b>Paused</b>, <b>Idea</b>, or <b>Archived</b>. Hover any status pill to see the difference. By default Manager <b>keeps status current from sync</b>: shipped recently → Live/Active, gone quiet for months → Paused. It never overrides <b>Archived</b> or a project you <b>Lock</b> (its health panel) — but an <b>Idea</b> does promote once it has real releases. Turn the whole behavior off in Settings → Status automation.</li>
+      <li><b>Status</b> — <b>Live</b> (deployed &amp; in use), <b>Active</b> (actively worked on, but not a single deployed site), <b>Building</b> (toward launch), <b>Paused</b>, <b>Idea</b>, or <b>Archived</b>. Hover any status pill to see the difference. By default Manager <b>keeps status current from sync</b>: shipped recently → Live/Active, gone quiet for months → Paused. It never overrides <b>Archived</b> or a project you <b>Lock</b> (its health panel) — but an <b>Idea</b> does promote once it has real releases. Turn the whole behavior off in Settings → Status automation.</li>
       <li>Cadence, tags, an assessment, and an icon.</li>
       <li><b>Custom fields</b> — track anything (model, owner, budget…). They show on the project page.</li>
     </ul>

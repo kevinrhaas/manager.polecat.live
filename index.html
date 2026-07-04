@@ -55,7 +55,7 @@
         <span class="eyebrow"><span class="dot"></span> Self-improving · Serverless · Invite-only</span>
         <h1>Mission control for projects that <span class="g">build themselves</span>.</h1>
         <p class="lead">Manager is the console that sits on top of your fleet of Claude Code projects — each one improving itself on a loop. Watch every project's status, latest version, and what's-new in one place, and jump straight to the session driving the work.</p>
-        <a class="whats-new" href="/app/">✦ New — v1 Mission Control is live</a>
+        <a class="whats-new" id="whats-new" href="/app/">✦ New — v43 The landing page stops lying about Manager's own version</a>
         <div class="hero-cta">
           <a class="btn primary lg" href="/app/">Launch Manager <svg width="18" height="18" viewBox="0 0 24 24"><use href="#i-arrow"/></svg></a>
           <a class="btn lg ghost" href="#how">See how it works</a>
@@ -140,7 +140,7 @@
           <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#34d399,#22d3ee)"><svg viewBox="0 0 24 24"><use href="#i-compass"/></svg></span><div><b>Polecat</b><div class="st">● Live</div></div></div><p>Ask once, hear from everyone — multi-model consensus answers.</p></div>
           <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#38bdf8,#0369a1)"><svg viewBox="0 0 24 24"><use href="#i-bolt"/></svg></span><div><b>Polecat App</b><div class="st">● Live</div></div></div><p>The product itself: every model, one synthesized answer.</p></div>
           <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#818cf8,#4f46e5)"><svg viewBox="0 0 24 24"><use href="#i-layers"/></svg></span><div><b>Solution Eng.</b><div class="st">● Active</div></div></div><p>A mixed workspace of analytics, AI experiments, and automation.</p></div>
-          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#a3e635,#65a30d)"><svg viewBox="0 0 24 24"><use href="#i-gauge"/></svg></span><div><b>Manager</b><div class="st">● Building · v1</div></div></div><p>This console — mission control for the whole fleet, improving hourly.</p></div>
+          <div class="fchip reveal"><div class="top"><span class="av" style="background:linear-gradient(135deg,#a3e635,#65a30d)"><svg viewBox="0 0 24 24"><use href="#i-gauge"/></svg></span><div><b>Manager</b><div class="st" id="fleet-manager-status">● Live · v43</div></div></div><p>This console — mission control for the whole fleet, improving hourly.</p></div>
         </div>
       </div>
     </section>
@@ -191,6 +191,21 @@
       const io=new IntersectionObserver((es)=>{ for(const e of es){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } } },{threshold:.12,rootMargin:'0px 0px -40px 0px'});
       reveals.forEach(el=>io.observe(el));
     } else reveals.forEach(el=>el.classList.add('in'));
+  </script>
+
+  <!-- Keeps the "what's new" banner and the fleet card's version number honest
+       without hand-editing this file every run: both read straight from the
+       same js/changelog.js the in-app What's-new panel is built from, so
+       Manager's own landing-page copy can't go stale the way it did up to v42. -->
+  <script type="module">
+    import { CHANGELOG } from '/js/changelog.js';
+    const latest = CHANGELOG[0];
+    if (latest) {
+      const whatsNew = document.getElementById('whats-new');
+      if (whatsNew) whatsNew.textContent = `✦ New — v${latest.v} ${latest.title}`;
+      const status = document.getElementById('fleet-manager-status');
+      if (status) status.textContent = `● Live · v${latest.v}`;
+    }
   </script>
 </body>
 </html>

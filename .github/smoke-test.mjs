@@ -62,6 +62,13 @@ try {
   await check('landing has a Launch link to /app/', async () =>
     (await page.$$eval('a', (as) => as.some((a) => /\/app\/?$/.test(a.getAttribute('href') || '')))));
   await check('landing shows the fleet showcase', async () => (await count('#fleet .fchip')) >= 5);
+  await check('landing keeps its own version copy honest (reads live from js/changelog.js, never hand-frozen)', async () => {
+    const latest = await page.evaluate(`import('/js/changelog.js').then(m=>m.CHANGELOG[0])`);
+    const whatsNew = await page.$eval('#whats-new', (el) => el.textContent).catch(() => '');
+    const status = await page.$eval('#fleet-manager-status', (el) => el.textContent).catch(() => '');
+    return whatsNew.includes(`v${latest.v}`) && whatsNew.includes(latest.title)
+      && status.includes(`v${latest.v}`) && /Live/i.test(status);
+  });
 
   // ---------- App shell ----------
   console.log('App shell');
@@ -584,6 +591,20 @@ try {
 
   // ---------- Live changelog sync ----------
   console.log('Changelog sync');
+  await check('parseChangelogSource handles a double-quoted string with an apostrophe (not just single-quoted ones)', async () => {
+    // Regression: the naive quote-requoter used to scan the whole file for
+    // single-quote pairs, so a `"…it's…"` DOUBLE-quoted value anywhere in an
+    // entry made it treat that lone apostrophe as opening a new single-quoted
+    // span and mangle every field after it in that object.
+    const src = `export const CHANGELOG = [
+      { v: 2, title: "Manager's own version stops lying", kind: 'polish', ts: '', items: ["It's fixed", 'Another "quoted" line'] },
+      { v: 1, title: 'earlier release', kind: 'feature', ts: '', items: ['ok'] },
+    ];`;
+    const parsed = await page.evaluate(`import('/js/ingest.js').then(m=>m.parseChangelogSource(${JSON.stringify(src)}))`);
+    return parsed.length === 2 && parsed[0].v === 2 && parsed[0].title === "Manager's own version stops lying"
+      && parsed[0].items[0] === "It's fixed" && parsed[0].items[1] === 'Another "quoted" line'
+      && parsed[1].v === 1 && parsed[1].title === 'earlier release';
+  });
   await check('sync auto-updates status from activity (and Lock protects it)', async () => {
     // a project with a site + a fresh release should land on Live after syncing
     await store(`(S)=>S.updateProject('games',{status:'idea',statusLocked:false,statusAuto:false},{silent:true})`);

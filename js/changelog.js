@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 43,
+    title: "The landing page stops lying about Manager's own version",
+    kind: 'polish',
+    ts: '2026-07-04T10:12:05.567Z',
+    items: [
+      'The public site\'s hero banner and fleet showcase card for Manager were hand-typed once at launch and had been stuck on "v1" ever since, even though the real app had shipped over 40 versions.',
+      'Both now read straight from the same changelog data the in-app "What\'s new" panel uses, so they can never go stale like this again — no manual edit required on future runs.',
+      'Also tightened a small wording drift in the Docs page\'s description of the "Active" project status.',
+      'Along the way, found and fixed a real bug in the safe changelog-sync parser: a double-quoted title containing an apostrophe (like this very entry\'s) could corrupt parsing of every field after it.',
+    ],
+  },
+  {
     v: 42,
     title: '"Recently deleted" tray for projects',
     kind: 'feature',

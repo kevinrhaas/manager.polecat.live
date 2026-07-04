@@ -44,13 +44,42 @@ function extractArrayLiteral(src, varName){
 }
 
 // Best-effort JS-object-literal → strict JSON: strip comments, drop trailing
-// commas, quote bare keys, and requote single-quoted strings.
+// commas, quote bare keys, and requote every string to JSON's `"…"` form.
+// Walks the text once, tracking whether we're inside a string, rather than
+// two independent blind regexes (strip comments, then requote '…') — those
+// had no idea what was already inside a string, so a `"…it's…"` double-quoted
+// value anywhere in the object made the *later* regex treat that lone
+// apostrophe as the start of a new single-quoted span and mangle everything
+// up to the next one it found. Every project publishes its changelog the same
+// way Manager does, so this only needs to run once here to protect every sync.
 function jsLiteralToJSON(lit){
-  let out = lit
-    .replace(/\/\/[^\n]*$/gm, '')
+  let out = '', i = 0;
+  const n = lit.length;
+  const esc = (ch) => ch === '"' ? '\\"' : ch;
+  while(i < n){
+    const c = lit[i];
+    if(c === '/' && lit[i+1] === '/'){ while(i < n && lit[i] !== '\n') i++; continue; }
+    if(c === "'" || c === '"'){
+      const quote = c; i++; let s = '"';
+      while(i < n){
+        const ch = lit[i];
+        if(ch === '\\' && i+1 < n){
+          const next = lit[i+1];
+          if(next === '\\') s += '\\\\';
+          else if('ntrbf'.includes(next)) s += '\\' + next;
+          else s += esc(next);
+          i += 2; continue;
+        }
+        if(ch === quote){ i++; break; }
+        s += esc(ch); i++;
+      }
+      out += s + '"'; continue;
+    }
+    out += c; i++;
+  }
+  out = out
     .replace(/,\s*([}\]])/g, '$1')
-    .replace(/([{,]\s*)([A-Za-z_$][A-Za-z0-9_$]*)\s*:/g, '$1"$2":')
-    .replace(/'((?:\\.|[^'\\])*)'/g, (_, s) => '"' + s.replace(/\\'/g, "'").replace(/"/g, '\\"') + '"');
+    .replace(/([{,]\s*)([A-Za-z_$][A-Za-z0-9_$]*)\s*:/g, '$1"$2":');
   return JSON.parse(out);
 }
 
