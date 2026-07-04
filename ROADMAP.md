@@ -14,19 +14,24 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Give the app-side rail the same keyboard-focus ring treatment as
-      everything else.** The last piece of "Keyboard-first navigation
-      everywhere; focus rings audited": this sweep's landing-page focus rings
-      + skip link (see Done, 2026-07-04) only touched links/buttons (`a`,
-      `.btn`, `.whats-new`). The app-side rail (`.rail-item`, `.rail-brand`,
-      `.rail-toggle` in `js/shell.js`) is already keyboard-reachable via the
-      browser's own default focus outline — never broken — but unlike every
-      button/pill/row elsewhere in the app (`.btn`, `.status`, `.rel-card`,
-      table rows), it was never given the app's own branded `--ring`
-      treatment. Give the rail items the same ring the rest of the app
-      already has.
+- [ ] Pick the next highest-value item from **Next** below — the
+      keyboard-focus-ring audit (rail included, see Done, 2026-07-04) is now
+      complete across the whole app and landing page.
 
 ## Next (discovered / queued)
+
+- [ ] The rail's new focus ring (see Done, 2026-07-04) is a plain
+      `box-shadow` swap on `:focus-visible`, same as every other button in the
+      app — but the *collapsed* rail (`#rail:not(.open)`) squeezes each
+      `.rail-item` down to just its icon with no visible label, so a
+      keyboard user tabbing through a collapsed rail sees a ring around a
+      bare icon with no text nearby confirming which section it is (sighted
+      users get this for free once they open the rail; a screen reader user
+      already gets the real `title`/label via markup, so this is a purely
+      visual gap). Worth a small on-focus tooltip or auto-expand-on-focus if
+      that ambiguity is ever reported as real friction — no evidence yet
+      that it is, since the collapsed rail already carries a `title`
+      attribute that most browsers show on hover/focus.
 
 - [ ] The new fleet-showcase status pulse + staggered entrance (see Done,
       2026-07-04) hardcodes its cascade delays and dot-pulse offsets per
@@ -275,6 +280,28 @@ with new, ambitious, fun ideas.
       row that's still actually flagged.
 
 ## Done
+
+- [x] **The app-side rail gets the same keyboard-focus ring as everything
+      else** _(2026-07-04)_: the last piece of "keyboard-first navigation
+      everywhere; focus rings audited" — the prior sweep's landing-page focus
+      rings + skip link only touched links/buttons (`a`, `.btn`,
+      `.whats-new`); the app's own left rail (`.rail-brand`, `.rail-item`,
+      `.rail-toggle` in `js/shell.js`) was always keyboard-reachable via the
+      browser's bare default outline, but never carried the app's own
+      branded `--ring` treatment every other interactive surface (`.btn`,
+      `.status`, `.rel-card`, table rows) already has. All three rail
+      elements now get a matching `:focus-visible{outline:none;
+      box-shadow:var(--ring)}` rule in `css/styles.css`. The currently-active
+      section's own indicator (`.rail-item.active`'s inset left accent bar)
+      is layered together with the new ring rather than replaced by it —
+      `.rail-item.active:focus-visible` combines both box-shadows into one
+      rule — so tabbing to the section you're already on doesn't make its
+      accent bar disappear. `.rail-brand` also picked up a `border-radius`
+      to match (invisible in its normal transparent-background state, only
+      shaping the new focus ring). One new smoke check drives the real app:
+      tabs to the logo button, the Dashboard rail item, and the
+      collapse/expand toggle in turn, confirming each grows a real
+      `box-shadow` on focus that wasn't there before.
 
 - [x] **Public site: an animated live "fleet" showcase** _(2026-07-04)_: the
       landing page's fleet section (`index.html`) was six static cards with

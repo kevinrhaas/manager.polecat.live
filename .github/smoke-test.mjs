@@ -117,6 +117,17 @@ try {
     await page.waitForTimeout(150);
     return await page.evaluate(() => document.activeElement && document.activeElement.id === 'view');
   });
+  await check('rail nav items show the app\'s own branded keyboard-focus ring (previously only the bare browser default)', async () => {
+    const ringOf = async (sel) => {
+      const before = await page.$eval(sel, (n) => getComputedStyle(n).boxShadow);
+      await page.$eval(sel, (n) => n.focus());
+      await page.waitForTimeout(60);
+      const after = await page.$eval(sel, (n) => getComputedStyle(n).boxShadow);
+      await page.$eval(sel, (n) => n.blur());
+      return after !== 'none' && after !== before;
+    };
+    return (await ringOf('.rail-brand')) && (await ringOf('.rail-item[data-sec="home"]')) && (await ringOf('.rail-toggle'));
+  });
   for (const s of ['home', 'projects', 'releases', 'activity', 'credentials', 'docs', 'settings']) {
     await check(`section "${s}" opens`, async () => { if (!(await openSec(s))) return false; return (await count('#view *')) > 0; });
   }

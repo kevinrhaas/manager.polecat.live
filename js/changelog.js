@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 50,
+    title: 'Nav rail gets the app\'s own branded keyboard-focus ring',
+    kind: 'polish',
+    ts: '2026-07-04T14:52:44.268Z',
+    items: [
+      'Tabbing to the Manager logo, a section item, or the collapse/expand toggle in the left rail now shows the same cyan focus ring every other button, pill, and row in the app already carries — previously the rail was the one place still relying on the bare browser-default outline.',
+      'The currently-active section keeps its usual left accent bar even while focused — the two indicators layer instead of one replacing the other.',
+    ],
+  },
+  {
     v: 49,
     title: 'Public site: the fleet showcase feels alive — status pulse + staggered entrance',
     kind: 'feature',

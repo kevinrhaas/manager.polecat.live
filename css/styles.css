@@ -129,7 +129,9 @@ body{
   display:flex;align-items:center;gap:12px;
   padding:16px 14px 14px;border:0;background:none;cursor:pointer;
   color:var(--text);text-align:left;width:100%;white-space:nowrap;
+  border-radius:var(--radius-sm);
 }
+.rail-brand:focus-visible{outline:none;box-shadow:var(--ring)}
 .rail-brand img{width:32px;height:32px;flex:0 0 auto;
   filter:drop-shadow(0 3px 10px rgba(34,211,238,.4))}
 .rail-brand .bt{display:flex;flex-direction:column;line-height:1.15;
@@ -160,10 +162,12 @@ body{
 .rail-item .lbl{opacity:0;transform:translateX(-6px);transition:.2s;pointer-events:none}
 #rail.open .rail-item .lbl{opacity:1;transform:none}
 .rail-item:hover{background:var(--rail-bg2);color:var(--text)}
+.rail-item:focus-visible{outline:none;box-shadow:var(--ring)}
 .rail-item.active{
   color:var(--text);background:var(--rail-bg2);
   box-shadow:inset 3px 0 0 var(--rail-accent);
 }
+.rail-item.active:focus-visible{box-shadow:inset 3px 0 0 var(--rail-accent),var(--ring)}
 .rail-item.active svg{color:var(--brand-b)}
 .rail-item .badge{
   margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:9px;
@@ -197,6 +201,7 @@ body{
   box-shadow:var(--shadow-sm);transition:transform .22s,background .15s,color .15s;
 }
 .rail-toggle:hover{color:var(--text);background:var(--surface-3)}
+.rail-toggle:focus-visible{outline:none;box-shadow:var(--ring)}
 .rail-toggle svg{width:13px;height:13px;transition:transform .22s}
 #rail.open .rail-toggle svg{transform:rotate(180deg)}
 
