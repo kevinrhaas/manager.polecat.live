@@ -184,6 +184,7 @@ function buildBulkBar(ctx){
   const bar=el('div',{class:'bulkbar'});
   bar.append(el('span',{class:'bulkbar-count', text:`${ids.length} selected`}));
   bar.append(el('button',{class:'btn sm', html:`${icon('tag')} Add tag`, onclick:()=>openBulkTagPrompt(ctx, ids)}));
+  bar.append(el('button',{class:'btn sm', html:`${icon('tag')} Remove tag`, onclick:()=>openBulkRemoveTagPrompt(ctx, ids)}));
   const statusSel=el('select',{class:'input', style:'max-width:160px', 'aria-label':'Set status for selected projects'});
   statusSel.append(el('option',{value:'', text:'Set status…'}));
   Object.entries(STATUSES).forEach(([k,st])=>statusSel.append(el('option',{value:k,text:st.label})));
@@ -224,6 +225,29 @@ function openBulkTagPrompt(ctx, ids){
   input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); add.click(); } });
   const {hide}=modal({ title:'Add tag', icon:'tag', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), add] });
   setTimeout(()=>input.focus(),50);
+}
+
+// Unlike Add tag (a bare text input — any spelling is valid, since it's
+// creating a tag), Remove tag offers only tags that could actually apply to
+// this selection: the union of tags already on the checked projects, not the
+// whole fleet's tag vocabulary. A select (not a datalist) so there's no way
+// to "remove" a typo that never matched anything.
+function openBulkRemoveTagPrompt(ctx, ids){
+  const tags=[...new Set(ids.flatMap(id=>Store.project(id)?.tags||[]))].sort((a,b)=>a.localeCompare(b));
+  if(!tags.length){ toast('None of the selected projects have any tags',{kind:'info'}); return; }
+  const sel=el('select',{class:'input'});
+  tags.forEach(t=>sel.append(el('option',{value:t, text:t})));
+  const body=el('div',{class:'field'});
+  body.append(el('label',{text:`Remove a tag from ${ids.length} project${ids.length===1?'':'s'}`}), sel);
+  const remove=el('button',{class:'btn danger', text:'Remove tag', onclick:()=>{
+    const t=sel.value;
+    hide();
+    selected.clear();
+    const n=Store.bulkRemoveTag(ids, t);
+    toast(n?`Removed "${t}" from ${n===1?'1 project':n+' projects'}`:'Already gone',{kind:n?'ok':'info', action:n?{label:'Undo', fn:()=>Store.undo()}:undefined});
+    ctx.refresh();
+  }});
+  const {hide}=modal({ title:'Remove tag', icon:'tag', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), remove] });
 }
 
 // Bulk delete needs its own explicit confirm — unlike tag/status/archive

@@ -14,23 +14,23 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Bulk "remove tag"** — the library's bulk action bar (checkbox-select
-      rows, then act on all of them at once) has `Store.bulkAddTag()` but no
-      opposite: removing a tag that was applied too broadly, or retiring one
-      across the fleet, means unchecking it project-by-project in the editor.
-      Add a `Store.bulkRemoveTag(ids, tag)` mirroring `bulkAddTag()`'s shape
-      exactly — same `bulkUpdate()` grouped-undo plumbing, same "skip a row
-      that doesn't have the tag" no-op rule (so undo never "reverts" a
-      project that was never touched) — and a "Remove tag" button in the bulk
-      bar next to "Add tag", prompting for which tag the same way. Since a
-      user won't remember every tag spelling by hand, make the prompt a
-      datalist/select sourced from the union of tags already on the checked
-      projects (not the whole fleet's tags — only ones that could actually
-      apply to this selection) rather than a bare text input. One undo step
-      for the whole batch, exactly like every other bulk action.
+- [ ] **"Promote to field" on a legacy free-form custom-field value** — one
+      click turns an untyped key entered before the schema existed into a
+      proper typed field definition, prefilled from that value. (Promoted
+      from Next — the schema/editor plumbing it needs has been stable for
+      several cadences now with no blockers surfaced.)
 
 ## Next (discovered / queued)
 
+- [ ] Now that bulk "remove tag" exists (see Done, 2026-07-04) alongside bulk
+      "add tag", the two prompts share almost no code — Add tag is a bare
+      text input (any spelling is valid, it's creating a tag), Remove tag is
+      a `<select>` scoped to the checked projects' existing tags (nothing to
+      mistype since it's only ever removing what's already there). Worth
+      revisiting only if a third tag-shaped bulk action shows up and the
+      duplication actually starts to hurt — today the two modals are ~15
+      lines apiece and reads as clearer kept separate than forced through one
+      shared "tag modal" with a mode flag.
 - [ ] Now that per-project notes exist (see Done, 2026-07-04), the merge-review
       diff for an updated `projects` row would show a raw `notesHistory` array
       as `JSON.stringify(...)` (truncated to 70 chars) same as any other
@@ -167,9 +167,6 @@ with new, ambitious, fun ideas.
       view too (e.g. "everything mentioning 'webrtc'"); left out deliberately
       for now since search reads as transient, matching the built-in chips'
       same choice not to touch it.
-- [ ] "Promote to field" on a legacy free-form custom-field value — one click
-      turns an untyped key entered before the schema existed into a proper
-      typed field definition, prefilled from that value.
 - [ ] Number-type custom fields as filter range sliders (min/max) in the
       library, to match the exact-match/contains filtering select/text fields
       already get.
@@ -183,6 +180,27 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Bulk "remove tag" in the projects library** _(2026-07-04)_: the bulk
+      action bar's `Store.bulkAddTag()` had no opposite — removing a tag that
+      was applied too broadly, or retiring one across the fleet, meant
+      unchecking it project-by-project in the editor. A new
+      `Store.bulkRemoveTag(ids, tag)` mirrors `bulkAddTag()`'s shape exactly:
+      same `bulkUpdate()` grouped-undo plumbing, same "skip a row that
+      doesn't have the tag" no-op rule so undo never "reverts" a project that
+      was never touched. A "Remove tag" button now sits next to "Add tag" in
+      the bulk bar; unlike Add tag's bare text input (any spelling is valid —
+      it's creating a tag), Remove tag opens a `<select>` built from the
+      union of tags already on the *checked* projects only (not the whole
+      fleet's tag vocabulary), so there's nothing to mistype and nothing
+      offered that couldn't actually apply to this selection. Selecting a
+      batch with no tags at all shows an info toast instead of a modal with
+      an empty picker. One undo step for the whole batch, exactly like every
+      other bulk action. Docs updated. A new smoke check drives the real UI
+      end to end: tags two projects (plus an unrelated tag on a third,
+      unselected project, to prove the picker only offers what's applicable),
+      removes it via the bulk bar, confirms both are untagged and the third
+      project's unrelated tag is untouched, then Undoes and confirms the
+      whole batch comes back together.
 - [x] **Per-project "notes" markdown scratchpad with autosave + history**
       _(2026-07-04)_: every project page had structured fields (status,
       version, health) but nowhere to jot free-form working context ("why

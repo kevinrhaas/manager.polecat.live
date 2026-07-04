@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 39,
+    title: 'Bulk "remove tag" in the projects library',
+    kind: 'feature',
+    ts: '2026-07-04T05:05:49.930Z',
+    items: [
+      'The library\'s bulk action bar (check rows, act on all of them at once) could add a tag across a whole selection but never remove one — now "Remove tag" sits right next to "Add tag".',
+      'The picker only lists tags actually present on the checked projects, not the whole fleet\'s tag vocabulary, so there\'s nothing to mistype.',
+      'One Undo reverts the whole batch, exactly like every other bulk action; a project that never had the tag is left untouched.',
+    ],
+  },
+  {
     v: 38,
     title: 'Per-project notes, with autosave and a revision history',
     kind: 'feature',

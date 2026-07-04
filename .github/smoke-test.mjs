@@ -335,6 +335,34 @@ try {
     const undone = JSON.stringify(after.games) === JSON.stringify(before.games) && JSON.stringify(after.polecat) === JSON.stringify(before.polecat);
     return tagged && undone;
   });
+  await check('bulk "Remove tag" removes a tag from every checked project that has it, offers only tags applicable to the current selection, and Undo reverts the whole batch together', async () => {
+    await openSec('projects');
+    await store(`(S)=>{
+      const g=S.project('games'); S.updateProject('games', { tags:[...(g.tags||[]), 'smoke-remove-tag'] }, { silent:true });
+      const p=S.project('polecat'); S.updateProject('polecat', { tags:[...(p.tags||[]), 'smoke-remove-tag'] }, { silent:true });
+      const r=S.project('relay'); S.updateProject('relay', { tags:[...(r.tags||[]), 'smoke-relay-only'] }, { silent:true });
+    }`);
+    await page.waitForTimeout(200);
+    const before = await store(`(S)=>({games:[...(S.project('games').tags||[])], polecat:[...(S.project('polecat').tags||[])]})`);
+    await page.click('input.lib-sel[data-pid="games"]');
+    await page.click('input.lib-sel[data-pid="polecat"]');
+    await page.waitForTimeout(150);
+    await page.click('.bulkbar button:has-text("Remove tag")');
+    await page.waitForTimeout(300);
+    const options = await page.$$eval('.modal select.input option', (os) => os.map((o) => o.value));
+    const onlyApplicable = options.includes('smoke-remove-tag') && !options.includes('smoke-relay-only');
+    await page.selectOption('.modal select.input', 'smoke-remove-tag');
+    await page.click('.modal button:has-text("Remove tag")');
+    await page.waitForTimeout(400);
+    const removed = await store(`(S)=>!(S.project('games').tags||[]).includes('smoke-remove-tag') && !(S.project('polecat').tags||[]).includes('smoke-remove-tag')`);
+    await page.keyboard.down('Control'); await page.keyboard.press('KeyZ'); await page.keyboard.up('Control');
+    await page.waitForTimeout(350);
+    const after = await store(`(S)=>({games:[...(S.project('games').tags||[])], polecat:[...(S.project('polecat').tags||[])]})`);
+    const undone = JSON.stringify(after.games) === JSON.stringify(before.games) && JSON.stringify(after.polecat) === JSON.stringify(before.polecat);
+    // clean up the relay-only marker tag regardless of outcome
+    await store(`(S)=>{ const r=S.project('relay'); S.updateProject('relay', { tags:(r.tags||[]).filter(t=>t!=='smoke-relay-only') }, { silent:true }); }`);
+    return onlyApplicable && removed && undone;
+  });
   await check('bulk "Set status" changes every checked project, leaves an unselected one untouched, and Undo reverts the whole batch together', async () => {
     await openSec('projects');
     const beforeGames = await store(`(S)=>S.project('games').status`);

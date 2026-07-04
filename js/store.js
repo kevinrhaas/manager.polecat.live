@@ -321,6 +321,17 @@ export const Store = new (class {
       return tags.includes(t) ? null : { ...p, tags:[...tags, t] };
     }, { label:`Add tag "${t}"` });
   }
+  // Mirrors bulkAddTag() exactly: same bulkUpdate() grouped-undo plumbing,
+  // same "skip a row that doesn't have the tag" no-op rule, so undo never
+  // "reverts" a project that never carried it.
+  bulkRemoveTag(ids, tag){
+    const t=String(tag||'').trim();
+    if(!t) return 0;
+    return this.bulkUpdate('projects', ids, p=>{
+      const tags=p.tags||[];
+      return tags.includes(t) ? { ...p, tags:tags.filter(x=>x!==t) } : null;
+    }, { label:`Remove tag "${t}"` });
+  }
 
   // ---- custom field definitions (typed project-metadata schema) ---------
   fieldDefs(){ return this.all('fieldDefs').sort((a,b)=>(a.order||0)-(b.order||0)); }
