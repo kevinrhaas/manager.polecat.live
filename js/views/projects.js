@@ -1,7 +1,7 @@
 // Projects library — the source of truth for the fleet. Filter, sort, search,
 // pin, edit, and add rich metadata (including your own custom fields).
 import { Store, STATUSES, statusPill } from '../store.js';
-import { el, escapeHtml, toast, modal, confirmDialog, fmtCT, avatarColor, slugify, makeRowClickable } from '../ui.js';
+import { el, escapeHtml, toast, modal, confirmDialog, fmtCT, avatarColor, slugify, makeRowClickable, wireDragReorder, swapNeighbor } from '../ui.js';
 import { icon } from '../icons.js';
 import { editFieldDef } from './settings.js';
 import { openSyncAll } from './home.js';
@@ -55,6 +55,48 @@ function openSaveViewPrompt(s, ctx){
   input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); save.click(); } });
   const {hide}=modal({ title:'Save current view', icon:'star', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
   setTimeout(()=>input.focus(),50);
+}
+
+// "Reorder saved views": the saved-views strip's own pills have no room for
+// a grip + up/down arrows of their own (a chip is a compact horizontal
+// pill, not a list row) — so reordering which one shows up first happens in
+// a small modal instead, reusing the exact grip/arrow row shape Settings'
+// custom-field list already established (`.field-row`), just against
+// Store.reorderSavedViews() instead of reorderFieldDefs().
+function openReorderSavedViews(ctx){
+  const list=el('div',{class:'field-defs-list', style:'display:flex;flex-direction:column;gap:8px'});
+  const render=()=>{
+    list.innerHTML='';
+    const views=Store.savedViews();
+    views.forEach((v,i)=>list.append(savedViewRow(v, render, i, views.length)));
+  };
+  render();
+  wireDragReorder(list, '.field-row', '.field-row-grip', (ids)=>{
+    if(Store.reorderSavedViews(ids)){ toast('Saved-view order updated',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); render(); }
+  });
+  const {hide}=modal({ title:'Reorder saved views', icon:'sliders', body:list,
+    foot:[el('button',{class:'btn primary', text:'Done', onclick:()=>{ hide(); ctx.refresh(); }})] });
+}
+
+function savedViewRow(v, onChange, index, total){
+  const row=el('div',{class:'card field-row', 'data-id':v.id});
+  row.innerHTML=`<span class="field-row-grip" draggable="true" title="Drag to reorder" aria-hidden="true">${icon('grip')}</span>
+    <span class="qicon" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--brand-b),var(--consensus));color:#05121a">${icon(v.icon||'star')}</span>`;
+  const mid=el('div',{class:'field-row-mid'});
+  mid.innerHTML=`<b>${escapeHtml(v.label)}</b>`;
+  row.append(mid);
+  const actions=el('div',{class:'field-row-actions'});
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Move up', 'aria-label':`Move ${v.label} up`, html:icon('chevronUp'), disabled: index===0, onclick:()=>moveSavedView(v.id, -1, onChange)}));
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Move down', 'aria-label':`Move ${v.label} down`, html:icon('chevronDown'), disabled: index===total-1, onclick:()=>moveSavedView(v.id, 1, onChange)}));
+  row.append(actions);
+  return row;
+}
+
+function moveSavedView(id, dir, onChange){
+  const ids = swapNeighbor(Store.savedViews().map(v=>v.id), id, dir);
+  if(!ids) return;
+  if(Store.reorderSavedViews(ids)) toast('Saved-view order updated',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
+  onChange();
 }
 
 // A Number-type custom field gets a dual-handle range slider instead of the
@@ -158,6 +200,10 @@ export function renderProjects(root, ctx){
   });
   views.append(el('button',{class:'filter-chip filter-chip-add', title:'Save the current status/sort/field filter as a named view',
     html:`${icon('plus')} Save view`, onclick:()=>openSaveViewPrompt(state(), ctx)}));
+  if(Store.savedViews().length>1){
+    views.append(el('button',{class:'btn ghost icon sm', title:'Reorder saved views', 'aria-label':'Reorder saved views',
+      html:icon('sliders'), onclick:()=>openReorderSavedViews(ctx)}));
+  }
   wrap.append(views);
 
   // toolbar: search + status filter + sort

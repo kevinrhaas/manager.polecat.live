@@ -14,15 +14,23 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Reorderable saved views** — `savedViews` rows carry the exact same
-      append-only `order` column `fieldDefs` did before this cadence's fix
-      (see Done, 2026-07-04), with the same gap: no UI lets a user change
-      which saved-view chip shows up first in the library toolbar. The new
-      `Store.reorderFieldDefs()` + drag-handle/up-down-arrow pattern that
-      just shipped is directly reusable here — same shape, different table.
+- [ ] **A "default" saved view** — now that saved views are user-definable
+      and reorderable (see Done, 2026-07-04 ×2), let one be marked default:
+      opened automatically the next time the library loads, instead of
+      always falling back to whatever `manager.lib.view` last held. A small
+      star/pin toggle on each saved-view chip (or in the new reorder modal,
+      alongside its up/down arrows) should do it — one `Store` field
+      (`isDefault`) on the `savedViews` row, cleared on any other view when a
+      new one is marked default, checked once at library-load time.
 
 ## Next (discovered / queued)
 
+- [ ] The saved-views reorder modal (see Done, 2026-07-04) only reorders the
+      *custom*, user-saved chips — the five built-in ones (All/Live/Recent/
+      Pinned/Needs attention) are still a fixed leading block the custom
+      chips always trail. Reasonable today (the built-ins are a stable,
+      well-known set), but worth revisiting if someone wants their most-used
+      custom view to sit before a built-in they rarely touch.
 - [ ] The new custom-field reorder drag handle (see Done, 2026-07-04) uses
       native HTML5 drag-and-drop, which has patchy touch support on real
       mobile browsers — the up/down arrows are the actual mobile-safe path
@@ -217,12 +225,6 @@ with new, ambitious, fun ideas.
 - [ ] Keyboard-first navigation everywhere; focus rings audited.
 - [ ] Public site: an animated live "fleet" showcase driven by demo data.
 - [ ] SQLite adapter behind the same Store interface (design already relational).
-- [ ] Now that saved views are user-definable (see Done, 2026-07-03), consider
-      letting one be marked "default" — opened automatically the next time the
-      library loads, instead of always falling back to whatever `manager.lib.view`
-      last held. Low priority: today's chips already restore last-used state per
-      browser, so this only matters for someone who wants the library to always
-      *start* on a specific curated view regardless of what they last did.
 - [ ] Saved views only capture status/sort/dir/field — worth revisiting if a
       free-text search (`q`) ever becomes something worth pinning to a saved
       view too (e.g. "everything mentioning 'webrtc'"); left out deliberately
@@ -236,6 +238,31 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Reorderable saved views** _(2026-07-04)_: `savedViews` rows had carried
+      the same append-only `order` column `fieldDefs` did before last
+      cadence's fix, with the same gap — a saved view always joined the
+      library toolbar's chip strip at the end, forever, with no way to bring
+      a frequently-used one to the front. A new `Store.reorderSavedViews()`
+      mirrors `reorderFieldDefs()` exactly (one grouped `bulkUpdate()` undo
+      step, no-op rows skipped). Since a saved view is a compact horizontal
+      pill (not a vertical list row), there's no room for its own grip handle
+      the way a Settings field row has — so reordering lives in a small
+      "Reorder saved views" modal instead, which appears next to the chip
+      strip once two or more custom views exist. The modal reuses the exact
+      same grip-drag-or-up/down-arrow row shape the custom-field list
+      established, now generalized: the native-HTML5-drag-and-drop wiring
+      and the arrow buttons' neighbor-swap were factored out of
+      `js/views/settings.js` into two small shared helpers in `js/ui.js`
+      (`wireDragReorder()`, `swapNeighbor()`), so Settings' custom-field list
+      and this new modal share one implementation instead of a hand-copy —
+      Settings itself was refactored onto the shared helpers with no change
+      in behavior. Closing the modal (or letting a drag/arrow-move commit)
+      refreshes the chip strip so the new order shows immediately. Two new
+      smoke checks drive the real UI end to end: the up/down arrows swapping
+      two saved views (confirming the modal's disabled boundary arrow and
+      that the chip strip itself reflects the new order after closing), and
+      dragging a view's grip handle above another to reorder it, then
+      confirming Undo restores the exact original order.
 - [x] **Reorderable custom fields** _(2026-07-04)_: the typed custom-field
       schema (`fieldDefs`) has carried a display-`order` column since it
       shipped, but nothing in the UI let a user actually change it — a new

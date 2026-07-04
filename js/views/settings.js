@@ -3,7 +3,7 @@
 import { Store, FIELD_TYPES, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, DEFAULT_AUTO_SYNC_BACKOFF_CAP, healthBand } from '../store.js';
 import { Access } from '../access.js';
 import { getThemePref, setTheme } from '../theme.js';
-import { el, escapeHtml, toast, modal, confirmDialog, ago } from '../ui.js';
+import { el, escapeHtml, toast, modal, confirmDialog, ago, wireDragReorder, swapNeighbor } from '../ui.js';
 import { icon } from '../icons.js';
 
 export function renderSettings(root, ctx){
@@ -265,51 +265,20 @@ function fieldDefRow(d, onChange, index, total){
 // Swap a field def with its immediate neighbor (used by the up/down arrows —
 // the keyboard/touch-friendly alternative to dragging the grip handle).
 function moveFieldDef(id, dir, onChange){
-  const ids = Store.fieldDefs().map(f=>f.id);
-  const i = ids.indexOf(id), j = i+dir;
-  if(i<0 || j<0 || j>=ids.length) return;
-  [ids[i], ids[j]] = [ids[j], ids[i]];
+  const ids = swapNeighbor(Store.fieldDefs().map(f=>f.id), id, dir);
+  if(!ids) return;
   if(Store.reorderFieldDefs(ids)) toast('Field order updated',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
   onChange();
 }
 
-// Native HTML5 drag-and-drop, delegated on the list container so it survives
-// every re-render (`onChange` rebuilds the rows fresh each time). Dragging is
-// only initiated from a row's `.field-row-grip` handle — the row itself isn't
-// draggable — so clicking Edit/Remove/the arrows never gets mistaken for the
-// start of a drag. While dragging, the row being moved is reordered live in
-// the DOM (so the list visibly reflows as you pass over other rows); the drop
-// (or a dragend with no valid drop) reads that final DOM order and persists
-// it in one `Store.reorderFieldDefs()` call.
+// Native HTML5 drag-and-drop (see wireDragReorder in ui.js), delegated on the
+// list container so it survives every re-render (`onChange` rebuilds the rows
+// fresh each time). Dragging is only initiated from a row's `.field-row-grip`
+// handle — the row itself isn't draggable — so clicking Edit/Remove/the
+// arrows never gets mistaken for the start of a drag.
 function wireFieldDefDrag(container, onChange){
-  let draggingId=null;
-  container.addEventListener('dragstart', (e)=>{
-    const grip=e.target.closest('.field-row-grip');
-    const row=e.target.closest('.field-row');
-    if(!grip || !row){ e.preventDefault(); return; }
-    draggingId=row.dataset.id;
-    e.dataTransfer.effectAllowed='move';
-    e.dataTransfer.setData('text/plain', draggingId);
-    requestAnimationFrame(()=>row.classList.add('dragging'));
-  });
-  container.addEventListener('dragover', (e)=>{
-    if(!draggingId) return;
-    e.preventDefault();
-    const over=e.target.closest('.field-row');
-    const dragging=container.querySelector('.field-row.dragging');
-    if(!over || !dragging || over===dragging) return;
-    const before = e.clientY < over.getBoundingClientRect().top + over.offsetHeight/2;
-    container.insertBefore(dragging, before ? over : over.nextSibling);
-  });
-  container.addEventListener('drop', (e)=>{ e.preventDefault(); });
-  container.addEventListener('dragend', ()=>{
-    const dragging=container.querySelector('.field-row.dragging');
-    if(dragging) dragging.classList.remove('dragging');
-    if(draggingId){
-      const ids=[...container.querySelectorAll('.field-row')].map(r=>r.dataset.id);
-      draggingId=null;
-      if(Store.reorderFieldDefs(ids)){ toast('Field order updated',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); onChange(); }
-    }
+  wireDragReorder(container, '.field-row', '.field-row-grip', (ids)=>{
+    if(Store.reorderFieldDefs(ids)){ toast('Field order updated',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); onChange(); }
   });
 }
 

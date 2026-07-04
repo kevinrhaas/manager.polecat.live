@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 46,
+    title: 'Reorderable saved views',
+    kind: 'feature',
+    ts: '2026-07-04T12:13:24.209Z',
+    items: [
+      'A saved filter (Projects → "Save view") always joined the toolbar\'s chip strip at the end, forever — no way to bring the one you use daily to the front.',
+      'A new "Reorder saved views" button appears once you have two or more; it opens the same drag-handle-or-up/down-arrows list Settings\' custom-field reordering already uses.',
+      'Reordering is one Undo step, and the chip strip reflects the new order the moment you close the dialog.',
+    ],
+  },
+  {
     v: 45,
     title: 'Reorderable custom fields',
     kind: 'feature',

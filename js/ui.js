@@ -225,3 +225,60 @@ export function confirmDialog(title, message, {danger=false, okLabel='Confirm'}=
     ok.onclick=()=>{hide();res(true)}; cancel.onclick=()=>{hide();res(false)};
   });
 }
+
+// ---- reorderable-list helpers -------------------------------------------
+// Shared by every "drag a grip, or use the up/down arrows" reorder UI
+// (Settings' custom-field list, the library's saved-views reorder modal):
+// native HTML5 drag-and-drop delegated on the list container, so it survives
+// a full rebuild of the rows on every change, plus a pure helper for the
+// arrow buttons' neighbor-swap.
+
+// Wires drag-and-drop reordering for a vertical list of rows. Dragging only
+// starts from a row's `gripSelector` handle (the row itself isn't
+// draggable), so clicking any other control in the row is never mistaken for
+// a drag start. While dragging, the row reflows live in the DOM as it passes
+// over neighbors; on drop (or a dragend with no valid drop) `onReorder` is
+// called once with the row order exactly as it now sits in the DOM.
+export function wireDragReorder(container, rowSelector, gripSelector, onReorder){
+  let draggingId=null;
+  container.addEventListener('dragstart', (e)=>{
+    const grip=e.target.closest(gripSelector);
+    const row=e.target.closest(rowSelector);
+    if(!grip || !row){ e.preventDefault(); return; }
+    draggingId=row.dataset.id;
+    e.dataTransfer.effectAllowed='move';
+    e.dataTransfer.setData('text/plain', draggingId);
+    requestAnimationFrame(()=>row.classList.add('dragging'));
+  });
+  container.addEventListener('dragover', (e)=>{
+    if(!draggingId) return;
+    e.preventDefault();
+    const over=e.target.closest(rowSelector);
+    const dragging=container.querySelector(rowSelector+'.dragging');
+    if(!over || !dragging || over===dragging) return;
+    const before = e.clientY < over.getBoundingClientRect().top + over.offsetHeight/2;
+    container.insertBefore(dragging, before ? over : over.nextSibling);
+  });
+  container.addEventListener('drop', (e)=>{ e.preventDefault(); });
+  container.addEventListener('dragend', ()=>{
+    const dragging=container.querySelector(rowSelector+'.dragging');
+    if(dragging) dragging.classList.remove('dragging');
+    if(draggingId){
+      const ids=[...container.querySelectorAll(rowSelector)].map(r=>r.dataset.id);
+      draggingId=null;
+      onReorder(ids);
+    }
+  });
+}
+
+// The up/down-arrow alternative to dragging: swap `id` with its immediate
+// neighbor in `ids`. Returns the new ordered array, or null if the move is
+// out of bounds (already first/last) — native drag has patchy touch support
+// on real mobile browsers, so this is the mobile-safe reorder path.
+export function swapNeighbor(ids, id, dir){
+  const i=ids.indexOf(id), j=i+dir;
+  if(i<0 || j<0 || j>=ids.length) return null;
+  const next=[...ids];
+  [next[i], next[j]]=[next[j], next[i]];
+  return next;
+}

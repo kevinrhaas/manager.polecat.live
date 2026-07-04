@@ -474,6 +474,46 @@ try {
 
     return created && chipOnWhenActive && !chipOffAfterSwitch && reapplied && deleted && undone && restoredCount;
   });
+  await check('"Reorder saved views" appears once 2+ exist; up/down arrows swap their order in the modal', async () => {
+    await store(`(S)=>{
+      S.addSavedView({ label:'Smoke Order A', state:{ status:'all', sort:'name', dir:'asc' } });
+      S.addSavedView({ label:'Smoke Order B', state:{ status:'all', sort:'name', dir:'desc' } });
+    }`);
+    await openSec('projects');
+    const reorderBtn = await page.$('.saved-views button[title="Reorder saved views"]');
+    if (!reorderBtn) return false;
+    await reorderBtn.click(); await page.waitForTimeout(300);
+    const before = await store(`(S)=>S.savedViews().map(v=>v.label)`);
+    const iA = before.indexOf('Smoke Order A'), iB = before.indexOf('Smoke Order B');
+    if (!(iA >= 0 && iB === iA + 1)) return false; // freshly added, appended in order
+    const bDownDisabled = await page.$eval('.modal .field-row:has-text("Smoke Order B") button[title="Move down"]', (b) => b.disabled);
+    await page.click('.modal .field-row:has-text("Smoke Order B") button[title="Move up"]'); await page.waitForTimeout(250);
+    const after = await store(`(S)=>S.savedViews().map(v=>v.label)`);
+    const swapped = after.indexOf('Smoke Order B') === iA && after.indexOf('Smoke Order A') === iA + 1;
+    await page.click('.modal button:has-text("Done")'); await page.waitForTimeout(200);
+    // the strip's own chip order (not just the Store) reflects the swap once the modal closes
+    const chipsOrder = await page.$$eval('.filter-chip-custom', (els) => els.map((e) => e.textContent));
+    const chipSwapped = chipsOrder.findIndex((t) => t.includes('Smoke Order B')) < chipsOrder.findIndex((t) => t.includes('Smoke Order A'));
+    return bDownDisabled && swapped && chipSwapped;
+  });
+  await check('dragging a saved view′s grip handle above another persists the new order, and Undo restores it', async () => {
+    // order coming in from the previous check: [..., Smoke Order B, Smoke Order A]
+    await page.click('.saved-views button[title="Reorder saved views"]'); await page.waitForTimeout(300);
+    const before = await store(`(S)=>S.savedViews().map(v=>v.label)`);
+    await page.dragAndDrop('.modal .field-row:has-text("Smoke Order A") .field-row-grip', '.modal .field-row:has-text("Smoke Order B")', { targetPosition: { x: 20, y: 3 } });
+    await page.waitForTimeout(300);
+    const after = await store(`(S)=>S.savedViews().map(v=>v.label)`);
+    const draggedAbove = after.indexOf('Smoke Order A') < after.indexOf('Smoke Order B');
+    await store(`(S)=>S.undo()`);
+    await page.waitForTimeout(200);
+    const undone = await store(`(S)=>S.savedViews().map(v=>v.label)`);
+    await page.click('.modal button:has-text("Done")'); await page.waitForTimeout(200);
+    return draggedAbove && JSON.stringify(undone) === JSON.stringify(before);
+  });
+  await check('cleanup: remove the two smoke saved-view reorder rows', async () => {
+    await store(`(S)=>{ ['Smoke Order A','Smoke Order B'].forEach(label=>{ const v=S.savedViews().find(x=>x.label===label); if(v) S.removeSavedView(v.id, {silent:true}); }); }`);
+    return !(await store(`(S)=>S.savedViews().some(v=>v.label==='Smoke Order A' || v.label==='Smoke Order B')`));
+  });
 
   // ---------- Project detail / releases ----------
   console.log('Project detail');

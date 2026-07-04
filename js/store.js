@@ -425,6 +425,16 @@ export const Store = new (class {
     return this.put('savedViews', { label:'', icon:'star', state:{}, order, ...data }, { label:'Save view' });
   }
   removeSavedView(id, opts={}){ return this.remove('savedViews', id, { label:'Delete saved view', ...opts }); }
+  // Re-sequence saved views to a new display order — same shape as
+  // reorderFieldDefs() (one grouped undo via bulkUpdate, no-op rows skipped),
+  // just for the savedViews table, so which chip shows up first in the
+  // library's saved-views strip is user-controllable.
+  reorderSavedViews(orderedIds){
+    return this.bulkUpdate('savedViews', orderedIds, (v)=>{
+      const order = orderedIds.indexOf(v.id);
+      return order===v.order ? null : { ...v, order };
+    }, { label:'Reorder saved views' });
+  }
 
   // ---- releases (per-project "what's new") -------------------------------
   releasesFor(projectId){ return this.all('releases').filter(r=>r.projectId===projectId).sort((a,b)=>(b.v||0)-(a.v||0)); }
