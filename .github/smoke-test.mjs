@@ -158,6 +158,16 @@ try {
   for (const s of ['home', 'projects', 'releases', 'activity', 'credentials', 'docs', 'settings']) {
     await check(`section "${s}" opens`, async () => { if (!(await openSec(s))) return false; return (await count('#view *')) > 0; });
   }
+  await check('docs: "Health, weighting & notifications" section covers the health/attention system and its TOC link scrolls to it', async () => {
+    await openSec('docs');
+    const bodyText = await page.$eval('#doc-health', (n) => n.textContent).catch(() => '');
+    const covers = ['Thriving', 'Stale', 'Weighting', 'Needs attention', 'Dismiss'].every((w) => bodyText.includes(w));
+    await page.click('.docs-toc a[data-doc="health"]');
+    await page.waitForTimeout(500);
+    const top = await page.$eval('#doc-health', (n) => n.getBoundingClientRect().top);
+    const tocActive = await page.$eval('.docs-toc a[data-doc="health"]', (n) => n.classList.contains('active'));
+    return covers && Math.abs(top) < 200 && tocActive;
+  });
 
   console.log('Releases timeline');
   await check('releases feed shows cross-project releases grouped by day, newest first', async () => {

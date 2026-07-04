@@ -14,14 +14,29 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Pick the next highest-value item from **Next** below — a fleet-wide
-      **Tags manager** now exists in Settings (rename/merge/remove a tag
-      everywhere at once, see Done, 2026-07-04), on top of the
-      keyboard-focus-ring audit and the public "recent activity" ticker
-      (both Done, 2026-07-04).
+- [ ] Pick the next highest-value item from **Next** below — a **docs sweep**
+      just closed the biggest gap in the in-app documentation (health scoring/
+      weighting/notifications had zero coverage, see Done, 2026-07-04), on top
+      of the fleet-wide **Tags manager**, the keyboard-focus-ring audit, and
+      the public "recent activity" ticker (all Done, 2026-07-04).
 
 ## Next (discovered / queued)
 
+- [ ] The new "Health, weighting & notifications" docs section (see Done,
+      2026-07-04) was written by reading the real code (`store.js`'s
+      `HEALTH_BANDS`, `settings.js`'s card labels, `project.js`'s override
+      rows) rather than guessing, but it's still hand-maintained prose —
+      the same drift risk every other hand-written doc section already
+      carries (nothing re-checks it against the code). Worth revisiting only
+      if the health/weighting system's labels or bands actually change and
+      the docs page isn't updated in the same pass.
+- [ ] Auditing docs.js for this sweep only checked the health/notifications
+      area for missing coverage (the biggest, most conspicuous gap — a whole
+      feature area with zero mentions). Worth a similar pass over the other
+      sections against the full feature list in ROADMAP's Done history if a
+      future sweep has spare time — e.g. the "Recently deleted" tray, Copy/
+      Export, and Merge JSON's update/remove opt-ins are covered, but this
+      wasn't an exhaustive line-by-line audit of every shipped feature.
 - [ ] The new Tags manager (see Done, 2026-07-04) has no reorder of its own —
       unlike Custom fields or saved views, tag rows are always sorted by
       usage count (ties broken alphabetically), with no grip handle or
@@ -307,6 +322,41 @@ with new, ambitious, fun ideas.
       row that's still actually flagged.
 
 ## Done
+
+- [x] **Sweep: Docs cover health scoring, weighting & notifications; landing
+      page catches up on its own version** _(2026-07-04)_: a design & feature
+      sweep across the app and the public site, following the "keep it lean,
+      find real gaps" brief. The single biggest find: the in-app **Docs**
+      page had complete sections for the dashboard, library, releases,
+      credentials, and cadence — but **zero mention** of the health-score
+      system, even though it's one of the most built-out feature areas in the
+      app (five score bands, tunable fleet-wide *and* per-project weighting,
+      tunable "needs attention" thresholds with their own per-project
+      override, a tunable auto-sync backoff cap, the notification bell, the
+      rail badge, and dismiss/restore). Someone reading the docs end to end
+      would never learn any of it existed. A new **"Health, weighting &
+      notifications"** doc section (right after "The dashboard", before
+      "Projects & the library" — where health scores first appear) explains
+      the five bands (Thriving → Stale) and what drives them, where to tune
+      the weighting fleet-wide vs. per-project, what "Needs attention" means
+      and where its two cutoffs live, and how the bell/rail badge/dashboard
+      callout share one signal plus how Dismiss works. Written from the real
+      code (`store.js`'s `HEALTH_BANDS`, `settings.js`'s card labels,
+      `project.js`'s override-row copy), not guessed. Along the way, the
+      library's own doc paragraph was missing the "Needs attention" chip from
+      its list of saved-view presets (the app has five built-in chips; the
+      docs only ever named four) — added. Separately, chasing "keep it
+      honest" turned up a regression of the exact bug fixed at v43: the
+      landing page's hero banner, activity ticker, and fleet card had drifted
+      back to a stale hand-typed "v43" in their baked-in fallback markup (the
+      live JS overwrites them correctly on every page load, so the real
+      behavior was never wrong — only the no-JS fallback text, and the
+      activity ticker's 5 baked-in rows, had gone stale again since that fix).
+      Corrected both to the real latest version and entries. One new smoke
+      check drives the real Docs page end to end: confirms the new section's
+      text actually covers the health bands/weighting/attention/dismiss
+      vocabulary, and that clicking its table-of-contents link scrolls to it
+      and marks it active (the existing scroll-spy).
 
 - [x] **A fleet-wide "Tags" manager in Settings** _(2026-07-04)_: tags were a
       genuinely useful free-form field on every project (the search box

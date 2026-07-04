@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 53,
+    title: 'Sweep: Docs cover health scoring, weighting & notifications; landing page catches up on its own version',
+    kind: 'polish',
+    ts: '2026-07-04T19:14:09.901Z',
+    items: [
+      'A whole feature area had zero in-app documentation until now: health scores and their five bands (Thriving → Stale), the tunable fleet-wide and per-project weighting, "Needs attention" thresholds and per-project overrides, the notification bell, and Dismiss/restore all now have a real Docs section explaining how they fit together.',
+      'The library\'s doc page also now mentions the "Needs attention" saved-view chip, which existed in the app but had been missing from its own description.',
+      'The public landing page\'s hero banner, activity ticker, and fleet card had drifted back to stale hand-typed version numbers (v43) even though they\'re designed to read live from this changelog — caught and corrected, and the ticker\'s baked-in fallback rows now match the real latest five entries.',
+    ],
+  },
+  {
     v: 52,
     title: 'A "Tags" manager: rename or clean up a tag fleet-wide',
     kind: 'feature',
