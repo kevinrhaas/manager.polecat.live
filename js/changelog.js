@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 51,
+    title: 'Public site: a "recent activity" ticker under the hero',
+    kind: 'feature',
+    ts: '2026-07-04T15:37:06.390Z',
+    items: [
+      'The landing page now shows a small scrollable strip of the last 5 real changelog entries right under the hero, so a first-time visitor gets a feel for the hourly self-improvement cadence before ever unlocking the app.',
+      'It reads live from the same js/changelog.js the in-app "What\'s new" panel uses — never a hand-typed, driftable list.',
+      'Drifts gently on its own, pausing the moment you hover, touch, or tab into it, and skips the auto-drift entirely under prefers-reduced-motion.',
+    ],
+  },
+  {
     v: 50,
     title: 'Nav rail gets the app\'s own branded keyboard-focus ring',
     kind: 'polish',

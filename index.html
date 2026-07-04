@@ -68,6 +68,21 @@
           <span class="chip"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg> Mobile-first</span>
           <span class="chip"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg> Improves hourly</span>
         </div>
+
+        <!-- recent-activity ticker: a real feel for the hourly cadence before you
+             ever unlock the app. Populated live from js/changelog.js below; the
+             chips baked in here are the correct fallback for JS-disabled visitors
+             as of this run, same honesty pattern as #whats-new. -->
+        <div class="activity-ticker reveal" aria-label="Recent activity">
+          <div class="at-head">Recent activity</div>
+          <div class="at-track" id="at-track">
+            <span class="at-chip"><b>v50</b> Nav rail gets the app's own branded keyboard-focus ring</span>
+            <span class="at-chip"><b>v49</b> Public site: the fleet showcase feels alive — status pulse + staggered entrance</span>
+            <span class="at-chip"><b>v48</b> Sweep: keyboard-focus rings and a skip-to-content link, fleet-showcase status colors</span>
+            <span class="at-chip"><b>v47</b> A default saved view</span>
+            <span class="at-chip"><b>v46</b> Reorderable saved views</span>
+          </div>
+        </div>
       </div>
 
       <!-- live-feeling console mock (pure HTML/CSS) -->
@@ -207,6 +222,39 @@
       const status = document.getElementById('fleet-manager-status');
       const statusLabel = status && status.querySelector('.label');
       if (statusLabel) statusLabel.textContent = `Live · v${latest.v}`;
+    }
+
+    // Recent-activity ticker — always the real last 5 entries, never the
+    // baked-in fallback above, so it can't go stale the same way #whats-new did.
+    const track = document.getElementById('at-track');
+    if (track && CHANGELOG.length) {
+      track.innerHTML = '';
+      CHANGELOG.slice(0, 5).forEach((e) => {
+        const chip = document.createElement('span');
+        chip.className = 'at-chip';
+        chip.innerHTML = `<b>v${e.v}</b> `;
+        chip.append(e.title);
+        track.append(chip);
+      });
+      // A gentle auto-drift — paused on hover/touch/focus so it never fights a
+      // reader, and skipped entirely under prefers-reduced-motion (this is a
+      // JS-driven scrollLeft nudge, not a CSS animation, so the page-wide
+      // reduced-motion kill switch can't catch it on its own).
+      const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!reduceMotion && track.scrollWidth > track.clientWidth) {
+        let paused = false, dir = 1, timer = null;
+        const step = () => {
+          if (paused) return;
+          const max = track.scrollWidth - track.clientWidth;
+          if (track.scrollLeft >= max - 1) dir = -1;
+          else if (track.scrollLeft <= 1) dir = 1;
+          track.scrollLeft += dir * 0.6;
+        };
+        timer = setInterval(step, 30);
+        ['mouseenter', 'touchstart', 'focusin'].forEach((ev) => track.addEventListener(ev, () => { paused = true; }));
+        ['mouseleave', 'touchend', 'focusout'].forEach((ev) => track.addEventListener(ev, () => { paused = false; }));
+        addEventListener('beforeunload', () => clearInterval(timer));
+      }
     }
   </script>
 </body>

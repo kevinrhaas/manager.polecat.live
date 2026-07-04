@@ -102,6 +102,33 @@ try {
     const delays = await page.$$eval('#fleet .fchip', (chips) => chips.map((c) => getComputedStyle(c).transitionDelay));
     return delays.length >= 5 && new Set(delays).size > 1;
   });
+  await check('landing shows a "recent activity" ticker with the real latest changelog entries (not the frozen fallback)', async () => {
+    const real = await page.evaluate(`import('/js/changelog.js').then(m=>m.CHANGELOG.slice(0,5).map(e=>({v:e.v,title:e.title})))`);
+    const chips = await page.$$eval('#at-track .at-chip', (els) => els.map((e) => e.textContent.trim()));
+    return chips.length === real.length && real.every((e, i) => chips[i].includes(`v${e.v}`) && chips[i].includes(e.title));
+  });
+  await check('recent-activity ticker gently auto-drifts and pauses while hovered', async () => {
+    const overflow = await page.$eval('#at-track', (t) => t.scrollWidth > t.clientWidth);
+    if (!overflow) return true; // nothing to drift if the strip happens to fit
+    await page.waitForTimeout(600);
+    const moved = await page.$eval('#at-track', (t) => t.scrollLeft);
+    if (moved <= 0) return false;
+    await page.hover('#at-track .at-chip');
+    await page.waitForTimeout(150);
+    const atHover = await page.$eval('#at-track', (t) => t.scrollLeft);
+    await page.waitForTimeout(500);
+    const afterHover = await page.$eval('#at-track', (t) => t.scrollLeft);
+    return Math.abs(afterHover - atHover) < 0.5;
+  });
+  await check('recent-activity ticker respects prefers-reduced-motion (no auto-drift)', async () => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload({ waitUntil: 'networkidle' });
+    const before = await page.$eval('#at-track', (t) => t.scrollLeft);
+    await page.waitForTimeout(500);
+    const after = await page.$eval('#at-track', (t) => t.scrollLeft);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    return before === after;
+  });
 
   // ---------- App shell ----------
   console.log('App shell');

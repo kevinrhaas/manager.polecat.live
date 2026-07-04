@@ -16,10 +16,19 @@ with new, ambitious, fun ideas.
 
 - [ ] Pick the next highest-value item from **Next** below — the
       keyboard-focus-ring audit (rail included, see Done, 2026-07-04) is now
-      complete across the whole app and landing page.
+      complete across the whole app and landing page, and the public site now
+      has a real "recent activity" ticker (see Done, 2026-07-04).
 
 ## Next (discovered / queued)
 
+- [ ] The new "recent activity" ticker (see Done, 2026-07-04) always shows the
+      last 5 entries regardless of viewport — on a wide desktop screen all 5
+      chips can fit with nothing left to scroll, which is fine (the edge-fade
+      mask is a no-op when there's no overflow), but the auto-drift itself
+      only ever engages when `scrollWidth > clientWidth`. Worth widening to
+      the last 8-10 entries if the ticker ever feels too static on very wide
+      monitors; left at 5 since that's what actually overflows the strip's
+      900px cap on every viewport tested so far.
 - [ ] The rail's new focus ring (see Done, 2026-07-04) is a plain
       `box-shadow` swap on `:focus-visible`, same as every other button in the
       app — but the *collapsed* rail (`#rail:not(.open)`) squeezes each
@@ -280,6 +289,35 @@ with new, ambitious, fun ideas.
       row that's still actually flagged.
 
 ## Done
+
+- [x] **Public site: a "recent activity" ticker under the hero** _(2026-07-04)_:
+      the landing page's only nod to the fleet's hourly cadence was a single
+      "what's new" line above the CTA buttons — a first-time visitor had no
+      sense of *how often* things actually ship. A new horizontally-scrollable
+      strip now sits right under the trust-chip row: five small pill chips,
+      each `v<N> <title>`, reading live from the exact same `js/changelog.js`
+      the in-app "What's new" panel and the existing `#whats-new`/
+      `#fleet-manager-status` sync already use — never a hand-typed list that
+      could drift, and never fabricated data about any other project (only
+      Manager's own real, verified history). It's a genuine scrollable
+      element (`overflow-x:auto`, `scroll-snap`), not a text marquee, so it
+      stays keyboard- and touch-operable and a screen reader sees five
+      ordinary list-like chips rather than one animated blur; a CSS
+      `mask-image` fades both edges with zero JS positioning math, mirroring
+      the app's existing `.lib-table` scroll-hint philosophy but simpler,
+      since a static mask doesn't need a `ResizeObserver`. A light JS drift —
+      nudging `scrollLeft` by half a pixel every 30ms, reversing direction at
+      each end — gives it the "auto-rotating" feel the roadmap asked for
+      without a jarring loop-reset; it pauses instantly on hover, touch, or
+      keyboard focus (`mouseenter`/`touchstart`/`focusin` on the track) and
+      is skipped entirely under `prefers-reduced-motion` (checked explicitly
+      in JS, since a `scrollLeft` nudge is not a CSS animation/transition and
+      so isn't caught by the page's existing blanket reduced-motion
+      kill-switch). Three new smoke checks drive the real landing page: the
+      chips match `CHANGELOG.slice(0,5)` exactly (not the baked-in static
+      fallback), the strip actually advances its `scrollLeft` over time and
+      stops the moment it's hovered, and — with `prefers-reduced-motion:
+      reduce` emulated — it never advances at all.
 
 - [x] **The app-side rail gets the same keyboard-focus ring as everything
       else** _(2026-07-04)_: the last piece of "keyboard-first navigation
