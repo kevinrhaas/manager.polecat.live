@@ -9,12 +9,17 @@ name: Hourly self-improvement
 #
 # Pause any time by disabling this workflow or removing the
 # CLAUDE_CODE_OAUTH_TOKEN secret.
+#
+# PAUSED (2026-07-04, to save tokens): the hourly `schedule` trigger is
+# commented out, so no automatic runs happen. Manual runs still work via
+# workflow_dispatch (Actions tab → "Run workflow"). To resume the hourly
+# cadence, un-comment the `schedule:` block below and push to main.
 on:
-  schedule:
-    # Off-peak minutes: GitHub heavily delays/drops scheduled jobs at :00.
-    # Two runs/hour improves the odds of a roughly-hourly cadence; the
-    # concurrency lock keeps them from overlapping.
-    - cron: '17,47 * * * *'
+  # schedule:
+  #   # Off-peak minutes: GitHub heavily delays/drops scheduled jobs at :00.
+  #   # Two runs/hour improves the odds of a roughly-hourly cadence; the
+  #   # concurrency lock keeps them from overlapping.
+  #   - cron: '17,47 * * * *'
   workflow_dispatch: {}    # run manually from the Actions tab
 
 permissions:
