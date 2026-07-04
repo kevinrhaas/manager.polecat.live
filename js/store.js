@@ -384,6 +384,29 @@ export const Store = new (class {
       return tags.includes(t) ? { ...p, tags:tags.filter(x=>x!==t) } : null;
     }, { label:`Remove tag "${t}"` });
   }
+  // Every distinct tag in use across the whole fleet, with how many projects
+  // carry it — the fleet-wide vocabulary behind Settings' "Tags" manager,
+  // sorted most-used first (ties broken alphabetically) so the tags someone's
+  // most likely to want to rename or clean up surface at the top.
+  allTags(){
+    const counts={};
+    this.projects().forEach(p=>(p.tags||[]).forEach(t=>{ counts[t]=(counts[t]||0)+1; }));
+    return Object.entries(counts).map(([tag,count])=>({tag,count}))
+      .sort((a,b)=>b.count-a.count || a.tag.localeCompare(b.tag));
+  }
+  // Renames a tag across every project that carries it, in one grouped undo
+  // step (same bulkUpdate() plumbing as bulkAddTag/bulkRemoveTag above).
+  // Renaming to a tag that already exists on a project merges the two
+  // (deduped via Set) rather than leaving a project with the same tag twice.
+  renameTag(from, to){
+    const f=String(from||'').trim(), t=String(to||'').trim();
+    if(!f || !t || f===t) return 0;
+    return this.bulkUpdate('projects', this.projects().map(p=>p.id), p=>{
+      const tags=p.tags||[];
+      if(!tags.includes(f)) return null;
+      return { ...p, tags:[...new Set(tags.map(x=>x===f?t:x))] };
+    }, { label:`Rename tag "${f}" → "${t}"` });
+  }
 
   // ---- custom field definitions (typed project-metadata schema) ---------
   fieldDefs(){ return this.all('fieldDefs').sort((a,b)=>(a.order||0)-(b.order||0)); }

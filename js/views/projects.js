@@ -34,6 +34,15 @@ export function applyDefaultSavedView(){
     field:def.state.field||'', fieldValue:def.state.fieldValue||'', fieldMin:def.state.fieldMin||'', fieldMax:def.state.fieldMax||'' });
 }
 
+// Sets the library's free-text search box ahead of a navigation into
+// Projects — used by Settings' "Tags" manager so clicking a tag's "View
+// projects" action lands on a library already filtered to it, the same way
+// the search box already matches against every project's tags (see the `q`
+// filter below) with zero new filtering logic needed.
+export function setLibrarySearch(q){
+  saveState({ ...state(), q });
+}
+
 const SAVED_VIEWS = [
   { id:'all',       label:'All',             icon:'grid',    apply:s=>({...s,status:'all'}) },
   { id:'live',      label:'Live only',       icon:'globe',   apply:s=>({...s,status:'live',sort:'activity',dir:'desc'}) },

@@ -14,12 +14,30 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] Pick the next highest-value item from **Next** below — the
-      keyboard-focus-ring audit (rail included, see Done, 2026-07-04) is now
-      complete across the whole app and landing page, and the public site now
-      has a real "recent activity" ticker (see Done, 2026-07-04).
+- [ ] Pick the next highest-value item from **Next** below — a fleet-wide
+      **Tags manager** now exists in Settings (rename/merge/remove a tag
+      everywhere at once, see Done, 2026-07-04), on top of the
+      keyboard-focus-ring audit and the public "recent activity" ticker
+      (both Done, 2026-07-04).
 
 ## Next (discovered / queued)
+
+- [ ] The new Tags manager (see Done, 2026-07-04) has no reorder of its own —
+      unlike Custom fields or saved views, tag rows are always sorted by
+      usage count (ties broken alphabetically), with no grip handle or
+      up/down arrows. Deliberate: there's no per-tag "display position"
+      anywhere else in the app for an order to drive (tags render as a flat,
+      unordered chip list on every project row and detail page), so a manual
+      order would have nothing to feed into. Worth revisiting only if tags
+      ever gain their own ordered rendering somewhere.
+- [ ] The Tags manager's "Remove from every project" (see Done, 2026-07-04)
+      has no confirm dialog — consistent with the library's existing bulk
+      "Remove tag" action, which also just relies on the Undo toast rather
+      than an "are you sure" gate, since a tag removal is trivially reversible
+      and low-stakes compared to, say, deleting a project. Worth revisiting
+      if removing a tag fleet-wide (rather than from a hand-picked selection)
+      ever turns out to surprise someone who didn't expect it to reach every
+      project, not just the ones they were looking at.
 
 - [ ] The new "recent activity" ticker (see Done, 2026-07-04) always shows the
       last 5 entries regardless of viewport — on a wide desktop screen all 5
@@ -289,6 +307,39 @@ with new, ambitious, fun ideas.
       row that's still actually flagged.
 
 ## Done
+
+- [x] **A fleet-wide "Tags" manager in Settings** _(2026-07-04)_: tags were a
+      genuinely useful free-form field on every project (the search box
+      already matched against them, bulk add/remove tag already existed in
+      the library), but the tag *vocabulary itself* had no home — a typo'd
+      tag, an inconsistent spelling ("webrtc" vs "WebRTC"), or one nobody uses
+      anymore could only be fixed project-by-project in the editor, with no
+      way to even see the full list of tags in use across the fleet. A new
+      **Tags** card in Settings (right below Custom fields, the other
+      fleet-wide metadata schema) lists every distinct tag with how many
+      projects carry it, sorted most-used first. Each row gets three actions:
+      a **search icon** that jumps straight to the library pre-filtered to
+      that tag (via a new `setLibrarySearch()` in `js/views/projects.js`,
+      writing the same `manager.lib.view` state the search box itself reads —
+      zero new filtering logic, since tags already flow through the existing
+      "contains" search), a **rename** that updates the tag on every project
+      that carries it in one step, and a **remove** that strips it from every
+      project at once. Both rename and remove are single grouped-undo steps,
+      via a new `Store.renameTag(from, to)` (mirroring `bulkAddTag`/
+      `bulkRemoveTag`'s exact `bulkUpdate()` shape) and the library's existing
+      `bulkRemoveTag()` called across every project id. Renaming to a tag
+      that already exists on a project **merges** the two instead of leaving
+      a duplicate — `renameTag()` dedupes via `Set` — so "fix a typo" and
+      "consolidate two near-duplicate tags" are the same one action. A new
+      `Store.allTags()` computes the fleet-wide usage counts fresh on every
+      render, so the list never drifts from the real live data. No confirm
+      dialog on remove, matching the library's existing bulk "Remove tag"
+      action's own low-stakes, Undo-toast-only convention. Three new smoke
+      checks drive the real UI end to end: the usage count and the "View"
+      jump landing on a pre-filtered library, a rename that both updates two
+      projects and merges into a third project's pre-existing tag without
+      duplicating it (and Undo reverting exactly), and the fleet-wide remove
+      (and its Undo). Docs updated.
 
 - [x] **Public site: a "recent activity" ticker under the hero** _(2026-07-04)_:
       the landing page's only nod to the fleet's hourly cadence was a single

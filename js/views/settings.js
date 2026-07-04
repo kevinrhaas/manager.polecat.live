@@ -5,6 +5,7 @@ import { Access } from '../access.js';
 import { getThemePref, setTheme } from '../theme.js';
 import { el, escapeHtml, toast, modal, confirmDialog, ago, wireDragReorder, swapNeighbor } from '../ui.js';
 import { icon } from '../icons.js';
+import { setLibrarySearch } from './projects.js';
 
 export function renderSettings(root, ctx){
   root.innerHTML='';
@@ -187,6 +188,20 @@ export function renderSettings(root, ctx){
   fields.append(el('button',{class:'btn sm', style:'margin-top:10px', html:`${icon('plus')} Add field`, onclick:()=>editFieldDef(null, renderFieldsList)}));
   wrap.append(fields);
 
+  // ---- Tags (the fleet-wide free-form tag vocabulary) ----
+  const tagsCard=card('Tags', 'tag');
+  tagsCard.append(el('p',{class:'muted tiny', style:'margin:0 0 10px', text:'Every tag in use across the fleet, and how many projects carry it. Rename a tag everywhere at once — renaming to one that already exists merges the two — or remove it from every project. Both are a single undo step.'}));
+  const tagsList=el('div',{class:'field-defs-list', style:'display:flex;flex-direction:column;gap:8px'});
+  const renderTagsList=()=>{
+    tagsList.innerHTML='';
+    const tags=Store.allTags();
+    if(!tags.length) tagsList.append(el('div',{class:'card muted tiny', text:'No tags yet — add some from a project’s editor.'}));
+    else tags.forEach(({tag,count})=>tagsList.append(tagRow(tag, count, renderTagsList, ctx)));
+  };
+  renderTagsList();
+  tagsCard.append(tagsList);
+  wrap.append(tagsCard);
+
   // ---- Data ----
   const data=card('Data', 'db');
   data.append(el('p',{class:'muted tiny', style:'margin:0 0 10px', text:'Everything lives in this browser. Export a JSON backup, import it elsewhere (replacing everything or merging in just the new rows), or reset to the seeded fleet.'}));
@@ -313,6 +328,50 @@ export function editFieldDef(id, onChange, extra={}){
   }});
   const {hide}=modal({ title:extra.title || (isNew?'Add custom field':'Edit custom field'), icon:'sliders', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
   setTimeout(()=>label.focus(),50);
+}
+
+// ---- Tags (fleet-wide tag vocabulary) -------------------------------------
+// One row per distinct tag in use, reusing the same `.field-row` card shape
+// Custom fields already established — just with no grip handle, since tags
+// have no display order to reorder (the list is sorted by usage instead).
+function tagRow(tag, count, onChange, ctx){
+  const row=el('div',{class:'card field-row'});
+  row.innerHTML=`<span class="qicon" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--brand-b),var(--consensus));color:#05121a">${icon('tag')}</span>`;
+  const mid=el('div',{class:'field-row-mid'});
+  mid.innerHTML=`<b>${escapeHtml(tag)}</b> <span class="tiny muted">${count} project${count===1?'':'s'}</span>`;
+  row.append(mid);
+  const actions=el('div',{class:'field-row-actions'});
+  actions.append(el('button',{class:'btn ghost icon sm', title:`View projects tagged "${tag}"`, 'aria-label':`View projects tagged "${tag}"`, html:icon('search'), onclick:()=>{ setLibrarySearch(tag); ctx.go('projects'); }}));
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Rename everywhere', 'aria-label':`Rename tag "${tag}"`, html:icon('edit'), onclick:()=>openRenameTag(tag, onChange)}));
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Remove from every project', 'aria-label':`Remove tag "${tag}" from every project`, html:icon('trash'), onclick:()=>{
+    const n=Store.bulkRemoveTag(Store.projects().map(p=>p.id), tag);
+    if(n) toast(`Removed "${tag}" from ${n} project${n===1?'':'s'}`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
+    onChange();
+  }}));
+  row.append(actions);
+  return row;
+}
+
+// Renames a tag across every project that carries it in one step —
+// Store.renameTag() dedupes if the new name collides with a tag a project
+// already has, so this doubles as "merge two tags" (rename A to B, and any
+// project that already had B just loses the duplicate A).
+function openRenameTag(tag, onChange){
+  const input=el('input',{class:'input', value:tag, autocomplete:'off', maxlength:'40'});
+  const body=el('div',{class:'field'});
+  body.append(el('label',{text:`Rename "${tag}" everywhere`}), input,
+    el('span',{class:'tiny muted', text:'Applies to every project that carries this tag right now. Renaming to a tag that already exists merges the two.'}));
+  const save=el('button',{class:'btn primary', text:'Rename', onclick:()=>{
+    const next=input.value.trim();
+    if(!next || next===tag){ hide(); return; }
+    const n=Store.renameTag(tag, next);
+    hide();
+    if(n) toast(`Renamed "${tag}" → "${next}" on ${n} project${n===1?'':'s'}`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
+    onChange();
+  }});
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); save.click(); } });
+  const {hide}=modal({ title:'Rename tag', icon:'tag', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
+  setTimeout(()=>{ input.focus(); input.select(); },50);
 }
 
 // "Recently deleted" tray — a project's undo toast covers "oops, right

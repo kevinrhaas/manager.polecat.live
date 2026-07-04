@@ -1703,6 +1703,74 @@ try {
     return !(await store(`(S)=>S.fieldDefs().some(f=>f.label==='Smoke Alpha' || f.label==='Smoke Beta')`));
   });
 
+  // ---------- Tags (fleet-wide tag manager in Settings) ----------
+  console.log('Tags manager');
+  await check('Settings → Tags lists a tag with its live usage count, and its "View" action filters the library down to it', async () => {
+    await store(`(S)=>{ ['games','relay'].forEach(id=>{ const p=S.project(id); S.put('projects', {...p, tags:[...(p.tags||[]), 'smoketagx']}, {silent:true}); }); }`);
+    await openSec('settings');
+    const row = await page.$('.field-row:has-text("smoketagx")');
+    if (!row) return false;
+    const countText = await row.$eval('.field-row-mid', (e) => e.textContent);
+    if (!/2 projects/.test(countText)) return false;
+    await row.$eval('button[title^="View projects"]', (b) => b.click());
+    await page.waitForTimeout(350);
+    const searchVal = await page.$eval('.search input.input', (i) => i.value).catch(() => '');
+    const rows = await count('.lib-table tbody tr');
+    const namesOk = await page.$eval('.lib-table tbody', (tb) => tb.textContent.includes('Games') && tb.textContent.includes('Relay')).catch(() => false);
+    await page.fill('.search input.input', ''); await page.waitForTimeout(200); // leave the library filter clean for later checks
+    return searchVal === 'smoketagx' && rows === 2 && namesOk;
+  });
+  await check('renaming a tag in Settings → Tags updates every project that carries it in one step, and merging into a tag that already exists doesn′t duplicate it', async () => {
+    await store(`(S)=>{ const m=S.project('manager'); S.put('projects', {...m, tags:[...(m.tags||[]), 'smoketagy']}, {silent:true}); }`);
+    await openSec('settings');
+    const row = await page.$('.field-row:has-text("smoketagx")');
+    if (!row) return false;
+    await row.$eval('button[title="Rename everywhere"]', (b) => b.click());
+    await page.waitForTimeout(300);
+    await page.fill('.modal input.input', 'smoketagy');
+    await page.click('.modal button:has-text("Rename")');
+    await page.waitForTimeout(300);
+    const renamed = await store(`(S)=>{
+      const once=(arr,t)=>arr.filter(x=>x===t).length===1;
+      const g=S.project('games'), r=S.project('relay'), m=S.project('manager');
+      return !g.tags.includes('smoketagx') && once(g.tags,'smoketagy')
+        && !r.tags.includes('smoketagx') && once(r.tags,'smoketagy')
+        && once(m.tags,'smoketagy');
+    }`);
+    await store(`(S)=>S.undo()`);
+    await page.waitForTimeout(200);
+    const undone = await store(`(S)=>{
+      const g=S.project('games'), r=S.project('relay'), m=S.project('manager');
+      return g.tags.includes('smoketagx') && !g.tags.includes('smoketagy')
+        && r.tags.includes('smoketagx') && !r.tags.includes('smoketagy')
+        && m.tags.includes('smoketagy') && !m.tags.includes('smoketagx');
+    }`);
+    return renamed && undone;
+  });
+  await check('the Remove action in Settings → Tags removes a tag from every project that carries it, as one Undo step', async () => {
+    await openSec('settings');
+    const row = await page.$('.field-row:has-text("smoketagx")');
+    if (!row) return false;
+    await row.$eval('button[title="Remove from every project"]', (b) => b.click());
+    await page.waitForTimeout(300);
+    const removed = await store(`(S)=>!S.project('games').tags.includes('smoketagx') && !S.project('relay').tags.includes('smoketagx')`);
+    await store(`(S)=>S.undo()`);
+    await page.waitForTimeout(200);
+    const restored = await store(`(S)=>S.project('games').tags.includes('smoketagx') && S.project('relay').tags.includes('smoketagx')`);
+    return removed && restored;
+  });
+  await check('cleanup: remove the smoke tags', async () => {
+    await store(`(S)=>{
+      ['games','relay','manager'].forEach(id=>{
+        const p=S.project(id);
+        if(p && p.tags && (p.tags.includes('smoketagx')||p.tags.includes('smoketagy'))){
+          S.put('projects', {...p, tags:p.tags.filter(t=>t!=='smoketagx'&&t!=='smoketagy')}, {silent:true});
+        }
+      });
+    }`);
+    return !(await store(`(S)=>S.allTags().some(t=>t.tag==='smoketagx'||t.tag==='smoketagy')`));
+  });
+
   // ---------- Command palette ----------
   console.log('Command palette');
   await check('⌘K palette jumps to a project', async () => {

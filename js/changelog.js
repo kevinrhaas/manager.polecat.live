@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 52,
+    title: 'A "Tags" manager: rename or clean up a tag fleet-wide',
+    kind: 'feature',
+    ts: '2026-07-04T16:47:13.272Z',
+    items: [
+      'Settings → Tags now lists every tag in use across the fleet with how many projects carry it — no more hunting project-by-project to see the vocabulary you\'ve built up.',
+      'Rename a tag and it updates on every project that has it in one step; renaming to a tag that already exists merges the two instead of leaving a duplicate.',
+      'Remove a tag from every project at once, or click through to see exactly which projects carry it in the library. Both the rename and the fleet-wide remove are a single Undo.',
+    ],
+  },
+  {
     v: 51,
     title: 'Public site: a "recent activity" ticker under the hero',
     kind: 'feature',
