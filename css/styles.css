@@ -80,6 +80,14 @@ body{
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
 }
 
+/* keyboard-only "skip to content" — invisible until tabbed to, so it never
+   shows for mouse/touch users but gives keyboard users a way past the rail's
+   ~15 nav items straight to the current view */
+.skip-link{position:fixed;top:-60px;left:14px;z-index:200;padding:11px 18px;border-radius:var(--radius-sm);
+  background:var(--brand-b);color:#05121a;font-weight:700;font-size:14px;transition:top .18s}
+.skip-link:focus{top:14px}
+#view:focus-visible{outline:none}
+
 /* ---- aurora background ------------------------------------------------- */
 .aurora{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
 .aurora span{

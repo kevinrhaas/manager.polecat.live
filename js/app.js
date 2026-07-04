@@ -40,7 +40,7 @@ async function boot(){
   rail=el('nav',{id:'rail','aria-label':'Navigation'});
   const main=el('div',{id:'main'});
   const topbar=buildTopbar();
-  view=el('div',{class:'view', id:'view'});
+  view=el('div',{class:'view', id:'view', tabindex:'-1'});
   main.append(topbar, view);
   const backdrop=el('div',{class:'rail-backdrop', onclick:()=>window.__rail.setOpen(false)});
   app.append(rail, backdrop, main);

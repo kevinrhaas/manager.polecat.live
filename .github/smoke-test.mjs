@@ -69,6 +69,25 @@ try {
     return whatsNew.includes(`v${latest.v}`) && whatsNew.includes(latest.title)
       && status.includes(`v${latest.v}`) && /Live/i.test(status);
   });
+  await check('landing has a working skip-to-content link for keyboard users (hidden until focused)', async () => {
+    const before = await page.$eval('.skip-link', (el) => parseFloat(getComputedStyle(el).top));
+    await page.$eval('.skip-link', (el) => el.focus());
+    await page.waitForTimeout(250);   // let the .18s reveal transition settle before reading it back
+    const after = await page.$eval('.skip-link', (el) => parseFloat(getComputedStyle(el).top));
+    return before < 0 && after >= 0;
+  });
+  await check('landing buttons show a visible keyboard-focus ring (was entirely missing before this sweep)', async () => {
+    const before = await page.$eval('.nav .btn.primary', (b) => getComputedStyle(b).boxShadow);
+    await page.$eval('.nav .btn.primary', (b) => b.focus());
+    await page.waitForTimeout(250);   // let the .18s box-shadow transition settle before reading it back
+    const after = await page.$eval('.nav .btn.primary', (b) => getComputedStyle(b).boxShadow);
+    return after !== 'none' && after !== before;
+  });
+  await check('fleet showcase colors Live vs Active status differently, matching real in-app status semantics', async () => {
+    const liveColor = await page.$eval('.fchip .st.is-live', (el) => getComputedStyle(el).color);
+    const activeColor = await page.$eval('.fchip .st.is-active', (el) => getComputedStyle(el).color);
+    return !!liveColor && !!activeColor && liveColor !== activeColor;
+  });
 
   // ---------- App shell ----------
   console.log('App shell');
@@ -77,6 +96,13 @@ try {
   await page.keyboard.press('Escape');   // dismiss the first-run welcome tour
   await page.waitForTimeout(300);
   await check('nav rail renders (>=5 sections)', async () => (await count('.rail-item')) >= 5);
+  await check('app shell has a working skip-to-content link (jumps keyboard focus straight to the view)', async () => {
+    const href = await page.$eval('.skip-link', (a) => a.getAttribute('href')).catch(() => null);
+    if (href !== '#view') return false;
+    await page.$eval('.skip-link', (a) => a.click());
+    await page.waitForTimeout(150);
+    return await page.evaluate(() => document.activeElement && document.activeElement.id === 'view');
+  });
   for (const s of ['home', 'projects', 'releases', 'activity', 'credentials', 'docs', 'settings']) {
     await check(`section "${s}" opens`, async () => { if (!(await openSec(s))) return false; return (await count('#view *')) > 0; });
   }

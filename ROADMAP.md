@@ -26,6 +26,23 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [ ] This sweep's landing-page focus rings + skip link (see Done, 2026-07-04)
+      only touched links/buttons (`a`, `.btn`, `.whats-new`). The app-side
+      rail (`.rail-item`, `.rail-brand`, `.rail-toggle` in `js/shell.js`) is
+      already keyboard-reachable via the browser's own default focus outline
+      — never broken — but unlike every button/pill/row elsewhere in the app
+      (`.btn`, `.status`, `.rel-card`, table rows), it was never given the
+      app's own branded `--ring` treatment. Worth a small follow-up pass
+      giving the rail items the same ring the rest of the app already has,
+      finishing off the "focus rings audited" half of the long-standing
+      Now/Next item below.
+- [ ] The new fleet-showcase status colors (see Done, 2026-07-04) only handle
+      the two statuses actually in use today (`live`/`active`) — if a seeded
+      fleet project's real status ever legitimately becomes `building`,
+      `paused`, or `archived`, `.fchip .st` would need a matching
+      `is-building`/`is-paused`/`is-archived` class + color added alongside
+      `is-live`/`is-active` (mirroring `js/store.js`'s `STATUSES` table)
+      rather than silently falling back to the plain `--text-2` base color.
 - [ ] The new default-saved-view pin (see Done, 2026-07-04) lives only in the
       "Reorder saved views" modal — a saved-view chip has no room of its own
       for a third button beyond apply/delete. Fine today since that modal is
@@ -253,6 +270,48 @@ with new, ambitious, fun ideas.
       row that's still actually flagged.
 
 ## Done
+
+- [x] **Sweep: keyboard-focus rings + a skip-to-content link everywhere, and
+      honest fleet-showcase status colors** _(2026-07-04)_: the public landing
+      page (`css/landing.css`) had never had a single `:focus` rule in it —
+      every link and button on the marketing site relied entirely on the
+      browser's own default outline, in visual isolation from the actual
+      app's carefully-tuned `--ring` focus style (`.btn:focus-visible`,
+      `.status:focus-visible`, `.rel-card:focus-visible`, etc. in
+      `css/styles.css`). Landing now gets the exact same treatment: a new
+      `--ring` var (identical formula to the app's) plus `a:focus-visible`,
+      `.btn:focus-visible`, and `.whats-new:focus-visible` rules — placed
+      *after* `.btn.primary`'s own box-shadow in source order so the ring
+      actually wins the specificity tie on the primary "Launch Manager"
+      button rather than being silently overridden by it (caught by an
+      end-to-end smoke check that genuinely failed against the first attempt
+      before the reorder fixed it). Both the landing page and the app itself
+      were also missing a "Skip to content" link — a basic, long-established
+      keyboard-navigation pattern, and directly the still-open Next item
+      "Keyboard-first navigation everywhere; focus rings audited." A new
+      `.skip-link` (invisible until focused, so it never shows for mouse/touch
+      visitors) now sits as the very first focusable element on both
+      `index.html` (jumping to `<main id="main" tabindex="-1">`) and the app
+      shell (jumping to the existing `#view` container, now `tabindex="-1"`
+      so focus actually lands there instead of just scrolling) — letting a
+      keyboard user skip past the landing nav or the app's ~15-item rail in
+      one Tab + Enter. Separately, the fleet showcase's status text
+      (`.fchip .st`) colored every project's status the same hardcoded lime
+      green regardless of what it said — "Live" and "Active" were visually
+      identical, even though the real app's own `STATUSES` table
+      (`js/store.js`) gives every status its own distinct color (`s-live`
+      teal, `s-active` sky-blue, etc.). The showcase now carries `is-live`/
+      `is-active` classes matching each project's real seeded status
+      (`js/store.js`'s `P` array — Relay/Games/Polecat/Polecat App/Manager are
+      `live`, Solution Eng. is `active`) and colors them with the same teal/
+      sky-blue the in-app pills use, so the marketing page's status language
+      actually means something at a glance instead of one flat color for
+      everything. Four new smoke checks drive the real pages end to end: the
+      skip link's hidden-until-focused position on both landing and the app
+      (plus confirming the app's version actually moves keyboard focus to
+      `#view`, not just scrolls), the primary button's focus ring changing on
+      focus, and the fleet chips' Live/Active colors being genuinely
+      different values (not just different class names).
 
 - [x] **A "default" saved view** _(2026-07-04)_: saved views (see Done below,
       ×2 earlier this cadence) were user-definable and reorderable, but the

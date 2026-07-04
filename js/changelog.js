@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 48,
+    title: 'Sweep: keyboard-focus rings and a skip-to-content link, fleet-showcase status colors',
+    kind: 'polish',
+    ts: '2026-07-04T13:43:31.790Z',
+    items: [
+      'The public landing page had zero keyboard-focus styling anywhere — tabbing through it relied entirely on default browser outlines. It now gets the same branded focus ring the app already uses on every button and link, plus a "Skip to content" link that appears only when tabbed to, letting keyboard users jump straight past the nav.',
+      'The app itself only had that skip-past-the-rail gap on the marketing side — added the same "Skip to content" link there too, jumping focus straight to the current view.',
+      'The landing page\'s fleet showcase colored every project\'s status text the same lime green regardless of what it actually said ("Live" vs "Active") — it now uses the exact same two colors the real app\'s status pills use, so "Active" reads visibly differently from "Live" instead of looking identical.',
+    ],
+  },
+  {
     v: 47,
     title: 'A default saved view',
     kind: 'feature',
