@@ -396,6 +396,21 @@ function projectRow(p, ctx, onSelectionChange){
   return tr;
 }
 
+// "Promote to field" helpers — turn a legacy free-form key into a sensible
+// starting guess for a real field def, so the modal opens prefilled rather
+// than blank. Best-effort only; the user can always change name/type before
+// saving.
+function humanizeKey(k){
+  return String(k).replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim().replace(/\b\w/g, c=>c.toUpperCase()) || k;
+}
+function inferFieldType(value){
+  const s=String(value ?? '').trim();
+  if(/^https?:\/\//i.test(s)) return 'url';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s))) return 'date';
+  if(s!=='' && !isNaN(Number(s))) return 'number';
+  return 'text';
+}
+
 // -------------------------------------------------------------------------
 // Shared project editor (add + edit). Used from the library, dashboard, and
 // project detail. `id=null` creates a new project.
@@ -459,11 +474,21 @@ export function openProjectEditor(id, ctx){
       const row=el('div',{style:'display:flex;gap:8px;margin-bottom:8px;align-items:center'});
       const kk=el('input',{class:'input', style:'flex:0 0 34%', value:k, placeholder:'Field'});
       const vv=el('input',{class:'input', style:'flex:1', value:custom[k], placeholder:'Value'});
+      const promote=el('button',{class:'btn ghost icon sm', title:'Promote to field', 'aria-label':'Promote to typed field', html:icon('upload'),
+        onclick:()=>{
+          const key=kk.value.trim()||k, value=vv.value;
+          editFieldDef(null, renderCustom, {
+            title:'Promote to field', saveLabel:'Promote',
+            note:`Turns "${key}" into a real field in the fleet-wide schema — typed, and available on every project. This project's current value carries over.`,
+            prefill:{ label:humanizeKey(key), type:inferFieldType(value) },
+            onAdded:(def)=>{ delete custom[k]; custom[def.key]=value; renderCustom(); },
+          });
+        }});
       const del=el('button',{class:'btn ghost icon sm', title:'Remove field', 'aria-label':'Remove field', html:icon('trash'),
         onclick:()=>{ delete custom[k]; renderCustom(); }});
       kk.addEventListener('change',()=>{ const nv=vv.value; delete custom[k]; if(kk.value.trim()) custom[kk.value.trim()]=nv; renderCustom(); });
       vv.addEventListener('input',()=>{ custom[k]=vv.value; });
-      row.append(kk,vv,del); customWrap.append(row);
+      row.append(kk,vv,promote,del); customWrap.append(row);
     });
     customWrap.append(el('button',{class:'btn sm', html:`${icon('plus')} New field type`, title:'Define a new typed field — appears here and on every project', onclick:()=>editFieldDef(null, renderCustom)}));
   };

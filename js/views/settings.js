@@ -250,32 +250,36 @@ function fieldDefRow(d, onChange){
   return row;
 }
 
-// Add/edit a field definition. Shared by Settings (schema management) and the
-// project editor ("+ New field" — define one without leaving the modal).
-export function editFieldDef(id, onChange){
+// Add/edit a field definition. Shared by Settings (schema management), the
+// project editor ("+ New field" — define one without leaving the modal), and
+// "Promote to field" (turns a legacy free-form value into a typed one, via
+// `extra.prefill` + `extra.onAdded`).
+export function editFieldDef(id, onChange, extra={}){
   const d = id ? Store.fieldDef(id) : null;
   const isNew = !d;
-  const label=el('input',{class:'input', placeholder:'Owner', value:d?.label||''});
+  const prefill = extra.prefill || {};
+  const label=el('input',{class:'input', placeholder:'Owner', value:d?.label ?? prefill.label ?? ''});
   const type=el('select',{class:'input'});
   Object.entries(FIELD_TYPES).forEach(([k,t])=>type.append(el('option',{value:k,text:t.label})));
-  type.value = d?.type||'text';
+  type.value = d?.type || prefill.type || 'text';
   const options=el('input',{class:'input', placeholder:'small, medium, large', value:(d?.options||[]).join(', ')});
   const optionsField=el('div',{class:'field'}); optionsField.append(el('label',{text:'Options'}), options, el('span',{class:'tiny muted', text:'Comma-separated choices for a Select field.'}));
   optionsField.style.display = type.value==='select' ? '' : 'none';
   type.addEventListener('change',()=>{ optionsField.style.display = type.value==='select' ? '' : 'none'; });
   const f=(l,n,hint)=>{ const w=el('div',{class:'field'}); w.append(el('label',{text:l}), n); if(hint) w.append(el('span',{class:'tiny muted', text:hint})); return w; };
   const body=el('div');
+  if(extra.note) body.append(el('div',{class:'tiny muted', style:'margin-bottom:10px', text:extra.note}));
   body.append(f('Name', label, 'Shown on the project editor, health panel, and library filters.'), f('Type', type), optionsField);
-  const save=el('button',{class:'btn primary', text:isNew?'Add field':'Save changes', onclick:()=>{
+  const save=el('button',{class:'btn primary', text:extra.saveLabel || (isNew?'Add field':'Save changes'), onclick:()=>{
     const lbl=label.value.trim(); if(!lbl){ label.focus(); return; }
-    const opts=options.value.split(',').map(s=>s.trim()).filter(Boolean);
+    const selectOpts=options.value.split(',').map(s=>s.trim()).filter(Boolean);
     try{
-      const data={ label:lbl, type:type.value, options:type.value==='select'?opts:[] };
-      if(isNew) Store.addFieldDef(data); else Store.updateFieldDef(id, data);
-      hide(); toast(isNew?'Field added':'Field saved',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); onChange&&onChange();
+      const data={ label:lbl, type:type.value, options:type.value==='select'?selectOpts:[] };
+      const saved = isNew ? Store.addFieldDef(data) : Store.updateFieldDef(id, data);
+      hide(); toast(isNew?'Field added':'Field saved',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); onChange&&onChange(); extra.onAdded&&extra.onAdded(saved);
     }catch(e){ toast('Couldn’t save field',{body:e.message, kind:'err'}); }
   }});
-  const {hide}=modal({ title:isNew?'Add custom field':'Edit custom field', icon:'sliders', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
+  const {hide}=modal({ title:extra.title || (isNew?'Add custom field':'Edit custom field'), icon:'sliders', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
   setTimeout(()=>label.focus(),50);
 }
 

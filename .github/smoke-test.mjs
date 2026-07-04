@@ -1388,6 +1388,36 @@ try {
     }`);
     return !(await store(`(S)=>S.fieldDefs().some(f=>f.label==='Tier')`));
   });
+  await check('"Promote to field" turns a legacy free-form value into a typed field, prefilled and carrying the value over', async () => {
+    await store(`(S)=>{ const g=S.project('games'); S.put('projects', {...g, fields:{...(g.fields||{}), smoke_docs_link:'https://example.com/docs'}}, {silent:true}); }`);
+    await page.evaluate(() => { location.hash = 'project/games'; });
+    await page.waitForTimeout(400);
+    await page.click('button:has-text("Edit")'); await page.waitForTimeout(300);
+    const promoteBtn = await page.$('.modal button[title="Promote to field"]');
+    if (!promoteBtn) return false;
+    await promoteBtn.click(); await page.waitForTimeout(300);
+    const overlays = await page.$$('.overlay.show');
+    const promoteModal = overlays[overlays.length - 1];
+    if (!promoteModal) return false;
+    const prefilledLabel = await promoteModal.$eval('input.input', (i) => i.value).catch(() => '');
+    const prefilledType = await promoteModal.$eval('select.input', (s) => s.value).catch(() => '');
+    const saveBtn = await promoteModal.$('button:has-text("Promote")');
+    if (!saveBtn) return false;
+    await saveBtn.click(); await page.waitForTimeout(300);
+    await page.click('.modal button:has-text("Save changes")'); await page.waitForTimeout(400);
+    const defOk = await store(`(S)=>S.fieldDefs().some(f=>f.label==='Smoke Docs Link' && f.type==='url')`);
+    const valueOk = await store(`(S)=>{ const g=S.project('games'); return g.fields['smoke-docs-link']==='https://example.com/docs' && !('smoke_docs_link' in g.fields); }`);
+    const renderedAsLink = await page.$$eval('.card.health a.link', (els) => els.some((e) => e.href === 'https://example.com/docs')).catch(() => false);
+    return prefilledLabel === 'Smoke Docs Link' && prefilledType === 'url' && defOk && valueOk && renderedAsLink;
+  });
+  await check('cleanup: remove the promoted smoke field and its value', async () => {
+    await store(`(S)=>{
+      const f=S.fieldDefs().find(x=>x.label==='Smoke Docs Link'); if(f) S.removeFieldDef(f.id, {silent:true});
+      const g=S.project('games');
+      if(g && g.fields && g.fields['smoke-docs-link']){ const nf={...g.fields}; delete nf['smoke-docs-link']; S.put('projects', {...g, fields:nf}, {silent:true}); }
+    }`);
+    return !(await store(`(S)=>S.fieldDefs().some(f=>f.label==='Smoke Docs Link')`));
+  });
 
   // ---------- Command palette ----------
   console.log('Command palette');
