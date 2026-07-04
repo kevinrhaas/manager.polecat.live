@@ -17,7 +17,8 @@ import { renderSettings } from './views/settings.js';
 import { openWhatsNew, hasUnread } from './views/whatsnew.js';
 import { buildNotifBell, refreshNotifBadge } from './views/notifications.js';
 import { startTour, MANAGER_TOUR } from './tour.js';
-import { runAutoSync } from './ingest.js';
+import { runAutoSync, guessChangelogUrl } from './ingest.js';
+import { CHANGELOG } from './changelog.js';
 
 const TITLES = { home:'Dashboard', projects:'Projects', project:'Project', releases:'Releases', activity:'Activity',
   credentials:'Credentials', docs:'Docs', admin:'Admin', settings:'Settings' };
@@ -31,6 +32,8 @@ async function boot(){
   applyTheme();
   const gate = await Access.init();
   if(!gate.granted){ renderGate(gate.inviteError); return; }
+
+  syncOwnChangelog();
 
   const app=$('#app');
   app.innerHTML='';
@@ -59,6 +62,26 @@ async function boot(){
   // hidden, and we only surface a toast when something actually changed.
   tickAutoSync();
   setInterval(tickAutoSync, 30000);   // wake every 30s; runAutoSync self-gates on per-project due-ness
+}
+
+// Manager publishes its own "what's new" the exact same way every other fleet
+// project does — a `CHANGELOG` array in a deployed js/changelog.js — so its
+// own dashboard tile and project page can read that same live source instead
+// of a value someone has to remember to update by hand. This reconciles it
+// into the releases table on every boot, straight from the already-imported
+// module (no fetch, so no network/CORS round trip and no per-project "Sync"
+// click required) via the same `syncReleases()` every other project's Sync
+// button uses, so Manager behaves exactly like any other synced project —
+// same "Synced …" timestamp, same auto-status, same sync-tag on its rows.
+function syncOwnChangelog(){
+  const manager = Store.project('manager');
+  if(!manager) return;
+  const entries = CHANGELOG.map(e => ({
+    v: e.v, title: e.title, kind: e.kind || 'feature',
+    ts: e.ts && !isNaN(new Date(e.ts)) ? new Date(e.ts).toISOString() : new Date().toISOString(),
+    items: e.items || [],
+  }));
+  Store.syncReleases('manager', entries, guessChangelogUrl(manager.site));
 }
 
 function tickAutoSync(){

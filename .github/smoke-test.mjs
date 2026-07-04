@@ -190,6 +190,19 @@ try {
   console.log('Dashboard');
   await openSec('home');
   await check('dashboard shows project tiles (seeded fleet)', async () => (await count('.tile')) >= 5);
+  await check('Manager\'s own dashboard tile and project page track its real CHANGELOG version, not a stale seed', async () => {
+    // app.js reconciles js/changelog.js's CHANGELOG straight into the 'manager'
+    // project's releases on every boot (no fetch — it's already an ES import),
+    // so Manager never shows a frozen "v1" while every other project's version
+    // moves. Verify it against the actual imported module, not a hardcoded number.
+    const real = await page.evaluate(async () => { const { LATEST_VERSION, CHANGELOG } = await import('/js/changelog.js'); return { LATEST_VERSION, count: CHANGELOG.length }; });
+    const stored = await store(`(S)=>{const r=S.latestRelease('manager'); return { v:r&&r.v, total:S.releasesFor('manager').length };}`);
+    const tileVersion = await page.evaluate(() => {
+      const t = [...document.querySelectorAll('.tile')].find(x => /Manager/.test(x.textContent));
+      return t?.querySelector('.vchip')?.textContent.trim();
+    });
+    return real.LATEST_VERSION > 1 && stored.v === real.LATEST_VERSION && stored.total === real.count && tileVersion === `v${real.LATEST_VERSION}`;
+  });
   await check('a tile opens the project detail', async () => {
     await (await $('.tile')).click(); await page.waitForTimeout(350);
     return !!(await page.$('.detail-head')) && (await count('.detail-head')) > 0;
@@ -954,11 +967,14 @@ try {
   await check('settings: needs-attention thresholds are tunable and drive Store.needsAttention()', async () => {
     await openSec('settings');
     const before = await store(`(S)=>S.needsAttention().length`);
-    // cranking the health cutoff to 100 must flag every project (nothing scores >=100)
+    // cranking the health cutoff to 100 must flag every project scoring below
+    // a perfect 100 (the check is `score < healthMax`, so a project that's
+    // itself maxed out every dimension — e.g. Manager, which ships on every
+    // run — correctly stays unflagged even at the most aggressive cutoff)
     await page.$eval('.attn-slider[data-attn="health"]', (s) => { s.value = '100'; s.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.waitForTimeout(150);
     const maxed = await store(`(S)=>S.needsAttention().length`);
-    const totalProjects = await store(`(S)=>S.projects().length`);
+    const totalProjects = await store(`(S)=>S.projects().filter(p=>S.healthScore(p.id) < 100).length`);
     const savedHealthMax = await store(`(S)=>S.attentionThresholds().healthMax`);
     // and dropping it to 1 must flag none on health (a project would need to score 0)
     await page.$eval('.attn-slider[data-attn="health"]', (s) => { s.value = '1'; s.dispatchEvent(new Event('input', { bubbles: true })); });

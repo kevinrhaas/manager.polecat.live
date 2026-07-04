@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 37,
+    title: 'Manager now tracks its own real version',
+    kind: 'polish',
+    ts: '2026-07-04T02:22:40.853Z',
+    items: [
+      'The dashboard tile and project page for "Manager" (this app) used to be frozen at "v1 — Freshly launched" forever — they now reconcile against this very CHANGELOG on every load, so Manager\'s own version, release history, and health score are always the real, current numbers.',
+      'Fixed a 320px overflow bug in the release timeline and the fleet-wide Releases feed: a description containing one very long unbroken word (like an env-var name) could force the whole panel wider than the screen.',
+    ],
+  },
+  {
     v: 36,
     title: 'Releases: copy as Markdown + JSON/RSS export',
     kind: 'feature',

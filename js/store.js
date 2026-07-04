@@ -803,7 +803,7 @@ function seed(db){
       status:'live', icon:'gauge', pinned:true, cadence:'GitHub Action · hourly',
       tags:['console','tooling','static'],
       description:'Mission control for the fleet — the app you are looking at.',
-      assessment:'Mission control for the whole fleet — this very console. Freshly launched (v1) and set to self-improve hourly.' },
+      assessment:'Mission control for the whole fleet — this very console, watching itself along with everyone else. Ships new features and polish on an hourly self-improve loop.' },
     { id:'relay', name:'Relay', repo:'kevinrhaas/relay.polecat.live', site:'https://relay.polecat.live',
       status:'live', icon:'chat', pinned:true, cadence:'GitHub Action · hourly',
       tags:['p2p','webrtc','static'],

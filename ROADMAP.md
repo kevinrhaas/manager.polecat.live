@@ -30,6 +30,15 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [ ] Now that Manager syncs its own real `CHANGELOG` into its releases (see
+      Done, 2026-07-04), its per-project auto-sync toggle is still off by
+      default like every other project's — but Manager is the one project
+      where "auto-sync" carries zero CORS/network risk (it's a same-process
+      local import, not a fetch), so there's no real reason not to also flip
+      Manager's `autoSync` on in the seed for fresh workspaces. Left off this
+      pass since `syncOwnChangelog()` on every boot already keeps it current
+      regardless of the toggle; only worth it if the per-project auto-sync
+      badge/UI itself is expected to reflect Manager's sync state too.
 - [ ] The new JSON/RSS export (see Done, 2026-07-04) is a manually-triggered
       *snapshot* download, not a live subscribable URL — there's no server to
       host a stable feed endpoint on a static GitHub Pages site. Worth
@@ -168,6 +177,45 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Sweep: Manager stops lying about its own version** _(2026-07-04)_: the
+      "Keep the seed honest" rule already protected the other five fleet
+      projects from fabricated version numbers, but Manager's own dashboard
+      tile and project page were exempt from the rule they enforce on
+      everyone else — the `manager` project's `releases` table only ever held
+      the one seeded "v1 — Mission Control launch" row, so the tile eternally
+      showed "v1" and "Freshly launched" while the real app had shipped 35
+      more versions and hundreds of features. Root cause: every other
+      project's releases arrive via a live fetch of its deployed
+      `js/changelog.js` (the Sync button, or auto-sync); Manager never
+      fetched *itself*. Fixed the honest way — reusing the exact same
+      mechanism rather than inventing a parallel one: `js/app.js`'s new
+      `syncOwnChangelog()` reconciles the already-imported `CHANGELOG` array
+      (`js/changelog.js`) into the `manager` project's releases on every boot,
+      via the same `Store.syncReleases()` every project's Sync button calls —
+      just with no network round trip, since the data's already loaded
+      client-side, so there's no CORS dependency and no per-project click
+      required. Manager's dashboard tile, project page, health score, "Latest
+      version," and fleet-wide stats now track its real shipped version like
+      every other project, and its release rows carry the same "synced" tag
+      and "Synced …" timestamp any other project's sync produces. Softened
+      the seed's `assessment` copy, which hard-coded "(v1)" and would have
+      read as stale the instant the version badge started moving. Chasing
+      this down real-content (not seeded placeholders) surfaced a genuine
+      320px overflow bug: `.tl-item li` / `.rel-card li` (the bullet text
+      under a release headline, in the project timeline and the fleet-wide
+      Releases feed) had no `overflow-wrap`, so a single unbreakable token
+      long enough to need it (this very CHANGELOG's own description of a past
+      env-var-key overflow fix, ironically) forced its whole CSS Grid column
+      wider than the viewport — invisible with short seeded text, real with
+      an actual shipped changelog. Fixed at the shared rule level (plus
+      `.tl-head b`) the same way prior sweeps fixed the credentials-row
+      version of this bug. Also hardened a smoke check whose assumption ("no
+      project scores >=100, so cranking the health cutoff to 100 must flag
+      everyone") broke the instant Manager — which ships every run — could
+      legitimately hit a perfect 100; the check now computes its expectation
+      from live scores instead of assuming `totalProjects`. New smoke check
+      proves Manager's tile/health-panel version and release count match the
+      real imported `CHANGELOG` exactly, not a frozen seed.
 - [x] **Releases: copy-as-Markdown and a combined JSON/RSS export** _(2026-07-04)_:
       the last item in the Releases feed's shareable-digest queue (the
       "this week" rollup one-liner shipped 2026-07-03). A new **Copy / Export**
