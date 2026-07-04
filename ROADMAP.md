@@ -14,14 +14,24 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Reorderable custom fields** (drag to set the `order` the schema
-      already tracks) so the most-used ones surface first in the editor and
-      health panel. (Promoted from Next — the typed custom-field schema has
-      carried an `order` column since it shipped, but nothing in the UI lets
-      a user actually change it; new fields just append to the end forever.)
+- [ ] **Reorderable saved views** — `savedViews` rows carry the exact same
+      append-only `order` column `fieldDefs` did before this cadence's fix
+      (see Done, 2026-07-04), with the same gap: no UI lets a user change
+      which saved-view chip shows up first in the library toolbar. The new
+      `Store.reorderFieldDefs()` + drag-handle/up-down-arrow pattern that
+      just shipped is directly reusable here — same shape, different table.
 
 ## Next (discovered / queued)
 
+- [ ] The new custom-field reorder drag handle (see Done, 2026-07-04) uses
+      native HTML5 drag-and-drop, which has patchy touch support on real
+      mobile browsers — the up/down arrows are the actual mobile-safe path
+      today, and they fully work standalone, but a phone user reaching
+      specifically for the grip handle may find it inert. Worth a
+      pointer-events-based custom drag implementation (mirroring
+      `js/shell.js`'s rail-resize mousedown/touch handling) if that gap ever
+      gets reported in practice; low priority since the arrows already cover
+      the same outcome end to end.
 - [ ] Now that a Number-type custom field gets a real dual-handle range-slider
       filter (see Done, 2026-07-04), its bounds (the slider's min/max travel)
       are computed fresh from the live fleet's actual data every time the
@@ -226,6 +236,32 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Reorderable custom fields** _(2026-07-04)_: the typed custom-field
+      schema (`fieldDefs`) has carried a display-`order` column since it
+      shipped, but nothing in the UI let a user actually change it — a new
+      field always appended to the end, forever, even one used on every
+      project that deserved to surface first. Settings → Custom fields now
+      lets you reorder the list two ways: drag a row by its new grip handle
+      (native HTML5 drag-and-drop, delegated on the list container so it
+      survives re-renders, with the row visibly reordering live as you drag
+      over its neighbors), or use a pair of up/down arrow buttons — the
+      keyboard- and touch-friendly alternative, since native drag doesn't
+      reliably work on real mobile touchscreens. Both paths end at the same
+      new `Store.reorderFieldDefs(orderedIds)`, which re-sequences every
+      def's `order` in one grouped-undo `bulkUpdate()` call (mirroring every
+      other batch edit in the app — one drag or one arrow-click is one Undo
+      step, not several), and skip rows whose order doesn't actually change
+      so a no-op drag pushes no history. Because every consumer already reads
+      the fleet-wide `Store.fieldDefs()` getter (which sorts by `order`)
+      rather than hand-rolling its own ordering, the new order takes effect
+      everywhere for free: the project detail page's Metadata card, the
+      project editor's custom-fields section, and the library toolbar's
+      field filter/sort dropdowns all reflect it immediately, with zero
+      changes needed at those call sites. Two new smoke checks drive the
+      real UI end to end: the up/down arrows swapping two fields (and
+      confirming the last row's "move down" arrow is disabled), and dragging
+      a field's grip handle above another to reorder it, then confirming
+      Undo restores the exact original order.
 - [x] **Number-type custom fields as filter range sliders (min/max) in the
       library** _(2026-07-04)_: exact-match/contains filtering already worked
       for Select and Text/URL/Date fields, but a Number field (a score, a

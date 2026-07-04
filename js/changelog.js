@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 45,
+    title: 'Reorderable custom fields',
+    kind: 'feature',
+    ts: '2026-07-04T11:34:51.734Z',
+    items: [
+      'Custom field definitions (Settings → Custom fields) had carried a display-order column since the typed schema shipped, but nothing let you actually change it — new fields just appended to the end forever.',
+      'Every field row now has a drag handle, plus up/down arrows for keyboard and touch, to reorder the schema in one click or a drag.',
+      'That order now drives where each field shows up everywhere it appears: the project detail page, the project editor, and the library toolbar\'s filter/sort dropdowns.',
+      'Reordering is a single Undo step, just like every other batch edit in Manager.',
+    ],
+  },
+  {
     v: 44,
     title: 'Number-field filters get a real range slider',
     kind: 'feature',

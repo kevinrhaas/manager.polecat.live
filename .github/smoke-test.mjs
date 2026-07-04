@@ -1511,6 +1511,39 @@ try {
     }`);
     return !(await store(`(S)=>S.fieldDefs().some(f=>f.label==='Smoke Docs Link')`));
   });
+  await check('up/down arrows reorder custom fields, with the last row′s "move down" arrow disabled', async () => {
+    await openSec('settings');
+    await page.click('.card:has-text("Custom fields") button:has-text("Add field")'); await page.waitForTimeout(300);
+    await page.fill('.modal input.input', 'Smoke Alpha');
+    await page.click('.modal button:has-text("Add field")'); await page.waitForTimeout(300);
+    await page.click('.card:has-text("Custom fields") button:has-text("Add field")'); await page.waitForTimeout(300);
+    await page.fill('.modal input.input', 'Smoke Beta');
+    await page.click('.modal button:has-text("Add field")'); await page.waitForTimeout(300);
+    const before = await store(`(S)=>S.fieldDefs().map(f=>f.label)`);
+    const iAlpha = before.indexOf('Smoke Alpha'), iBeta = before.indexOf('Smoke Beta');
+    if (!(iAlpha >= 0 && iBeta === iAlpha + 1)) return false; // freshly added, appended in order
+    const betaDownDisabled = await page.$eval('.field-row:has-text("Smoke Beta") button[title="Move down"]', (b) => b.disabled);
+    await page.click('.field-row:has-text("Smoke Beta") button[title="Move up"]'); await page.waitForTimeout(250);
+    const after = await store(`(S)=>S.fieldDefs().map(f=>f.label)`);
+    const swapped = after.indexOf('Smoke Beta') === iAlpha && after.indexOf('Smoke Alpha') === iAlpha + 1;
+    return betaDownDisabled && swapped;
+  });
+  await check('dragging a custom field′s grip handle above another persists the new order, and Undo restores it', async () => {
+    // order coming in from the previous check: [..., Smoke Beta, Smoke Alpha]
+    const before = await store(`(S)=>S.fieldDefs().map(f=>f.label)`);
+    await page.dragAndDrop('.field-row:has-text("Smoke Alpha") .field-row-grip', '.field-row:has-text("Smoke Beta")', { targetPosition: { x: 20, y: 3 } });
+    await page.waitForTimeout(300);
+    const after = await store(`(S)=>S.fieldDefs().map(f=>f.label)`);
+    const draggedAbove = after.indexOf('Smoke Alpha') < after.indexOf('Smoke Beta');
+    await store(`(S)=>S.undo()`);
+    await page.waitForTimeout(200);
+    const undone = await store(`(S)=>S.fieldDefs().map(f=>f.label)`);
+    return draggedAbove && JSON.stringify(undone) === JSON.stringify(before);
+  });
+  await check('cleanup: remove the two smoke reorder fields', async () => {
+    await store(`(S)=>{ ['Smoke Alpha','Smoke Beta'].forEach(label=>{ const f=S.fieldDefs().find(x=>x.label===label); if(f) S.removeFieldDef(f.id, {silent:true}); }); }`);
+    return !(await store(`(S)=>S.fieldDefs().some(f=>f.label==='Smoke Alpha' || f.label==='Smoke Beta')`));
+  });
 
   // ---------- Command palette ----------
   console.log('Command palette');

@@ -839,9 +839,13 @@ a.link:hover{text-decoration:underline}
 .invite-actions{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;flex:0 0 auto}
 
 /* ---- custom field rows (settings) -------------------------------------- */
-.field-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 12px}
+.field-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 12px;transition:opacity .15s}
 .field-row-mid{flex:1 1 140px;min-width:0}
 .field-row-actions{display:flex;align-items:flex-start;gap:6px;flex:0 0 auto}
+.field-row-grip{flex:0 0 auto;width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--text-3);cursor:grab;touch-action:none}
+.field-row-grip svg{width:18px;height:18px}
+.field-row-grip:active{cursor:grabbing}
+.field-row.dragging{opacity:.4}
 .cred-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 12px}
 .cred-row-mid{flex:1 1 160px;min-width:0}
 .cred-row-actions{display:flex;align-items:flex-start;gap:6px;flex:0 0 auto;margin-left:auto}

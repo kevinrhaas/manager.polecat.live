@@ -397,6 +397,19 @@ export const Store = new (class {
   }
   updateFieldDef(id, patch){ const f=this.fieldDef(id); if(!f) return; return this.put('fieldDefs', { ...f, ...patch }, { label:'Edit field' }); }
   removeFieldDef(id, opts={}){ return this.remove('fieldDefs', id, { label:'Remove field', ...opts }); }
+  // Re-sequence every field def to a new display order — `orderedIds` is
+  // every fieldDefs id, in the order they should now appear everywhere
+  // fieldDefs() is read (Settings' schema list, the project editor/detail
+  // page, and the library's field filter/sort dropdowns). One grouped undo
+  // step via bulkUpdate, same as any other batch edit — dragging one row is
+  // a single action, not N. Rows whose order doesn't actually change are
+  // skipped (bulkUpdate's own no-op rule), so a no-op drag pushes no history.
+  reorderFieldDefs(orderedIds){
+    return this.bulkUpdate('fieldDefs', orderedIds, (f)=>{
+      const order = orderedIds.indexOf(f.id);
+      return order===f.order ? null : { ...f, order };
+    }, { label:'Reorder fields' });
+  }
 
   // ---- saved views (user-defined library filter+sort combos) -------------
   // The built-in views (All/Live/Recent/Pinned/Needs attention) are a fixed

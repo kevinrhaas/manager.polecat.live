@@ -38,6 +38,7 @@ const SECTIONS = [
       <li><b>Custom fields</b> — track anything (model, owner, budget…). They show on the project page.</li>
     </ul>
     <p>Pick a custom field in the toolbar to filter by it — a <b>Select</b> field gets a dropdown of its exact options, a <b>Number</b> field gets a <b>dual-handle range slider</b> (bounded to the real min/max in use today) so you can narrow to "budget between X and Y", and every other type filters by "contains".</p>
+    <p>In <b>Settings → Custom fields</b>, drag a field's grip handle (or use its up/down arrows) to reorder the schema — that order drives where each field shows up on the project page, in the editor, and in this toolbar's own dropdowns.</p>
     <p>Check any number of rows (the header checkbox selects every currently visible one) to open the <b>bulk action bar</b> — add or remove a tag, set a status, archive, or delete the whole selection in one shot. <b>Remove tag</b> only offers tags actually present on the checked projects. Every bulk action is a single Undo (delete gets its own confirm first).</p>` },
   { id:'releases', title:'Releases & what’s new', body:`
     <p>Every project has its own <b>what’s-new timeline</b>. Open a project and click <b>Add release</b> to record one: a version number, a title, a kind (feature / polish / fix), and a bullet list of what changed. The newest release drives the tile’s “latest version” and “last shipped”.</p>

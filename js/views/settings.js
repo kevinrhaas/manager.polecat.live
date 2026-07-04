@@ -172,15 +172,18 @@ export function renderSettings(root, ctx){
   // ---- Custom fields (typed project-metadata schema) ----
   const fields=card('Custom fields', 'sliders');
   fields.append(el('p',{class:'muted tiny', style:'margin:0 0 10px', text:'Define typed fields — text, number, URL, date, or a fixed set of options — and they’ll show up on every project’s editor, health panel, and the library’s filters and sort.'}));
-  const fieldsList=el('div',{style:'display:flex;flex-direction:column;gap:8px'});
+  const fieldsList=el('div',{class:'field-defs-list', style:'display:flex;flex-direction:column;gap:8px'});
+  const fieldsHint=el('p',{class:'tiny muted', style:'margin:8px 0 0'});
   const renderFieldsList=()=>{
     fieldsList.innerHTML='';
     const defs=Store.fieldDefs();
     if(!defs.length) fieldsList.append(el('div',{class:'card muted tiny', text:'No custom fields yet.'}));
-    else defs.forEach(d=>fieldsList.append(fieldDefRow(d, renderFieldsList)));
+    else defs.forEach((d,i)=>fieldsList.append(fieldDefRow(d, renderFieldsList, i, defs.length)));
+    fieldsHint.textContent = defs.length>1 ? 'Drag the grip (or use the up/down arrows) to change the order fields show up in — on the project page, the editor, and the library’s filters.' : '';
   };
   renderFieldsList();
-  fields.append(fieldsList);
+  wireFieldDefDrag(fieldsList, renderFieldsList);
+  fields.append(fieldsList, fieldsHint);
   fields.append(el('button',{class:'btn sm', style:'margin-top:10px', html:`${icon('plus')} Add field`, onclick:()=>editFieldDef(null, renderFieldsList)}));
   wrap.append(fields);
 
@@ -234,14 +237,21 @@ function toggleRow(title, desc, on, onChange, compact){
 }
 
 // ---- custom fields (typed project-metadata schema) -----------------------
-function fieldDefRow(d, onChange){
-  const row=el('div',{class:'card field-row'});
-  row.innerHTML=`<span class="qicon" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--brand-b),var(--consensus));color:#05121a">${icon('sliders')}</span>`;
+// `index`/`total` size the up/down arrows' disabled state (a boundary row
+// can't move further that direction) — both native drag (via the grip handle,
+// see wireFieldDefDrag below) and these arrows end at the same place:
+// Store.reorderFieldDefs(), one grouped undo step either way.
+function fieldDefRow(d, onChange, index, total){
+  const row=el('div',{class:'card field-row', 'data-id':d.id});
+  row.innerHTML=`<span class="field-row-grip" draggable="true" title="Drag to reorder" aria-hidden="true">${icon('grip')}</span>
+    <span class="qicon" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--brand-b),var(--consensus));color:#05121a">${icon('sliders')}</span>`;
   const mid=el('div',{class:'field-row-mid'});
   mid.innerHTML=`<b>${escapeHtml(d.label)}</b> <span class="tiny mono muted">${escapeHtml(d.key)}</span>
     <div class="tiny muted">${escapeHtml(FIELD_TYPES[d.type]?.label||'Text')}${d.type==='select'&&d.options?.length?` · ${d.options.map(escapeHtml).join(', ')}`:''}</div>`;
   row.append(mid);
   const actions=el('div',{class:'field-row-actions'});
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Move up', 'aria-label':`Move ${d.label} up`, html:icon('chevronUp'), disabled: index===0, onclick:()=>moveFieldDef(d.id, -1, onChange)}));
+  actions.append(el('button',{class:'btn ghost icon sm', title:'Move down', 'aria-label':`Move ${d.label} down`, html:icon('chevronDown'), disabled: index===total-1, onclick:()=>moveFieldDef(d.id, 1, onChange)}));
   actions.append(el('button',{class:'btn ghost icon sm', title:'Edit', 'aria-label':'Edit field', html:icon('edit'), onclick:()=>editFieldDef(d.id, onChange)}));
   actions.append(el('button',{class:'btn ghost icon sm', title:'Remove', 'aria-label':'Remove field', html:icon('trash'), onclick:async()=>{
     if(await confirmDialog('Remove field', `Remove "${d.label}" from the schema? Existing values stay on projects, but the field won’t appear in the editor, filters, or sort unless you re-add it.`, {danger:true, okLabel:'Remove'})){
@@ -250,6 +260,57 @@ function fieldDefRow(d, onChange){
   }}));
   row.append(actions);
   return row;
+}
+
+// Swap a field def with its immediate neighbor (used by the up/down arrows —
+// the keyboard/touch-friendly alternative to dragging the grip handle).
+function moveFieldDef(id, dir, onChange){
+  const ids = Store.fieldDefs().map(f=>f.id);
+  const i = ids.indexOf(id), j = i+dir;
+  if(i<0 || j<0 || j>=ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  if(Store.reorderFieldDefs(ids)) toast('Field order updated',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}});
+  onChange();
+}
+
+// Native HTML5 drag-and-drop, delegated on the list container so it survives
+// every re-render (`onChange` rebuilds the rows fresh each time). Dragging is
+// only initiated from a row's `.field-row-grip` handle — the row itself isn't
+// draggable — so clicking Edit/Remove/the arrows never gets mistaken for the
+// start of a drag. While dragging, the row being moved is reordered live in
+// the DOM (so the list visibly reflows as you pass over other rows); the drop
+// (or a dragend with no valid drop) reads that final DOM order and persists
+// it in one `Store.reorderFieldDefs()` call.
+function wireFieldDefDrag(container, onChange){
+  let draggingId=null;
+  container.addEventListener('dragstart', (e)=>{
+    const grip=e.target.closest('.field-row-grip');
+    const row=e.target.closest('.field-row');
+    if(!grip || !row){ e.preventDefault(); return; }
+    draggingId=row.dataset.id;
+    e.dataTransfer.effectAllowed='move';
+    e.dataTransfer.setData('text/plain', draggingId);
+    requestAnimationFrame(()=>row.classList.add('dragging'));
+  });
+  container.addEventListener('dragover', (e)=>{
+    if(!draggingId) return;
+    e.preventDefault();
+    const over=e.target.closest('.field-row');
+    const dragging=container.querySelector('.field-row.dragging');
+    if(!over || !dragging || over===dragging) return;
+    const before = e.clientY < over.getBoundingClientRect().top + over.offsetHeight/2;
+    container.insertBefore(dragging, before ? over : over.nextSibling);
+  });
+  container.addEventListener('drop', (e)=>{ e.preventDefault(); });
+  container.addEventListener('dragend', ()=>{
+    const dragging=container.querySelector('.field-row.dragging');
+    if(dragging) dragging.classList.remove('dragging');
+    if(draggingId){
+      const ids=[...container.querySelectorAll('.field-row')].map(r=>r.dataset.id);
+      draggingId=null;
+      if(Store.reorderFieldDefs(ids)){ toast('Field order updated',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); onChange(); }
+    }
+  });
 }
 
 // Add/edit a field definition. Shared by Settings (schema management), the
