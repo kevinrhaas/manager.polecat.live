@@ -1465,6 +1465,26 @@ try {
     await page.setViewportSize({ width: 1280, height: 900 });
     return open;
   });
+  await check('mobile: projects list scrolls all the way to its last row', async () => {
+    await page.setViewportSize({ width: 390, height: 720 }); await page.waitForTimeout(200);
+    await page.evaluate(() => { location.hash = 'projects'; }); await page.waitForTimeout(400);
+    // the scroll container is .view; it must be able to reach the bottom, and
+    // the last table row must become visible within the viewport once scrolled.
+    const reached = await page.evaluate(async () => {
+      const v = document.querySelector('.view'); if (!v) return false;
+      v.scrollTop = v.scrollHeight;                 // scroll to the very bottom
+      await new Promise(r => setTimeout(r, 100));
+      const atBottom = Math.abs(v.scrollTop + v.clientHeight - v.scrollHeight) <= 2;
+      const rows = document.querySelectorAll('.lib-table tbody tr');
+      const last = rows[rows.length - 1];
+      if (!last) return atBottom;                   // no table (empty) — bottom reachable is enough
+      const r = last.getBoundingClientRect();
+      const visible = r.bottom <= window.innerHeight + 1 && r.top >= 0;
+      return atBottom && visible;
+    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return reached;
+  });
   const noHorizOverflow = (sel) => page.$eval(sel, (e) => e.scrollWidth <= e.clientWidth + 1);
   // On mobile, opening a section auto-closes the rail drawer (app.js), so the
   // drawer must be re-opened before every nav click here or the next section's

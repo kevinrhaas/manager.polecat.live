@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 40,
+    title: 'Fixed: couldn’t scroll to the bottom on mobile',
+    kind: 'fix',
+    ts: '2026-07-04T05:07:48.872Z',
+    items: [
+      'On phones, the app was sized with 100vh, which counts the area behind the browser’s collapsing toolbar — so the bottom of a long list (e.g. Projects) sat under the browser chrome and couldn’t be reached.',
+      'Switched the app shell to the dynamic viewport (100dvh) with a 100vh fallback, and added safe-area bottom padding so the last row clears the home indicator / gesture bar.',
+      'Added a mobile smoke check that scrolls the projects list to its last row and asserts it’s actually reachable.',
+    ],
+  },
+  {
     v: 39,
     title: 'Bulk "remove tag" in the projects library',
     kind: 'feature',

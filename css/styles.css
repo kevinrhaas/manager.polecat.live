@@ -98,7 +98,11 @@ body{
 }
 
 /* ---- app shell --------------------------------------------------------- */
-#app{position:relative;z-index:1;height:100vh;display:flex}
+/* height: use the DYNAMIC viewport (dvh) so the app fits the space actually
+   visible on mobile — 100vh includes the area behind the collapsing browser
+   toolbar, which would push the scroll container's bottom out of reach. The
+   plain 100vh line is the fallback for browsers without dvh support. */
+#app{position:relative;z-index:1;height:100vh;height:100dvh;display:flex}
 
 /* ---- rail navigation --------------------------------------------------- */
 #rail{
@@ -201,7 +205,8 @@ body{
 .topbar .topbar-menu{display:none}         /* hamburger — mobile only */
 .rail-backdrop{display:none}               /* drawer backdrop — mobile only */
 
-.view{flex:1;min-height:0;overflow:auto;padding:26px;scroll-behavior:smooth}
+.view{flex:1;min-height:0;overflow:auto;padding:26px;scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .view::-webkit-scrollbar{width:10px}
 .view::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:6px;
   border:3px solid transparent;background-clip:content-box}
@@ -803,7 +808,7 @@ a.link:hover{text-decoration:underline}
 .cmdk-item .hint{margin-left:auto;font-size:11px;color:var(--text-3)}
 
 /* ---- invite gate ------------------------------------------------------- */
-.gate{position:relative;z-index:1;height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.gate{position:relative;z-index:1;height:100vh;height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px}
 .gate-card{width:min(460px,100%);background:color-mix(in srgb,var(--surface) 92%,transparent);
   border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);
   padding:34px 30px;text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center}
@@ -866,7 +871,8 @@ a.link:hover{text-decoration:underline}
   .topbar h1{font-size:15px}
   .topbar .hide-sm{display:none}
 
-  .view{padding:16px 14px}
+  /* extra bottom room so the last row clears the home indicator / gesture bar */
+  .view{padding:16px 14px calc(24px + env(safe-area-inset-bottom))}
   .wrap{max-width:100%}
   .grid.quick,.grid.stats,.grid.tiles{grid-template-columns:1fr!important}
   .detail-grid{grid-template-columns:1fr}
