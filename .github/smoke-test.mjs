@@ -38,6 +38,7 @@ await new Promise((r) => server.listen(PORT, r));
 const browser = await chromium.launch({ executablePath: process.env.PW_EXECUTABLE || undefined });
 try {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
   // pre-grant the invite gate so the app boots in CI
   await ctx.addInitScript(`try{localStorage.setItem('manager.access',JSON.stringify({grantedAt:Date.now(),via:'ci'}));}catch(e){}`);
   const page = await ctx.newPage();
@@ -135,6 +136,37 @@ try {
     await openSec('releases');
     const text = await page.$eval('.week-rollup', (e) => e.textContent).catch(() => '');
     return /This week across the suite/.test(text) && !!(await page.$('.week-rollup .btn'));
+  });
+  await check('releases feed "Copy / Export" → Copy as Markdown copies the current filtered feed, grouped like the on-screen toggle', async () => {
+    await openSec('releases');
+    await page.selectOption('.toolbar select', 'relay'); await page.waitForTimeout(250);   // first select = project filter
+    await page.click('button[title="Copy as Markdown or export JSON/RSS"]');
+    await page.waitForTimeout(200);
+    await page.click('.modal-body button:has-text("Copy as Markdown")');
+    await page.waitForTimeout(200);
+    const md = await page.evaluate(() => navigator.clipboard.readText());
+    await page.keyboard.press('Escape');   // close the modal
+    await page.selectOption('.toolbar select', 'all'); await page.waitForTimeout(200);   // reset filter for later checks
+    return md.startsWith('## Releases') && /Relay/.test(md) && !/Games/.test(md);
+  });
+  await check('releases feed "Copy / Export" → Download JSON / Download RSS export a filter-independent snapshot of recent releases', async () => {
+    await openSec('releases');
+    await page.click('button[title="Copy as Markdown or export JSON/RSS"]');
+    await page.waitForTimeout(200);
+    const [jsonDl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('.modal-body button:has-text("Download JSON")'),
+    ]);
+    const jsonText = fs.readFileSync(await jsonDl.path(), 'utf8');
+    const jsonOk = jsonDl.suggestedFilename() === 'manager-releases.json' && /"releases":\s*\[/.test(jsonText);
+    const [rssDl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('.modal-body button:has-text("Download RSS")'),
+    ]);
+    const rssText = fs.readFileSync(await rssDl.path(), 'utf8');
+    const rssOk = rssDl.suggestedFilename() === 'manager-releases.xml' && /<rss version="2.0">/.test(rssText);
+    await page.keyboard.press('Escape');
+    return jsonOk && rssOk;
   });
   await check('releases feed flags releases shipped since your last visit as "new" and the rail badge clears on open', async () => {
     // wind the fleet-wide "seen" marker back so a freshly-seeded release reads as unread

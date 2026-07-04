@@ -2,7 +2,7 @@
 // you can see at a glance what improved recently across the whole suite.
 // Read-only: it reads the same `releases` table the per-project timelines do.
 import { Store } from '../store.js';
-import { el, escapeHtml, fmtCT, avatarColor, toast } from '../ui.js';
+import { el, escapeHtml, fmtCT, avatarColor, toast, modal } from '../ui.js';
 import { icon } from '../icons.js';
 
 const VIEW_KEY = 'manager.releases.view';
@@ -65,6 +65,130 @@ function digestSummary(items, mode){
   const parts = items.slice(0,3).map(x => mode==='project' ? `v${x.r.v} ${x.r.title||'Untitled release'}` : `${x.p.name} v${x.r.v}`);
   const extra = items.length>3 ? `, +${items.length-3} more` : '';
   return parts.join(', ') + extra;
+}
+
+// Groups a row set the same way whether the caller wants it on-screen (HTML
+// headers) or off-screen (plain-text headers for Markdown) — shared so the
+// two never drift apart. Returns [{ items, project? , day? }].
+function buildGroups(rows, groupMode){
+  if(groupMode==='project'){
+    const byProj=new Map();
+    rows.forEach(x=>{ const arr=byProj.get(x.p.id)||[]; arr.push(x); byProj.set(x.p.id, arr); });
+    const order=[...byProj.keys()].sort((a,b)=> new Date(byProj.get(b)[0].r.ts) - new Date(byProj.get(a)[0].r.ts));
+    return order.map(pid=>{ const items=byProj.get(pid); return { items, project:items[0].p }; });
+  }
+  const byDay=new Map();
+  rows.forEach(x=>{ const day=ctDayKey(x.r.ts); const arr=byDay.get(day)||[]; arr.push(x); byDay.set(day,arr); });
+  // `rows` is already newest-first, so Map insertion order is day order too
+  return [...byDay.values()].map(items=>({ items, day:items[0].r.ts }));
+}
+function groupLabelPlain(g, groupMode){
+  if(groupMode==='project') return g.project.name;
+  const lab=ctDayLabel(g.day);
+  return lab.rest ? `${lab.lead} — ${lab.rest}` : lab.lead;
+}
+
+// ---- copy-as-markdown / JSON / RSS export ---------------------------------
+// Markdown mirrors exactly what's grouped on screen (same filters, same
+// Day/Project toggle) — meant to be pasted straight into a status update or
+// PR description. JSON/RSS are a *combined, filter-independent* snapshot
+// (every project, last N days) so "what shipped across the suite" can be
+// piped into a feed reader or script rather than only ever copy/pasted.
+const RECENT_EXPORT_DAYS = 30;
+
+function feedMarkdown(rows, groupMode){
+  if(!rows.length) return '## Releases\n\nNothing matches the current filters.\n';
+  const lines=['## Releases',''];
+  buildGroups(rows, groupMode).forEach(g=>{
+    lines.push(`### ${groupLabelPlain(g, groupMode)}`);
+    g.items.forEach(({r,p})=>{
+      const head = groupMode==='project'
+        ? `v${r.v} — ${r.title||'Untitled release'} _(${fmtCT(r.ts,{withTime:false})})_`
+        : `**${p.name}** v${r.v} — ${r.title||'Untitled release'}`;
+      lines.push(`- ${head}`);
+      (r.items||[]).forEach(i=>lines.push(`  - ${i}`));
+    });
+    lines.push('');
+  });
+  return lines.join('\n').trim()+'\n';
+}
+
+function downloadFile(name, content, mime){
+  const blob=new Blob([content],{type:mime});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+function recentFeedJSON(rows){
+  return JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    windowDays: RECENT_EXPORT_DAYS,
+    releases: rows.map(({r,p})=>({
+      project: p.name, projectId: p.id, version: String(r.v), title: r.title||'Untitled release',
+      kind: r.kind||'feature', ts: r.ts, items: r.items||[],
+    })),
+  }, null, 2);
+}
+
+function recentFeedRSS(rows){
+  const site = location.origin + location.pathname.replace(/\/app\/.*$/, '/app/');
+  const items = rows.map(({r,p})=>{
+    const desc = [r.title||'Untitled release', ...(r.items||[])].map(escapeHtml).join('&lt;br/&gt;');
+    return `  <item>
+    <title>${escapeHtml(p.name)} v${escapeHtml(String(r.v))} — ${escapeHtml(r.title||'Untitled release')}</title>
+    <link>${escapeHtml(site)}#project/${encodeURIComponent(p.id)}</link>
+    <guid isPermaLink="false">${escapeHtml(r.id)}</guid>
+    <pubDate>${new Date(r.ts).toUTCString()}</pubDate>
+    <description>${desc}</description>
+  </item>`;
+  }).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>Manager — Releases across the fleet</title>
+  <link>${escapeHtml(site)}</link>
+  <description>What shipped across the fleet in the last ${RECENT_EXPORT_DAYS} days.</description>
+${items}
+</channel></rss>
+`;
+}
+
+function openExportModal(currentRows, groupMode, recentRows){
+  const body=el('div');
+
+  const mdWrap=el('div');
+  mdWrap.innerHTML=`<div><b>Copy as Markdown</b></div>
+    <p class="tiny muted" style="margin:4px 0 10px">Copies exactly what’s on screen right now — your current filters,
+    grouped by <b>${groupMode==='project'?'project':'day'}</b> — as a <span class="mono">## Releases</span> list ready
+    to paste into a status update or PR description.</p>`;
+  mdWrap.append(el('button',{class:'btn', html:`${icon('copy')} Copy as Markdown`, onclick:async()=>{
+    const md=feedMarkdown(currentRows, groupMode);
+    try{ await navigator.clipboard.writeText(md); toast('Copied as Markdown',{kind:'ok'}); }
+    catch{ toast('Couldn’t copy',{body:'Clipboard access was blocked.', kind:'err'}); }
+  }}));
+
+  const expWrap=el('div');
+  expWrap.innerHTML=`<div><b>Export the combined feed</b></div>
+    <p class="tiny muted" style="margin:4px 0 10px">A snapshot of every project’s releases from the last
+    ${RECENT_EXPORT_DAYS} days — independent of your filters above — so “what shipped across the suite” can be
+    watched from a feed reader or script instead of only ever pasted.</p>`;
+  const btnRow=el('div',{style:'display:flex;gap:8px;flex-wrap:wrap'});
+  btnRow.append(
+    el('button',{class:'btn', html:`${icon('download')} Download JSON`, onclick:()=>{
+      downloadFile('manager-releases.json', recentFeedJSON(recentRows), 'application/json');
+      toast('Exported as JSON',{kind:'ok'});
+    }}),
+    el('button',{class:'btn', html:`${icon('download')} Download RSS`, onclick:()=>{
+      downloadFile('manager-releases.xml', recentFeedRSS(recentRows), 'application/rss+xml');
+      toast('Exported as RSS',{kind:'ok'});
+    }}),
+  );
+  expWrap.append(btnRow);
+
+  body.append(mdWrap, el('div',{class:'divider'}), expWrap);
+  modal({ title:'Copy & export releases', icon:'copy', body });
 }
 
 export function renderReleases(root, ctx){
@@ -172,7 +296,12 @@ export function renderReleases(root, ctx){
   const jumpSel=el('select',{class:'input', style:'max-width:190px', 'aria-label':'Jump to date'});
   jumpSel.addEventListener('change',()=>{ if(jumpSel.value) jumpToDay(jumpSel.value); jumpSel.value=''; });
 
-  bar.append(search, projSel, rangeSel, kinds, groupBtn, densityBtn, jumpSel);
+  let currentRows=[];
+  const exportBtn=el('button',{class:'btn sm', title:'Copy as Markdown or export JSON/RSS',
+    html:`${icon('copy')} <span>Copy / Export</span>`,
+    onclick:()=>openExportModal(currentRows, state().group, all.filter(x=>within(x, RECENT_EXPORT_DAYS)))});
+
+  bar.append(search, projSel, rangeSel, kinds, groupBtn, densityBtn, jumpSel, exportBtn);
   wrap.append(bar);
 
   const shippedHost=el('div');
@@ -192,6 +321,7 @@ export function renderReleases(root, ctx){
       if(q && !(x.r.title.toLowerCase().includes(q) || (x.r.items||[]).some(i=>i.toLowerCase().includes(q)) || x.p.name.toLowerCase().includes(q))) return false;
       return true;
     });
+    currentRows=rows;
 
     // "who shipped" chips for the filtered set
     shippedHost.innerHTML='';
@@ -232,25 +362,14 @@ export function renderReleases(root, ctx){
       listHost.append(el('div',{class:'card empty', html:`${icon('sparkle')}<div>No releases match.<br><span class="tiny">Sync a project (or clear filters) to populate the timeline.</span></div>`}));
       return;
     }
-    let groups;
-    if(cur.group==='project'){
-      const byProj=new Map();
-      rows.forEach(x=>{ const arr=byProj.get(x.p.id)||[]; arr.push(x); byProj.set(x.p.id, arr); });
-      // most recently active project first — each bucket is already newest-first
-      const order=[...byProj.keys()].sort((a,b)=> new Date(byProj.get(b)[0].r.ts) - new Date(byProj.get(a)[0].r.ts));
-      groups = order.map(pid=>{
-        const items=byProj.get(pid), p=items[0].p;
-        return { items, headHtml:`<span class="mini-av" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span> ${escapeHtml(p.name)}` };
-      });
-    } else {
-      const byDay=new Map();
-      rows.forEach(x=>{ const day=ctDayKey(x.r.ts); const arr=byDay.get(day)||[]; arr.push(x); byDay.set(day,arr); });
-      // `rows` is already newest-first, so Map insertion order is day order too
-      groups = [...byDay.values()].map(items=>{
-        const lab=ctDayLabel(items[0].r.ts);
-        return { items, headHtml:`${escapeHtml(lab.lead)}${lab.rest?` <span class="cnt" style="font-weight:400">· ${escapeHtml(lab.rest)}</span>`:''}` };
-      });
-    }
+    const groups = buildGroups(rows, cur.group).map(g=>{
+      if(cur.group==='project'){
+        const p=g.project;
+        return { items:g.items, headHtml:`<span class="mini-av" style="background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span> ${escapeHtml(p.name)}` };
+      }
+      const lab=ctDayLabel(g.day);
+      return { items:g.items, headHtml:`${escapeHtml(lab.lead)}${lab.rest?` <span class="cnt" style="font-weight:400">· ${escapeHtml(lab.rest)}</span>`:''}` };
+    });
     groups.forEach(({items,headHtml})=>{
       const d=el('div',{class:'feed-day'});
       d.innerHTML=`<h3>${headHtml}</h3><span class="ln"></span><span class="cnt">${items.length} release${items.length!==1?'s':''}</span>`;

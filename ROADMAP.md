@@ -14,18 +14,36 @@ with new, ambitious, fun ideas.
 
 ## Now (build next, highest value first)
 
-- [ ] **Releases feed: a shareable / exportable digest** — the new "this week"
-      rollup line (see Done, 2026-07-03) is a copyable one-sentence summary;
-      take it further, highest-value first: **copy-as-markdown** for the
-      current filtered feed (a formatted `## Releases` list grouped exactly
-      like the on-screen day/project groups, ready to paste into a status
-      update or PR description), then a **JSON/RSS export** of the combined
-      recent-releases feed so "what improved across the suite" can be
-      subscribed to rather than just pasted. Add smoke coverage for each and
-      a Docs mention.
+- [ ] **Per-project "notes" markdown scratchpad with autosave + history** — every
+      project page has structured fields (status, version, health) but nowhere
+      to jot free-form context ("why this is paused", "next thing to try",
+      links to a design doc) without hijacking the `description`/`assessment`
+      fields. Add a `notes` field on the project row (a new Store table isn't
+      needed — one more string column, like `description`), rendered as a
+      lightweight markdown editor/preview toggle on the project detail page,
+      autosaving on pause (debounced, no explicit Save button — matching how
+      the rest of the app treats edits as live rather than form submissions).
+      "History" means every autosave keeps a small local revision trail (a
+      capped list of `{ts, text}` snapshots on the project row) with a way to
+      view or restore an older version — cheap, no new table, and it gives
+      undo-style safety for a text box people will type paragraphs into.
 
 ## Next (discovered / queued)
 
+- [ ] The new JSON/RSS export (see Done, 2026-07-04) is a manually-triggered
+      *snapshot* download, not a live subscribable URL — there's no server to
+      host a stable feed endpoint on a static GitHub Pages site. Worth
+      revisiting if a real hosting option shows up (e.g. a tiny serverless
+      function or a scheduled GitHub Action committing a refreshed
+      `releases.xml`/`releases.json` into the repo itself) so a feed reader
+      could point at a URL instead of someone re-downloading by hand.
+- [ ] The combined JSON/RSS export (see Done, 2026-07-04) always covers a
+      fixed last-30-days window across every project, deliberately ignoring
+      the toolbar's project/kind/range filters (so it reads as a stable
+      "what shipped across the suite" snapshot rather than whatever happened
+      to be dialed in at export time) — worth a "match current filters"
+      opt-in toggle in the export modal if someone wants a narrower feed
+      (e.g. just one project's releases) piped into a reader instead.
 - [ ] The Releases feed's "Digest" density mode (see Done, 2026-07-03) always
       truncates a group's preview to its first 3 releases ("+N more") — worth
       a "remembers per-session which groups you expanded" tweak if a heavy
@@ -115,7 +133,6 @@ with new, ambitious, fun ideas.
       (`.modal-head`, `.sheet-head`, `.notif-pop-head`) were skipped because
       their titles are short static strings today — if any of those ever grow
       a dynamic, potentially-long title, re-check them at 320px too.
-- [ ] Per-project "notes" markdown scratchpad with autosave + history.
 - [ ] Keyboard-first navigation everywhere; focus rings audited.
 - [ ] Public site: an animated live "fleet" showcase driven by demo data.
 - [ ] SQLite adapter behind the same Store interface (design already relational).
@@ -151,6 +168,30 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Releases: copy-as-Markdown and a combined JSON/RSS export** _(2026-07-04)_:
+      the last item in the Releases feed's shareable-digest queue (the
+      "this week" rollup one-liner shipped 2026-07-03). A new **Copy / Export**
+      toolbar button opens a small modal with two distinct actions, since they
+      have genuinely different scopes: **Copy as Markdown** turns exactly
+      what's on screen — the current project/kind/range/search filters, grouped
+      the same way as the live toggle (by day or by project) — into a
+      `## Releases` list with one heading per group and a bullet per release
+      (sub-bullets for its detail items), ready to paste straight into a status
+      update or PR description. **Download JSON** / **Download RSS** are
+      deliberately *filter-independent*: a combined snapshot of every project's
+      releases from the last 30 days, so "what shipped across the suite" can be
+      piped into a feed reader or script rather than only ever pasted — matching
+      exactly whatever filter happened to be dialed in would make the export
+      unpredictable for that use case. The RSS file is a standard RSS 2.0
+      document (one `<item>` per release, deep-linking back into the relevant
+      project) and the JSON is a small `{generatedAt, windowDays, releases[]}`
+      envelope. Under the hood, the on-screen day/project grouping logic was
+      factored out into a shared `buildGroups()` so the Markdown export groups
+      rows in exactly the same way the live toggle does, rather than a second
+      hand-copy that could drift. Two new smoke checks drive the real UI end to
+      end: Copy as Markdown (filtered to one project) verified via the
+      clipboard, and both downloads verified via Playwright's real download
+      events and file contents. Docs updated to describe both actions.
 - [x] **Releases: digest/density mode, jump-to-date, and a weekly rollup**
       _(2026-07-03)_: continuing the Releases timeline's highest-value queue
       (grouping + unread marker shipped earlier this cadence), this pass took

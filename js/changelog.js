@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 36,
+    title: 'Releases: copy as Markdown + JSON/RSS export',
+    kind: 'feature',
+    ts: '2026-07-04T00:27:02.904Z',
+    items: [
+      'A new "Copy / Export" button on the Releases feed copies exactly what\'s on screen — your current filters and Day/Project grouping — as a pasteable Markdown list, ready for a status update or PR description.',
+      'The same button downloads a JSON or RSS snapshot of every project\'s releases from the last 30 days, independent of your filters, so "what shipped across the suite" can be watched from a feed reader or script.',
+    ],
+  },
+  {
     v: 35,
     title: 'Releases: digest mode, jump-to-date, weekly rollup',
     kind: 'feature',
