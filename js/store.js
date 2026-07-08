@@ -1054,15 +1054,21 @@ function seed(db){
     'Projects library with filter, sort, search, pin, and full metadata editing.',
     'Project detail with the complete what’s-new timeline, plus credentials, docs, a welcome tour, simple mode, history + undo, and an invite-only admin gate.',
   ], 'feature');
-  // Relay — real, recent changelog entries (verified from its js/changelog.js).
-  rel('relay', 16, 'Landing page: sync locations', '2026-07-02T13:28:08.306Z', [
+  // Relay — real changelog entries (verified from its js/changelog.js). Their
+  // timestamps are anchored RELATIVE to seed time (a few hours/days back)
+  // rather than frozen calendar dates, so the demo fleet always reads as
+  // freshly active — "this week" / "last 7 days" / velocity never silently
+  // empty out as real time marches past a hard-coded date. The moment the user
+  // actually syncs Relay, these placeholders are replaced by its real history.
+  const hoursAgo = (h) => new Date(now - h * 3600e3).toISOString();
+  rel('relay', 16, 'Landing page: sync locations', hoursAgo(5), [
     'The front page now shows off "bring your own backup" — sync to a local folder, S3-compatible storage, or WebDAV.',
   ], 'feature');
-  rel('relay', 15, 'Sync locations: WebDAV', '2026-07-02T13:15:04Z', [
+  rel('relay', 15, 'Sync locations: WebDAV', hoursAgo(28), [
     'Settings → Advanced → "Sync locations" now has a WebDAV option — Nextcloud, ownCloud, or any self-hosted server.',
     'Enter a server URL, username, and app password; Relay keeps a live snapshot there.',
   ], 'feature');
-  rel('relay', 14, 'Sync locations: S3-compatible storage', '2026-07-02T12:38:11Z', [
+  rel('relay', 14, 'Sync locations: S3-compatible storage', hoursAgo(52), [
     'An S3-compatible option — Cloudflare R2, Backblaze B2, AWS S3, MinIO, or anything that speaks the S3 API.',
     'Relay signs requests itself (no SDK, no server) and keeps a live snapshot in the bucket.',
   ], 'feature');

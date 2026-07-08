@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 55,
+    title: 'Fixed: a changelog title with a “comma, word, colon” run broke sync',
+    kind: 'fix',
+    ts: '2026-07-04T19:28:51.000Z',
+    items: [
+      'The changelog parser converts each project’s published JS module to strict JSON before importing it. Its “quote bare object keys” step ran over the whole converted string — including inside title/item text — so a title containing a run like a comma, a word, then a colon looked exactly like an unquoted key and got rewritten mid-string, injecting stray quotes and making the whole sync fail to parse.',
+      'The key-quoting and trailing-comma steps now only ever touch structural text, never the inside of a string value — so any wording is safe in a title or bullet, and one odd entry can no longer take down a project’s entire sync.',
+      'Also fixed the initial demo fleet’s seeded release dates, which were frozen to fixed days and slowly aged out of the "this week" / "last 7 days" views — they’re now anchored relative to first open, so a fresh workspace always reads as freshly active until you sync your own history.',
+      'Added a regression check to the smoke battery covering the exact pattern.',
+    ],
+  },
+  {
     v: 54,
     title: 'Milestones + a recommended “stable release point”',
     kind: 'feature',

@@ -52,14 +52,32 @@ function extractArrayLiteral(src, varName){
 // apostrophe as the start of a new single-quoted span and mangle everything
 // up to the next one it found. Every project publishes its changelog the same
 // way Manager does, so this only needs to run once here to protect every sync.
+//
+// The trailing-comma trim and bare-key-quoting regexes must ALSO stay off the
+// inside of string values, for the same reason. A title like
+// `**, quietly:**` contains a comma-word-colon run that looks exactly like an
+// unquoted object key; run the key regex over the whole converted string and
+// it rewrites that to `, "quietly":` *inside the title*, injecting unescaped
+// quotes and corrupting the JSON. So structural text and string literals are
+// kept apart: string literals are copied through verbatim (already re-quoted
+// to JSON form), and the two regexes only ever transform the structural runs
+// between them — where real keys and trailing commas actually live.
 function jsLiteralToJSON(lit){
-  let out = '', i = 0;
+  let out = '', struct = '', i = 0;
   const n = lit.length;
   const esc = (ch) => ch === '"' ? '\\"' : ch;
+  const flush = () => {
+    if(!struct) return;
+    out += struct
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/([{,]\s*)([A-Za-z_$][A-Za-z0-9_$]*)\s*:/g, '$1"$2":');
+    struct = '';
+  };
   while(i < n){
     const c = lit[i];
     if(c === '/' && lit[i+1] === '/'){ while(i < n && lit[i] !== '\n') i++; continue; }
     if(c === "'" || c === '"'){
+      flush();
       const quote = c; i++; let s = '"';
       while(i < n){
         const ch = lit[i];
@@ -75,11 +93,9 @@ function jsLiteralToJSON(lit){
       }
       out += s + '"'; continue;
     }
-    out += c; i++;
+    struct += c; i++;
   }
-  out = out
-    .replace(/,\s*([}\]])/g, '$1')
-    .replace(/([{,]\s*)([A-Za-z_$][A-Za-z0-9_$]*)\s*:/g, '$1"$2":');
+  flush();
   return JSON.parse(out);
 }
 

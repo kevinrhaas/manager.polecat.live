@@ -817,6 +817,23 @@ try {
       && parsed[0].items[0] === "It's fixed" && parsed[0].items[1] === 'Another "quoted" line'
       && parsed[1].v === 1 && parsed[1].title === 'earlier release';
   });
+  await check('parseChangelogSource does not treat a comma-word-colon run inside a title/item as an unquoted key', async () => {
+    // Regression: the bare-key-quoting and trailing-comma regexes used to run
+    // over the WHOLE converted string, including inside string values. A title
+    // like `**, quietly:**` (comma, a word, a colon) looks exactly like an
+    // unquoted object key, so the key regex rewrote it to `, "quietly":` inside
+    // the title — injecting unescaped quotes and breaking JSON.parse. The
+    // transforms must only ever touch structural text, never string contents.
+    const src = `export const CHANGELOG = [
+      { v: 5, title: 'Boss fights land quietly — **, quietly:** you win', kind: 'feature', ts: '', items: ['api: gives, foo: bar'] },
+      { v: 4, title: 'plain', kind: 'fix', ts: '', items: [] },
+    ];`;
+    const parsed = await page.evaluate(`import('/js/ingest.js').then(m=>m.parseChangelogSource(${JSON.stringify(src)}))`);
+    return parsed.length === 2
+      && parsed[0].v === 5 && parsed[0].title === 'Boss fights land quietly — **, quietly:** you win'
+      && parsed[0].items[0] === 'api: gives, foo: bar'
+      && parsed[1].v === 4 && parsed[1].title === 'plain';
+  });
   await check('sync auto-updates status from activity (and Lock protects it)', async () => {
     // a project with a site + a fresh release should land on Live after syncing
     await store(`(S)=>S.updateProject('games',{status:'idea',statusLocked:false,statusAuto:false},{silent:true})`);
