@@ -1,6 +1,8 @@
 // shell.js — the collapsible, animated, drag-to-resize "rail" navigation.
-import { el } from './ui.js';
+import { el, escapeHtml } from './ui.js';
 import { icon } from './icons.js';
+
+const escapeLbl = (s)=>escapeHtml(String(s||''));
 
 const K_OPEN = 'manager.rail.open';
 const K_WIDTH = 'manager.rail.width';
@@ -45,6 +47,14 @@ export function buildRail(rail, { onNav, isAdmin=false, simple=false }){
   });
   rail.append(scroll);
 
+  // data-source indicator — shows where the workspace lives (Local / a
+  // connected database) with a live status dot; click jumps to Admin → Data
+  // source. Updated via setSource() from the app's sync subscription.
+  const source=el('button',{class:'rail-source', title:'Data source', 'data-status':'local',
+    html:`<span class="rail-src-dot"></span><span class="rail-src-txt"><b>Local</b><small>this browser</small></span>`,
+    onclick:()=>onNav('admin')});
+  rail.append(source);
+
   const toggle=el('button',{class:'rail-toggle', title:'Toggle navigation', 'aria-expanded':String(open0),
     html:icon('chevron'), onclick:()=>setOpen(rail, !rail.classList.contains('open'))});
   const resize=el('div',{class:'rail-resize', title:'Drag to resize'});
@@ -53,6 +63,14 @@ export function buildRail(rail, { onNav, isAdmin=false, simple=false }){
   wireResize(rail, resize);
   return {
     setActive:(key)=>rail.querySelectorAll('.rail-item').forEach(n=>n.classList.toggle('active', n.dataset.sec===key)),
+    setSource:(st)=>{
+      const dotColor = st.source?.accent || 'var(--brand-b)';
+      source.dataset.status = st.status;
+      source.title = st.isRemote ? `Data source: ${st.label} (${st.status})` : 'Data source: Local (this browser)';
+      source.style.setProperty('--src-dot', dotColor);
+      const sub = st.isRemote ? (st.status==='error'?'sync error':(st.status==='syncing'?'syncing…':'connected')) : 'this browser';
+      source.querySelector('.rail-src-txt').innerHTML=`<b>${escapeLbl(st.label)}</b><small>${sub}</small>`;
+    },
     setBadge:(key,n,tone)=>{
       const b=rail.querySelector(`.rail-item[data-sec="${key}"] .badge`); if(!b) return;
       b.classList.toggle('tone-danger', tone==='danger');

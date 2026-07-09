@@ -205,6 +205,62 @@ body{
 .rail-toggle svg{width:13px;height:13px;transition:transform .22s}
 #rail.open .rail-toggle svg{transform:rotate(180deg)}
 
+/* ---- rail data-source indicator ---------------------------------------- */
+.rail-source{
+  --src-dot:var(--brand-b);
+  display:flex;align-items:center;gap:10px;margin:4px 8px 8px;padding:8px 10px;
+  border:1px solid var(--border);border-radius:10px;background:var(--rail-bg2);
+  color:var(--text-2);cursor:pointer;text-align:left;width:calc(100% - 16px);
+  transition:background .15s,color .15s,border-color .15s;
+}
+.rail-source:hover{color:var(--text);border-color:var(--src-dot)}
+.rail-source:focus-visible{outline:none;box-shadow:var(--ring)}
+.rail-src-dot{width:9px;height:9px;flex:0 0 auto;border-radius:50%;background:var(--src-dot);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--src-dot) 22%,transparent)}
+.rail-source[data-status="syncing"] .rail-src-dot{animation:src-pulse 1s ease-in-out infinite}
+.rail-source[data-status="error"]{--src-dot:var(--danger)}
+.rail-source[data-status="connecting"] .rail-src-dot{animation:src-pulse 1s ease-in-out infinite}
+@keyframes src-pulse{50%{opacity:.35}}
+.rail-src-txt{display:flex;flex-direction:column;line-height:1.2;opacity:0;transform:translateX(-6px);
+  transition:.2s;pointer-events:none;min-width:0;overflow:hidden}
+#rail.open .rail-src-txt{opacity:1;transform:none}
+.rail-src-txt b{font-size:12.5px;font-weight:640;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail-src-txt small{font-size:10px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#rail:not(.open) .rail-source{justify-content:center;padding:8px 0;width:auto;margin:4px auto 8px}
+
+/* ---- data source (Admin card + connect wizard) ------------------------- */
+.ds-current{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;
+  padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-2)}
+.ds-dot{width:12px;height:12px;flex:0 0 auto;border-radius:50%;
+  box-shadow:0 0 0 4px color-mix(in srgb,currentColor 0%,transparent)}
+.ds-cur-main{flex:1;min-width:140px}
+.ds-cur-name{font-weight:660;font-size:14px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.ds-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ds-grid{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.ds-opt{display:flex;align-items:center;gap:12px;padding:12px 14px;text-align:left;width:100%;
+  border:1px solid var(--border);border-radius:12px;background:var(--surface-2);cursor:pointer;
+  transition:border-color .15s,transform .1s,box-shadow .15s}
+.ds-opt:hover{border-color:var(--brand-b);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.ds-opt:focus-visible{outline:none;box-shadow:var(--ring)}
+.ds-opt-ic{flex:0 0 auto;display:inline-flex}.ds-opt-ic svg{width:22px;height:22px}
+.ds-opt-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ds-opt-main b{font-size:14px}
+.ds-opt-go{flex:0 0 auto;color:var(--text-3)}.ds-opt-go svg{width:16px;height:16px}
+.ds-tag{align-self:flex-start;margin-top:3px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--warning);border:1px solid color-mix(in srgb,var(--warning) 40%,transparent);
+  border-radius:999px;padding:1px 7px}
+.ds-form-head{display:flex;align-items:center;gap:12px;margin:2px 0 14px}
+.ds-form-head svg{width:22px;height:22px}
+.ds-result{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-top:6px}
+.ds-result.ok{border-color:color-mix(in srgb,var(--success) 40%,var(--border));background:color-mix(in srgb,var(--success) 7%,transparent)}
+.ds-result.warn{border-color:color-mix(in srgb,var(--warning) 45%,var(--border));background:color-mix(in srgb,var(--warning) 8%,transparent)}
+.ds-res-h{display:flex;align-items:center;gap:8px;font-weight:670;font-size:14px}
+.ds-res-h svg{width:18px;height:18px}
+.ds-result.ok .ds-res-h svg{color:var(--success)}
+.ds-result.warn .ds-res-h svg{color:var(--warning)}
+.ds-status{color:var(--text-2)}
+.ds-status .sync-err{color:var(--danger)}
+
 /* ---- main content ------------------------------------------------------ */
 #main{flex:1;min-width:0;height:100%;display:flex;flex-direction:column}
 .topbar{

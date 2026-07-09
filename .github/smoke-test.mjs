@@ -163,8 +163,14 @@ try {
     const bodyText = await page.$eval('#doc-health', (n) => n.textContent).catch(() => '');
     const covers = ['Thriving', 'Stale', 'Weighting', 'Needs attention', 'Dismiss'].every((w) => bodyText.includes(w));
     await page.click('.docs-toc a[data-doc="health"]');
-    await page.waitForTimeout(500);
-    const top = await page.$eval('#doc-health', (n) => n.getBoundingClientRect().top);
+    // poll until the smooth-scroll settles (was a fixed 500ms wait, which
+    // occasionally read mid-animation and flaked); give it up to ~2.5s.
+    let top = 999;
+    for (let i = 0; i < 25; i++) {
+      top = await page.$eval('#doc-health', (n) => n.getBoundingClientRect().top);
+      if (Math.abs(top) < 200) break;
+      await page.waitForTimeout(100);
+    }
     const tocActive = await page.$eval('.docs-toc a[data-doc="health"]', (n) => n.classList.contains('active'));
     return covers && Math.abs(top) < 200 && tocActive;
   });
@@ -2145,6 +2151,118 @@ try {
     } finally { fs.unlinkSync(tmpFile); }
     await page.setViewportSize({ width: 1280, height: 900 });
     return !!info && info.right <= 320 && info.topAligned && info.wrapped && info.notSqueezed;
+  });
+
+  // ---------- Data source (pluggable backends) ----------
+  console.log('Data source');
+  await check('rail shows a "Local" data-source indicator that reflects sync state', async () => {
+    await openSec('home');
+    const txt = await page.$eval('.rail-source .rail-src-txt b', (n) => n.textContent).catch(() => '');
+    const status = await page.$eval('.rail-source', (n) => n.dataset.status).catch(() => '');
+    return /Local/.test(txt) && status === 'local';
+  });
+  await check('Store.snapshot() / replaceAll() round-trip a whole workspace (the portable unit sync pushes)', async () => {
+    return await page.evaluate(async () => {
+      const { Store } = await import('/js/store.js');
+      const original = Store.snapshot();
+      if (!(original.app === 'manager' && original.tables && Array.isArray(original.tables.projects))) return false;
+      // adopt a modified copy, assert it took, then restore the original exactly
+      const clone = JSON.parse(JSON.stringify(original));
+      clone.tables.projects.push({ id: 'ds-roundtrip', name: 'Roundtrip', status: 'idea' });
+      Store.replaceAll(clone);
+      const took = !!Store.get('projects', 'ds-roundtrip') && Store.snapshot().tables.projects.length === original.tables.projects.length + 1;
+      Store.replaceAll(original);
+      const restored = !Store.get('projects', 'ds-roundtrip') && Store.snapshot().tables.projects.length === original.tables.projects.length;
+      return took && restored;
+    });
+  });
+  await check('every backend adapter satisfies the DataSource contract (id/label/fields + the async methods)', async () => {
+    return await page.evaluate(async () => {
+      const { SOURCES } = await import('/js/sources/index.js');
+      const methods = ['test', 'probe', 'provision', 'summarize', 'drop', 'load', 'save'];
+      return SOURCES.length >= 4 && SOURCES.every((s) =>
+        s.id && s.label && s.blurb && Array.isArray(s.fields) && methods.every((m) => typeof s[m] === 'function'));
+    });
+  });
+  await check('Admin → Data source card renders and the connect wizard lists every remote backend', async () => {
+    await page.evaluate(() => { localStorage.setItem('manager.adminkey', 'ci-admin'); });
+    await page.evaluate(() => location.hash = 'admin'); await page.waitForTimeout(400);
+    if (!(await page.$('.ds-card'))) return false;
+    await page.click('.ds-card .btn.primary'); await page.waitForTimeout(300);
+    const opts = await page.$$eval('.ds-flow .ds-opt b', (ns) => ns.map((n) => n.textContent));
+    const hasAll = ['Turso', 'Supabase', 'Firebase'].every((n) => opts.some((o) => o.includes(n)));
+    // Supabase advertises its one-time SQL setup
+    const supaTag = await page.$$eval('.ds-flow .ds-opt', (cards) => cards.some((c) => /Supabase/.test(c.textContent) && /SQL setup/i.test(c.textContent)));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+    return hasAll && supaTag;
+  });
+  await check('connect wizard: an unreachable database fails gracefully with an error, no crash', async () => {
+    await page.evaluate(() => location.hash = 'admin'); await page.waitForTimeout(300);
+    await page.click('.ds-card .btn.primary'); await page.waitForTimeout(250);
+    // pick Turso, enter a bogus URL, inspect
+    const turso = (await page.$$('.ds-flow .ds-opt'))[0];
+    await turso.click(); await page.waitForTimeout(200);
+    const inputs = await page.$$('.ds-flow .field input');
+    await inputs[0].fill('https://nope.invalid.localhost.example');
+    await inputs[1].fill('bogus-token');
+    await page.click('.ds-flow button:has-text("Inspect database")');
+    await page.waitForTimeout(1500);
+    const err = await page.$eval('.ds-flow .ds-status', (n) => n.textContent).catch(() => '');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+    return /error|could not|reach|network|cors/i.test(err);
+  });
+  await check('full connect lifecycle against an in-memory source: empty→provision→push, write-through mirror, adopt, disconnect', async () => {
+    // inject a mock DataSource into the live registry (never shipped)
+    await page.evaluate(async () => {
+      const reg = await import('/js/sources/index.js');
+      const { emptySnapshot } = await import('/js/sources/schema.js');
+      if (reg.SOURCES.some((s) => s.id === 'memtest')) return;
+      window.__mem = { data: null, saves: 0 };
+      reg.SOURCES.push({
+        id: 'memtest', label: 'Memory', blurb: 'in-memory test source', icon: 'db', accent: '#888',
+        browserProvision: true, fields: [],
+        async test() { return { ok: true }; },
+        async probe() { return window.__mem.data ? { state: 'polecat', app: 'manager', schemaVersion: 1, tables: [] } : { state: 'empty', tables: [] }; },
+        async provision(cfg, snap) { window.__mem.data = JSON.parse(JSON.stringify(snap)); return { ok: true }; },
+        async summarize() { return this.probe(); },
+        async drop() { window.__mem.data = null; return { ok: true }; },
+        async load() { return window.__mem.data || emptySnapshot(); },
+        async save(cfg, snap) { window.__mem.data = JSON.parse(JSON.stringify(snap)); window.__mem.saves++; return { ok: true }; },
+      });
+    });
+    const sync = () => import('/js/sync.js');
+    // provision an empty source + push the current workspace up, then connect
+    const afterPush = await page.evaluate(async () => {
+      const s = await import('/js/sync.js');
+      const src = (await import('/js/sources/index.js')).sourceById('memtest');
+      await src.provision({}, (await import('/js/store.js')).Store.snapshot());
+      await s.connectPush('memtest', {});
+      return { status: s.syncState().status, isRemote: s.syncState().isRemote, pushed: !!window.__mem.data, projects: window.__mem.data.tables.projects.length };
+    });
+    // mutate a project → write-through mirror should carry it up (debounced)
+    await page.evaluate(async () => {
+      (await import('/js/store.js')).Store.put('projects', { id: 'ds-mirror', name: 'Mirror', status: 'idea' }, { silent: true });
+    });
+    await page.waitForTimeout(1700);
+    const mirrored = await page.evaluate(() => window.__mem.data.tables.projects.some((p) => p.id === 'ds-mirror'));
+    // disconnect → back to local, working copy retained
+    const afterDisc = await page.evaluate(async () => { const s = await import('/js/sync.js'); s.disconnect(); return { status: s.syncState().status, keep: !!(await import('/js/store.js')).Store.get('projects', 'ds-mirror') }; });
+    // adopt the remote back → Store replaced from the mirror
+    const afterAdopt = await page.evaluate(async () => {
+      const s = await import('/js/sync.js');
+      await s.connectAdopt('memtest', {});
+      return { status: s.syncState().status, hasRow: !!(await import('/js/store.js')).Store.get('projects', 'ds-mirror') };
+    });
+    // cleanup: disconnect, drop the probe row, forget the saved connection
+    await page.evaluate(async () => {
+      const s = await import('/js/sync.js'); s.disconnect();
+      (await import('/js/store.js')).Store.remove('projects', 'ds-mirror', { silent: true });
+      const reg = await import('/js/sources/index.js'); const i = reg.SOURCES.findIndex((x) => x.id === 'memtest'); if (i >= 0) reg.SOURCES.splice(i, 1);
+      localStorage.removeItem('manager.datasource.v1'); localStorage.removeItem('manager.adminkey');
+    });
+    return afterPush.status === 'connected' && afterPush.isRemote && afterPush.pushed && afterPush.projects >= 1
+      && mirrored && afterDisc.status === 'local' && afterDisc.keep
+      && afterAdopt.status === 'connected' && afterAdopt.hasRow;
   });
 
   if (errors.length) { console.error('\nConsole/page errors:\n' + errors.join('\n')); failed = true; }

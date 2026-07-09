@@ -19,6 +19,7 @@ import { buildNotifBell, refreshNotifBadge } from './views/notifications.js';
 import { startTour, MANAGER_TOUR } from './tour.js';
 import { runAutoSync, guessChangelogUrl } from './ingest.js';
 import { CHANGELOG } from './changelog.js';
+import { initSync, onSync, syncState, pushNow } from './sync.js';
 
 const TITLES = { home:'Dashboard', projects:'Projects', project:'Project', releases:'Releases', activity:'Activity',
   credentials:'Credentials', docs:'Docs', admin:'Admin', settings:'Settings' };
@@ -47,6 +48,16 @@ async function boot(){
 
   rebuildRail();
   wireEvents();
+
+  // data source: reflect the live connection in the rail, restore a saved
+  // remote connection (pulls it fresh — the remote is the source of truth),
+  // and re-render the current view once a remote load swaps the workspace.
+  onSync((st)=>{ window.__rail?.setSource?.(st); });
+  window.__rail?.setSource?.(syncState());
+  Store.on('replaced', ()=>{ if(!document.querySelector('.overlay.show, .cmdk.show, .sheet-overlay.show, .tour-pop.show')) render(); });
+  initSync().then(st=>{ window.__rail?.setSource?.(st); });
+  // best-effort final flush so a pending mirror isn't lost on tab close
+  window.addEventListener('pagehide', ()=>{ if(syncState().isRemote) pushNow(); });
 
   const initial=(location.hash.replace('#','')||'home');
   go(RENDERERS[initial]?initial:'home');
@@ -97,6 +108,7 @@ function tickAutoSync(){
 function rebuildRail(){
   window.__rail = buildRail(rail, { onNav:(s)=>go(s), isAdmin:Access.isAdmin(), simple:Store.settings().simpleMode });
   window.__rail.setActive(currentSection);
+  window.__rail.setSource(syncState());
 }
 
 function buildTopbar(){

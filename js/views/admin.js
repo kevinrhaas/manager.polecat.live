@@ -3,6 +3,7 @@
 import { Access } from '../access.js';
 import { el, escapeHtml, toast, ago, fmtCT, confirmDialog } from '../ui.js';
 import { icon } from '../icons.js';
+import { renderDataSourceCard } from './datasource.js';
 
 export function renderAdmin(root, ctx){
   root.innerHTML='';
@@ -32,6 +33,9 @@ export function renderAdmin(root, ctx){
     <span class="muted tiny" style="flex:1;min-width:120px">You can mint invite links below.</span>`;
   head.append(el('button',{class:'btn sm', html:`${icon('lock')} Lock`, onclick:()=>{ Access.lockAdmin(); toast('Admin locked',{kind:'ok'}); ctx.refresh(); }}));
   wrap.append(head);
+
+  // data source — where the workspace lives (local or a connected database)
+  renderDataSourceCard(wrap, ctx);
 
   // mint
   const mint=el('div',{class:'card', style:'margin-top:16px'});

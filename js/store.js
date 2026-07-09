@@ -339,6 +339,34 @@ export const Store = new (class {
   settings(){ return this._db.settings; }
   setSetting(key, val){ this._db.settings[key]=val; this._save(); this.emit('settings', { key }); }
 
+  // ---- data-source bridge ------------------------------------------------
+  // A portable, backend-neutral view of the whole workspace — the unit that
+  // sync.js pushes to (and pulls from) a remote DataSource. Deliberately the
+  // same shape sources/schema.js's emptySnapshot() defines, so an adapter
+  // never needs to import the Store. Rows are plain arrays (not id-keyed).
+  snapshot(){
+    const tables={};
+    TABLES.forEach(t=>{ tables[t]=Object.values(this._db[t]||{}); });
+    return { app:'manager', schemaVersion:1, tables,
+      settings:{ ...this._db.settings }, meta:{ ...this._db.meta } };
+  }
+  // Adopt a whole workspace loaded from a remote source, replacing the live
+  // working copy. Re-keys each table's row array by id, merges settings over
+  // the current defaults, persists locally (the working copy always mirrors
+  // the active source), clears undo history (an undo across a source switch
+  // is meaningless), and fires a broad change so every open view re-renders.
+  replaceAll(snapshot){
+    const db=this._blank();
+    TABLES.forEach(t=>{ (snapshot.tables?.[t]||[]).forEach(r=>{ if(r&&r.id) db[t][r.id]=r; }); });
+    db.settings={ ...DEFAULT_SETTINGS, ...(snapshot.settings||{}) };
+    db.meta={ ...(snapshot.meta||{}) };
+    this._db=db;
+    this._history=[]; this._saveHistory();
+    this._save();
+    this.emit('change', { table:'*' });
+    this.emit('replaced', {});
+  }
+
   // ---- projects ----------------------------------------------------------
   projects(){ return this.all('projects'); }
   project(id){ return this.get('projects', id); }

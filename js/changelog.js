@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 56,
+    title: 'Connect a real database — pluggable data sources (Turso, Supabase, Firebase)',
+    kind: 'feature',
+    ts: '2026-07-08T21:10:36.000Z',
+    items: [
+      'Manager can now store its whole workspace in a real database so you reach the same data from any browser — and so the fleet can sit behind dashboards and back other Polecat apps. The rail’s new bottom chip shows where your data lives: Local · this browser, or a connected source with a live connected / syncing / error status.',
+      'It’s built on one small DataSource interface — this is the first of many backends. Turso (SQLite over HTTP) works end-to-end straight from the browser; Supabase (Postgres) and Firebase (Firestore) are wired the same way. New backends are just another adapter.',
+      'From Admin → Data source, connect a database and Manager inspects it: empty → it creates every object and copies your workspace up; an existing Manager workspace → it summarizes what’s there and loads it; a database in use for something else → it refuses to touch it (with a last-resort “drop everything” escape hatch). Supabase’s one-time table setup is a script it hands you to paste.',
+      'Once connected it’s a write-through mirror: you keep working against a fast local copy and every change is mirrored up on a short delay. Disconnect any time to go back to local-only — your data stays put. Credentials live in this browser only.',
+    ],
+  },
+  {
     v: 55,
     title: 'Fixed: a changelog title with a “comma, word, colon” run broke sync',
     kind: 'fix',

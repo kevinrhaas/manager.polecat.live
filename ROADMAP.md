@@ -22,6 +22,23 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [ ] Data sources (see Done, 2026-07-08) — the follow-on queue, roughly in
+      value order: (a) **validate the live remote adapters** end to end against
+      real Turso/Supabase/Firebase projects and fix whatever the specs got
+      subtly wrong (this build couldn't reach a real DB); (b) **per-row
+      delta sync** instead of the current full-snapshot write-through — fine
+      for a metadata-sized fleet today, but a real cost once a workspace grows
+      or two browsers write concurrently (needs updatedAt-based merge +
+      conflict handling, not last-write-wins); (c) a lightweight **poll/pull**
+      so a second connected browser sees the first's changes without a manual
+      reconnect; (d) **schema migrations** across `SCHEMA_VERSION` bumps (probe
+      already reads the version — provision/adopt should reconcile an older
+      remote); (e) **users + per-user access** (the user flagged this as
+      eventual — RLS on Supabase, auth tokens on Firebase/Turso, and moving the
+      connection off per-browser localStorage); (f) more backends now that the
+      adapter contract is proven (Neon, PlanetScale, Cloudflare D1, Postgres-
+      over-HTTP). Hold (b)-(e) until the adapters are validated against real
+      databases — don't build merge/migration machinery on unproven transport.
 - [ ] The new "Health, weighting & notifications" docs section (see Done,
       2026-07-04) was written by reading the real code (`store.js`'s
       `HEALTH_BANDS`, `settings.js`'s card labels, `project.js`'s override
@@ -335,6 +352,29 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **Pluggable data sources — connect a real database** _(2026-07-08)_:
+      the whole workspace can now live in a remote database instead of only
+      this browser, so the same data is reachable from anywhere and can back
+      dashboards / other Polecat apps. Built as a small `DataSource` contract
+      (`js/sources/*`: probe / provision / summarize / drop / load / save) with
+      a shared, backend-neutral schema (`schema.js` — relational tables +
+      promoted queryable columns + a `polecat_meta` marker so probe can
+      classify empty / ours / foreign / another-app). Adapters: **Local**
+      (localStorage, the default, shown in the rail), **Turso** (SQLite over
+      HTTP — full DDL+CRUD from the browser, the reference remote), and
+      **Supabase** (Postgres/PostgREST — data plane native, provisioning via a
+      one-time paste-in SQL script since the anon key can't DDL) + **Firebase**
+      (Firestore) scaffolds. `sync.js` is the connection manager + write-through
+      mirror: the app keeps its synchronous local Store, and every mutation is
+      debounced up to the active remote; reconnecting from another browser
+      pulls it back. Admin → Data source drives the connect wizard (inspect →
+      empty:create+push / ours:summarize+adopt / foreign:warn+optional drop);
+      the rail chip shows local / connecting / connected / syncing / error.
+      Credentials are per-browser localStorage (flagged in the UI). Local +
+      the abstraction + the full connect lifecycle are covered by smoke
+      (incl. an injected in-memory adapter); the live remote adapters are
+      written to each backend's HTTP/REST spec and want real credentials to
+      validate end to end.
 - [x] **Milestones + a recommended "stable release point"** _(2026-07-04)_:
       answering "when/which release is a good, complete stopping point?" —
       raised directly by the user. Two halves. (1) **Recommendation**:
