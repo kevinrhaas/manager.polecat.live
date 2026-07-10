@@ -43,6 +43,9 @@ function emit(){ listeners.forEach(fn=>{ try{ fn(publicState()); }catch(e){ cons
 export function onSync(fn){ listeners.add(fn); return ()=>listeners.delete(fn); }
 
 export function syncState(){ return publicState(); }
+// The active connection's credentials, for pre-filling the edit form. Kept out
+// of syncState() (which feeds the rail) so secrets aren't sprayed everywhere.
+export function currentConfig(){ return state.cfg ? { ...state.cfg } : null; }
 function publicState(){
   const src = sourceById(state.sourceId) || localSource;
   return { sourceId:state.sourceId, label:src.label, source:src,
@@ -90,8 +93,35 @@ async function flushPush(){
   }
 }
 
-// Force an immediate flush (used before the app closes / on demand).
+// Force an immediate flush of any pending write (used before the app closes).
 export async function pushNow(){ clearTimeout(_timer); await flushPush(); }
+
+// Pull the remote's current contents and adopt them, replacing the working
+// copy. This is the ONLY thing automation doesn't already do: writes mirror up
+// automatically, but there's no live subscription, so a change made from
+// another browser/device isn't seen until you refresh. Flushes any pending
+// local write first so a just-made edit isn't lost to the incoming snapshot.
+export async function pullNow(){
+  if(state.sourceId==='local') return publicState();
+  const src = sourceById(state.sourceId); if(!src) return publicState();
+  await pushNow();
+  setStatus('connecting');
+  _suspend = true;
+  try{
+    const snap = await src.load(state.cfg);
+    Store.replaceAll(snap);
+    setStatus('connected');
+  }catch(e){ setStatus('error', e.message||'refresh failed'); }
+  finally{ _suspend = false; }
+  return publicState();
+}
+
+// Update the credentials of the CURRENT connection in place (edit source),
+// re-loading from the remote with the new config and persisting it.
+export async function updateConnection(cfg){
+  if(state.sourceId==='local') return publicState();
+  return connectAdopt(state.sourceId, cfg);
+}
 
 // ---- connect / disconnect ------------------------------------------------
 // Adopt an EXISTING Polecat workspace on a remote: pull it down and make it

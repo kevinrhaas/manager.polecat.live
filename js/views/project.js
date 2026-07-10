@@ -63,6 +63,7 @@ export function renderProject(root, ctx, params){
   if(!rels.length){
     main.append(el('div',{class:'card empty', html:`${icon('sparkle')}<div>No releases recorded yet.<br><span class="tiny">Add one to start this project’s what’s-new timeline.</span></div>`}));
   }else{
+    main.append(timelineLegend());
     const tl=el('div',{class:'timeline'});
     rels.forEach(r=>tl.append(release(r, ctx)));
     main.append(tl);
@@ -464,13 +465,41 @@ function toggleMilestone(r, ctx){
   setTimeout(()=>label.focus(),50);
 }
 
+// What each release "mark" means — one source of truth shared by the per-row
+// tooltips and the timeline legend below, so a coloured dot / tag is never
+// unexplained. `feature` carries no text tag (it's the default), so the dot
+// colour + this legend are how you tell it apart.
+const KIND_INFO = {
+  feature: { label:'Feature', desc:'New content or a new mechanic — the project grew.' },
+  polish:  { label:'Polish',  desc:'A refinement of something that already shipped.' },
+  fix:     { label:'Fix',     desc:'A bug fix.' },
+};
+
+// A compact key explaining the timeline's dots, tags and badges. Sits between
+// the "What's new" header and the list so the marks are self-documenting.
+function timelineLegend(){
+  const leg=el('div',{class:'wn-legend', role:'list', 'aria-label':'What the release marks mean'});
+  ['feature','polish','fix'].forEach(k=>{
+    const i=KIND_INFO[k];
+    leg.append(el('span',{class:'wn-key', role:'listitem', title:i.desc, tabindex:'0',
+      html:`<i class="wn-swatch ${k}"></i>${i.label}`}));
+  });
+  leg.append(el('span',{class:'wn-key', role:'listitem', title:'A release you marked as a stable milestone worth remembering.', tabindex:'0',
+    html:`<span class="wn-key-ic ms">${icon('flag')}</span>Milestone`}));
+  leg.append(el('span',{class:'wn-key', role:'listitem', title:'Pulled automatically from the project’s live, deployed changelog — not hand-entered.', tabindex:'0',
+    html:`<span class="wn-key-ic">${icon('refresh')}</span>Synced`}));
+  return leg;
+}
+
 function release(r, ctx){
-  const item=el('div',{class:'tl-item '+(r.kind||'feature')+(r.milestone?' is-milestone':'')});
+  const kind=r.kind||'feature';
+  const ki=KIND_INFO[kind]||KIND_INFO.feature;
+  const item=el('div',{class:'tl-item '+kind+(r.milestone?' is-milestone':''), title:`${ki.label} — ${ki.desc}`});
   const head=el('div',{class:'tl-head'});
-  head.innerHTML=`<span class="tl-badge">v${r.v}</span><b>${escapeHtml(r.title||'Untitled release')}</b>
+  head.innerHTML=`<span class="tl-badge" title="Version number">v${r.v}</span><b>${escapeHtml(r.title||'Untitled release')}</b>
     ${r.milestone?`<span class="ms-badge" title="${escapeHtml(r.milestoneLabel||'Marked milestone')}">${icon('flag')} ${escapeHtml(r.milestoneLabel||'Milestone')}</span>`:''}
-    ${r.kind&&r.kind!=='feature'?`<span class="wn-kind">${escapeHtml(r.kind)}</span>`:''}
-    ${r.source==='sync'?`<span class="tag sync-tag" title="Synced from ${escapeHtml(r.sourceUrl||'')}">${icon('refresh')} synced</span>`:''}
+    ${r.kind&&r.kind!=='feature'?`<span class="wn-kind" title="${escapeHtml(ki.label)} — ${escapeHtml(ki.desc)}">${escapeHtml(r.kind)}</span>`:''}
+    ${r.source==='sync'?`<span class="tag sync-tag" title="Synced from the project’s live changelog${r.sourceUrl?` (${escapeHtml(r.sourceUrl)})`:''}">${icon('refresh')} synced</span>`:''}
     <span class="tl-when">${escapeHtml(fmtCT(r.ts))}</span>`;
   const actions=el('div',{class:'tl-actions', style:'margin-left:auto;display:inline-flex;gap:4px'});
   const flag=el('button',{class:'btn ghost icon sm'+(r.milestone?' active':''), title:r.milestone?'Unmark milestone':'Mark as major milestone',

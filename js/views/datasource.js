@@ -16,7 +16,7 @@ import { icon } from '../icons.js';
 import { SOURCES, REMOTE_SOURCES, sourceById } from '../sources/index.js';
 import { describeContents } from '../sources/base.js';
 import { Store } from '../store.js';
-import { syncState, onSync, connectAdopt, connectPush, disconnect, pushNow } from '../sync.js';
+import { syncState, onSync, connectAdopt, connectPush, disconnect, pullNow, currentConfig } from '../sync.js';
 
 const STATUS_LABEL = {
   local:'Local only', connecting:'Connecting…', connected:'Connected',
@@ -42,19 +42,26 @@ export function renderDataSourceCard(host, ctx){
         <div class="muted tiny">${st.isRemote
           ? (st.status==='error'
              ? escapeHtml(st.lastError||'sync error')
-             : (st.lastPushAt?`last synced ${escapeHtml(fmtCT(st.lastPushAt))}`:'mirroring your changes'))
+             : `Changes save here automatically${st.lastPushAt?` · last synced ${escapeHtml(fmtCT(st.lastPushAt))}`:''}`)
           : 'Fast and private — but only on this device.'}</div>
       </div>`;
     const actions = el('div',{class:'ds-actions'});
     if(st.isRemote){
-      actions.append(el('button',{class:'btn sm', html:`${icon('refresh')} Sync now`, onclick:async(e)=>{ e.target.disabled=true; await pushNow(); toast('Synced',{kind:'ok'}); }}));
+      // Writes mirror up automatically, so there's no "push" button — the one
+      // thing automation can't do is notice a change made from ANOTHER browser
+      // (there's no live subscription), so the manual action is a PULL.
+      actions.append(el('button',{class:'btn sm', html:`${icon('download')} Refresh`,
+        title:`Pull the latest from ${src.label} — e.g. after editing from another browser. Your changes here already save automatically.`,
+        onclick:async(e)=>{ e.target.disabled=true; const r=await pullNow(); toast(r.status==='error'?'Refresh failed':'Refreshed from source',{kind:r.status==='error'?'err':'ok', body:r.status==='error'?r.lastError:''}); ctx?.refresh?.(); }}));
+      actions.append(el('button',{class:'btn sm', html:`${icon('edit')} Edit`,
+        title:'Update this connection’s credentials', onclick:()=>openConnectFlow(ctx, { editSource:src, editCfg:currentConfig() })}));
       actions.append(el('button',{class:'btn sm', html:`${icon('x')} Disconnect`, onclick:async()=>{
         if(await confirmDialog('Disconnect data source', `Stop mirroring to ${src.label} and go back to local-only? Your current data stays in this browser; the remote copy is left untouched.`, { okLabel:'Disconnect' })){
           disconnect(); toast('Back to local',{kind:'ok'}); ctx?.refresh?.();
         }
       }}));
     }
-    actions.append(el('button',{class:'btn sm primary', html:`${icon('plus')} ${st.isRemote?'Switch source':'Connect a database'}`, onclick:()=>openConnectFlow(ctx)}));
+    actions.append(el('button',{class:'btn sm primary', html:`${icon('plus')} ${st.isRemote?'Switch source':'Connect a data source'}`, onclick:()=>openConnectFlow(ctx)}));
     row.append(actions);
     card.append(row);
   };
@@ -67,10 +74,12 @@ export function renderDataSourceCard(host, ctx){
 }
 
 // ---- the connect wizard --------------------------------------------------
-export function openConnectFlow(ctx){
+export function openConnectFlow(ctx, opts={}){
+  const editing = !!opts.editSource;
   const body = el('div',{class:'ds-flow'});
-  const { hide } = modal({ title:'Connect a data source', icon:'db', body, wide:true });
-  pickStep();
+  const { hide } = modal({ title:editing?'Edit data source':'Connect a data source', icon:'db', body, wide:true });
+  // edit mode jumps straight to the chosen source's form, pre-filled
+  if(editing) formStep(opts.editSource, opts.editCfg||{}); else pickStep();
 
   function render(node){ body.innerHTML=''; body.append(node); }
 
@@ -92,18 +101,18 @@ export function openConnectFlow(ctx){
     render(wrap);
   }
 
-  // step 2 — credentials for the chosen backend
-  function formStep(src){
+  // step 2 — credentials for the chosen backend (prefill = edit mode)
+  function formStep(src, prefill){
     const wrap = el('div');
-    const back = el('button',{class:'btn ghost sm', html:`${icon('chevron')} Back`, style:'transform:scaleX(-1);margin-bottom:8px', onclick:pickStep});
+    if(!editing) wrap.append(el('button',{class:'btn ghost sm', html:`<span class="flip-x">${icon('chevron')}</span> Back`, style:'margin-bottom:8px', onclick:pickStep}));
     const head = el('div',{class:'ds-form-head'});
     head.innerHTML = `<span class="ds-opt-ic" style="color:${src.accent}">${icon(src.icon)}</span><div><b>${escapeHtml(src.label)}</b><div class="muted tiny">${escapeHtml(src.blurb)}</div></div>`;
-    wrap.append(back, head);
+    wrap.append(head);
     const inputs = {};
     src.fields.forEach(f=>{
       const field = el('div',{class:'field'});
       field.append(el('label',{text:f.label}));
-      const input = el('input',{class:'input mono', type:f.type==='password'?'password':'text', placeholder:f.placeholder||'', spellcheck:'false', autocomplete:'off'});
+      const input = el('input',{class:'input mono', type:f.type==='password'?'password':'text', placeholder:f.placeholder||'', spellcheck:'false', autocomplete:'off', value:(prefill&&prefill[f.key])||''});
       inputs[f.key]=input;
       field.append(input);
       if(f.hint) field.append(el('div',{class:'tiny muted', style:'margin-top:4px', html:escapeHtml(f.hint)}));
@@ -131,7 +140,7 @@ export function openConnectFlow(ctx){
   // step 3 — classify + act
   function resultStep(src, cfg, probe){
     const wrap = el('div');
-    wrap.append(el('button',{class:'btn ghost sm', html:`${icon('chevron')} Back`, style:'transform:scaleX(-1);margin-bottom:8px', onclick:()=>formStep(src)}));
+    wrap.append(el('button',{class:'btn ghost sm', html:`<span class="flip-x">${icon('chevron')}</span> Back`, style:'margin-bottom:8px', onclick:()=>formStep(src)}));
     const box = el('div',{class:'ds-result'});
     const status = el('div',{class:'ds-status tiny', style:'margin-top:12px'});
     const foreignApp = probe.state==='polecat' && probe.app && probe.app!=='manager';

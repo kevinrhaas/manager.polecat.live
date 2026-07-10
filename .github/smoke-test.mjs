@@ -163,15 +163,16 @@ try {
     const bodyText = await page.$eval('#doc-health', (n) => n.textContent).catch(() => '');
     const covers = ['Thriving', 'Stale', 'Weighting', 'Needs attention', 'Dismiss'].every((w) => bodyText.includes(w));
     await page.click('.docs-toc a[data-doc="health"]');
-    // poll until the smooth-scroll settles (was a fixed 500ms wait, which
-    // occasionally read mid-animation and flaked); give it up to ~2.5s.
-    let top = 999;
-    for (let i = 0; i < 25; i++) {
+    // poll until BOTH the smooth-scroll settles AND the scroll-spy marks the
+    // link active (the observer updates async, a beat after the scroll) — a
+    // fixed wait raced one or the other. Up to ~3.5s.
+    let top = 999, tocActive = false;
+    for (let i = 0; i < 35; i++) {
       top = await page.$eval('#doc-health', (n) => n.getBoundingClientRect().top);
-      if (Math.abs(top) < 200) break;
+      tocActive = await page.$eval('.docs-toc a[data-doc="health"]', (n) => n.classList.contains('active'));
+      if (Math.abs(top) < 200 && tocActive) break;
       await page.waitForTimeout(100);
     }
-    const tocActive = await page.$eval('.docs-toc a[data-doc="health"]', (n) => n.classList.contains('active'));
     return covers && Math.abs(top) < 200 && tocActive;
   });
 
@@ -654,6 +655,13 @@ try {
   await page.evaluate(() => { location.hash = 'project/relay'; });
   await page.waitForTimeout(400);
   await check('project detail shows the what\'s-new timeline', async () => (await count('.timeline .tl-item')) >= 1);
+  await check('the what\'s-new timeline has a legend explaining the marks, and rows carry explanatory tooltips', async () => {
+    const keys = await page.$$eval('.wn-legend .wn-key', (ns) => ns.map((n) => n.textContent.trim()));
+    const allTitled = await page.$$eval('.wn-legend .wn-key', (ns) => ns.every((n) => (n.getAttribute('title') || '').length > 5));
+    // a release row itself carries a kind tooltip (so the coloured dot is explained on hover)
+    const rowTitled = await page.$eval('.timeline .tl-item', (n) => /Feature|Polish|Fix/.test(n.getAttribute('title') || ''));
+    return ['Feature', 'Polish', 'Fix', 'Milestone', 'Synced'].every((k) => keys.includes(k)) && allTitled && rowTitled;
+  });
   await check('project detail health panel shows a health score and velocity sparkline', async () =>
     (await count('.health .hchip')) >= 1 && (await count('.health .spark')) >= 1);
   await check('add a release to a project', async () => {
@@ -2253,16 +2261,29 @@ try {
       await s.connectAdopt('memtest', {});
       return { status: s.syncState().status, hasRow: !!(await import('/js/store.js')).Store.get('projects', 'ds-mirror') };
     });
-    // cleanup: disconnect, drop the probe row, forget the saved connection
+    // pull: simulate ANOTHER browser writing to the remote, then Refresh
+    const afterPull = await page.evaluate(async () => {
+      const s = await import('/js/sync.js');
+      window.__mem.data.tables.projects.push({ id: 'ds-elsewhere', name: 'Elsewhere', status: 'idea' });
+      await s.pullNow();
+      return { status: s.syncState().status, pulled: !!(await import('/js/store.js')).Store.get('projects', 'ds-elsewhere') };
+    });
+    // the connected Admin card exposes Refresh + Edit (pull-oriented), not a "Sync now" push
+    await page.evaluate(() => location.hash = 'admin'); await page.waitForTimeout(350);
+    const cardActions = await page.$$eval('.ds-actions button', (ns) => ns.map((n) => n.textContent.trim()));
+    const cardOk = cardActions.some((t) => /Refresh/.test(t)) && cardActions.some((t) => /Edit/.test(t)) && !cardActions.some((t) => /Sync now/i.test(t));
+    // cleanup: disconnect, drop the probe rows, forget the saved connection
     await page.evaluate(async () => {
       const s = await import('/js/sync.js'); s.disconnect();
-      (await import('/js/store.js')).Store.remove('projects', 'ds-mirror', { silent: true });
+      const St = (await import('/js/store.js')).Store;
+      St.remove('projects', 'ds-mirror', { silent: true }); St.remove('projects', 'ds-elsewhere', { silent: true });
       const reg = await import('/js/sources/index.js'); const i = reg.SOURCES.findIndex((x) => x.id === 'memtest'); if (i >= 0) reg.SOURCES.splice(i, 1);
       localStorage.removeItem('manager.datasource.v1'); localStorage.removeItem('manager.adminkey');
     });
     return afterPush.status === 'connected' && afterPush.isRemote && afterPush.pushed && afterPush.projects >= 1
       && mirrored && afterDisc.status === 'local' && afterDisc.keep
-      && afterAdopt.status === 'connected' && afterAdopt.hasRow;
+      && afterAdopt.status === 'connected' && afterAdopt.hasRow
+      && afterPull.pulled && afterPull.status === 'connected' && cardOk;
   });
 
   if (errors.length) { console.error('\nConsole/page errors:\n' + errors.join('\n')); failed = true; }

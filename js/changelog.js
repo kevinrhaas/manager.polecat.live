@@ -9,6 +9,19 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 57,
+    title: 'Data-source polish: edit a connection, clearer sync, a what’s-new legend',
+    kind: 'polish',
+    ts: '2026-07-09T16:57:56.000Z',
+    items: [
+      'You can now Edit a connected data source’s credentials in place (pre-filled), instead of only disconnecting and starting over.',
+      'Replaced the confusing “Sync now” button: your changes already save to the connected database automatically, so there’s nothing to push. The manual action is now Refresh — it pulls the latest in case you edited from another browser (there’s no live subscription yet). The card now says “Changes save here automatically.”',
+      'Fixed the “Connect a data source” picker showing its backend names in black on dark backgrounds (the option cards are buttons, which don’t inherit the app text colour) — readable in both themes now.',
+      'Renamed the Admin button from “Connect a database” to “Connect a data source”, and fixed the wizard’s “Back” label rendering mirror-reversed (only its chevron should flip, not the text).',
+      'The what’s-new timeline now has a small legend explaining every mark — the coloured dots (Feature / Polish / Fix), the Milestone flag, and the Synced tag — and each release row repeats it on hover, so a bare coloured dot is never a mystery.',
+    ],
+  },
+  {
     v: 56,
     title: 'Connect a real database — pluggable data sources (Turso, Supabase, Firebase)',
     kind: 'feature',
