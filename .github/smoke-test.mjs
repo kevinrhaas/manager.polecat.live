@@ -2285,6 +2285,44 @@ try {
       && afterAdopt.status === 'connected' && afterAdopt.hasRow
       && afterPull.pulled && afterPull.status === 'connected' && cardOk;
   });
+  await check('at-rest secret encryption: credentials are ciphertext on the remote, locked on a fresh browser, unlock restores them', async () => {
+    const r = await page.evaluate(async () => {
+      const { Store } = await import('/js/store.js');
+      const sync = await import('/js/sync.js');
+      const { isEnvelope } = await import('/js/crypto.js');
+      const { emptySnapshot } = await import('/js/sources/schema.js');
+      const reg = await import('/js/sources/index.js');
+      const cid = Store.addCredential({ name: 'Smoke secret', key: 'SMOKE_ENC_KEY', value: 'sk-smoke-secret' }).id;
+      window.__enc = { data: null };
+      reg.SOURCES.push({
+        id: 'memenc', label: 'MemEnc', blurb: 't', icon: 'db', accent: '#888', browserProvision: true, fields: [],
+        async test() { return { ok: true }; }, async probe() { return window.__enc.data ? { state: 'polecat', app: 'manager', schemaVersion: 1, tables: [] } : { state: 'empty', tables: [] }; },
+        async provision(c, s) { window.__enc.data = JSON.parse(JSON.stringify(s)); return { ok: true }; }, async summarize() { return this.probe(); },
+        async drop() { window.__enc.data = null; return { ok: true }; },
+        async load() { return window.__enc.data ? JSON.parse(JSON.stringify(window.__enc.data)) : emptySnapshot(); },
+        async save(c, s) { window.__enc.data = JSON.parse(JSON.stringify(s)); return { ok: true }; },
+      });
+      await sync.connectPush('memenc', {});
+      const cred = () => window.__enc.data.tables.credentials.find((x) => x.key === 'SMOKE_ENC_KEY');
+      const plainBefore = cred().value === 'sk-smoke-secret';
+      await sync.enableSecrets('correct horse battery');
+      const remoteCiphertext = isEnvelope(cred().value) && !!window.__enc.data.meta?.secretsEnc?.salt;
+      const localStillReadable = Store.get('credentials', cid).value === 'sk-smoke-secret';
+      // simulate another browser: disconnect (drops the in-memory key like a reload), forget the cached pass, re-adopt
+      sync.disconnect(); localStorage.removeItem('manager.datasource.secret.v1');
+      await sync.connectAdopt('memenc', {});
+      const locked = sync.secretsState().locked === true && isEnvelope(Store.get('credentials', cid).value);
+      let wrongRejected = false; try { await sync.unlockSecrets('nope'); } catch { wrongRejected = true; }
+      await sync.unlockSecrets('correct horse battery');
+      const unlocked = Store.get('credentials', cid).value === 'sk-smoke-secret' && sync.secretsState().locked === false;
+      // cleanup
+      sync.disconnect(); Store.remove('credentials', cid, { silent: true });
+      const i = reg.SOURCES.findIndex((x) => x.id === 'memenc'); if (i >= 0) reg.SOURCES.splice(i, 1);
+      localStorage.removeItem('manager.datasource.v1'); localStorage.removeItem('manager.datasource.secret.v1');
+      return { plainBefore, remoteCiphertext, localStillReadable, locked, wrongRejected, unlocked };
+    });
+    return r.plainBefore && r.remoteCiphertext && r.localStillReadable && r.locked && r.wrongRejected && r.unlocked;
+  });
 
   if (errors.length) { console.error('\nConsole/page errors:\n' + errors.join('\n')); failed = true; }
 } catch (e) {

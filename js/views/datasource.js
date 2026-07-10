@@ -16,7 +16,8 @@ import { icon } from '../icons.js';
 import { SOURCES, REMOTE_SOURCES, sourceById } from '../sources/index.js';
 import { describeContents } from '../sources/base.js';
 import { Store } from '../store.js';
-import { syncState, onSync, connectAdopt, connectPush, disconnect, pullNow, currentConfig } from '../sync.js';
+import { syncState, onSync, connectAdopt, connectPush, disconnect, pullNow, currentConfig,
+         secretsState, enableSecrets, unlockSecrets, disableSecrets } from '../sync.js';
 
 const STATUS_LABEL = {
   local:'Local only', connecting:'Connecting…', connected:'Connected',
@@ -64,6 +65,7 @@ export function renderDataSourceCard(host, ctx){
     actions.append(el('button',{class:'btn sm primary', html:`${icon('plus')} ${st.isRemote?'Switch source':'Connect a data source'}`, onclick:()=>openConnectFlow(ctx)}));
     row.append(actions);
     card.append(row);
+    if(st.isRemote) card.append(secretsRow(src, ctx));
   };
   paint();
   // live-update while the card is on screen; self-unsubscribe once a later
@@ -71,6 +73,68 @@ export function renderDataSourceCard(host, ctx){
   // rely on, so we prune on the next sync event instead of leaking listeners).
   const off = onSync(()=>{ if(!card.isConnected){ off(); return; } paint(); });
   return card;
+}
+
+// At-rest encryption control for the connected source: encrypt the
+// credentials vault before it's stored on the remote, keyed by a passphrase
+// that never leaves this browser.
+function secretsRow(src, ctx){
+  const sec = secretsState();
+  const row = el('div',{class:'ds-secrets'});
+  if(!sec.available){
+    row.innerHTML = `<span class="ds-sec-ic">${icon('lock')}</span><div class="ds-sec-main"><b>Secret encryption</b><div class="muted tiny">Not supported in this browser.</div></div>`;
+    return row;
+  }
+  const state = sec.locked ? 'locked' : (sec.enabled ? 'on' : 'off');
+  const copy = {
+    off:   { title:'Secrets stored as plaintext', sub:`Your credential values are written to ${escapeHtml(src.label)} unencrypted. Turn on encryption to store them as ciphertext only.`, cls:'' },
+    on:    { title:'Secrets encrypted', sub:'Credential values are AES-encrypted before they’re stored here. The passphrase stays in this browser.', cls:'on' },
+    locked:{ title:'Secrets locked', sub:'This workspace’s credentials are encrypted. Enter the passphrase to read and edit them on this browser.', cls:'locked' },
+  }[state];
+  row.className = 'ds-secrets '+copy.cls;
+  row.innerHTML = `<span class="ds-sec-ic">${icon('lock')}</span>
+    <div class="ds-sec-main"><b>${copy.title}</b><div class="muted tiny">${copy.sub}</div></div>`;
+  const act = el('div',{class:'ds-sec-act'});
+  if(state==='off'){
+    act.append(el('button',{class:'btn sm', html:`${icon('lock')} Encrypt secrets…`, onclick:()=>passphrasePrompt({
+      title:'Encrypt secrets', label:'New passphrase', confirm:true, cta:'Encrypt & upload',
+      note:`Credential values will be encrypted before they’re stored on ${escapeHtml(src.label)}. Keep this passphrase safe — it’s the only way to read them, and it’s never stored on the server. If you lose it, the encrypted secrets can’t be recovered.`,
+      onSubmit:async(p)=>{ await enableSecrets(p); toast('Secrets encrypted',{kind:'ok'}); ctx?.refresh?.(); } })}));
+  }else if(state==='locked'){
+    act.append(el('button',{class:'btn sm primary', html:`${icon('key')} Unlock`, onclick:()=>passphrasePrompt({
+      title:'Unlock secrets', label:'Passphrase', cta:'Unlock',
+      note:'Enter the passphrase this workspace’s secrets were encrypted with.',
+      onSubmit:async(p)=>{ await unlockSecrets(p); toast('Secrets unlocked',{kind:'ok'}); ctx?.refresh?.(); } })}));
+  }else{
+    act.append(el('button',{class:'btn sm', html:`${icon('x')} Turn off`, onclick:async()=>{
+      if(await confirmDialog('Turn off encryption', `Store credential values on ${src.label} as plaintext again? They’ll be re-uploaded unencrypted.`, { danger:true, okLabel:'Turn off' })){
+        await disableSecrets(); toast('Encryption off',{kind:'ok'}); ctx?.refresh?.();
+      }
+    }}));
+  }
+  row.append(act);
+  return row;
+}
+
+function passphrasePrompt({ title, label, note, cta, confirm=false, onSubmit }){
+  const body = el('div');
+  if(note) body.append(el('p',{class:'muted tiny', style:'margin-top:0', html:note}));
+  const p1 = el('input',{class:'input', type:'password', placeholder:'Passphrase', autocomplete:'new-password', spellcheck:'false'});
+  const f1 = el('div',{class:'field'}); f1.append(el('label',{text:label}), p1); body.append(f1);
+  let p2;
+  if(confirm){ p2 = el('input',{class:'input', type:'password', placeholder:'Repeat passphrase', autocomplete:'new-password', spellcheck:'false'});
+    const f2 = el('div',{class:'field'}); f2.append(el('label',{text:'Confirm passphrase'}), p2); body.append(f2); }
+  const status = el('div',{class:'ds-status tiny', style:'margin-top:8px'});
+  body.append(status);
+  const go = el('button',{class:'btn primary', text:cta||'OK', onclick:async()=>{
+    const v = p1.value; if(!v){ status.innerHTML='<span class="sync-err">Enter a passphrase.</span>'; return; }
+    if(confirm && v!==p2.value){ status.innerHTML='<span class="sync-err">Passphrases don’t match.</span>'; return; }
+    go.disabled=true; status.textContent='Working…';
+    try{ await onSubmit(v); hide(); }
+    catch(e){ go.disabled=false; status.innerHTML=`<span class="sync-err">${escapeHtml(e.message||'Failed')}</span>`; }
+  }});
+  const { hide } = modal({ title, icon:'lock', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), go] });
+  setTimeout(()=>p1.focus(), 40);
 }
 
 // ---- the connect wizard --------------------------------------------------

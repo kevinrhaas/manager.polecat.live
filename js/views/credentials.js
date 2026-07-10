@@ -4,6 +4,7 @@
 import { Store } from '../store.js';
 import { el, escapeHtml, toast, modal, confirmDialog } from '../ui.js';
 import { icon } from '../icons.js';
+import { isEnvelope } from '../crypto.js';
 
 export function renderCredentials(root, ctx){
   root.innerHTML='';
@@ -15,7 +16,7 @@ export function renderCredentials(root, ctx){
   head.append(el('button',{class:'btn sm primary', html:`${icon('plus')} Add`, onclick:()=>editCred(null, ctx)}));
   wrap.append(head);
 
-  wrap.append(el('div',{class:'callout', html:`${icon('lock')}<div>Set a value <b>once as global</b> and it’s available to every project; scope it to a project when it differs. Everything stays in this browser — nothing is uploaded. (This is designed to become an encrypted SQLite table.)</div>`}));
+  wrap.append(el('div',{class:'callout', html:`${icon('lock')}<div>Set a value <b>once as global</b> and it’s available to every project; scope it to a project when it differs. By default values live only in this browser — connect a <b>data source</b> (Admin) to reach them elsewhere, and turn on <b>Encrypt secrets</b> there to store them as ciphertext, never plaintext, on the database.</div>`}));
 
   // global
   wrap.append(el('div',{class:'section-title', html:`<h2 style="font-size:13px">Shared · global</h2>`}));
@@ -40,20 +41,29 @@ function credGroup(list, ctx, emptyMsg){
 }
 
 function credRow(c, ctx){
+  // A value is "locked" when it's an encrypted envelope this browser can't
+  // read yet — the workspace has at-rest encryption on and hasn't been
+  // unlocked here. Show a lock, not a crash, and point at where to unlock.
+  const locked = isEnvelope(c.value);
   let shown=false;
-  const row=el('div',{class:'card cred-row'});
+  const row=el('div',{class:'card cred-row'+(locked?' cred-locked':'')});
   const val=el('span',{class:'mono tiny', style:'color:var(--text-2)'});
-  const setVal=()=>{ val.textContent = shown ? (c.value||'—') : '•'.repeat(Math.min(14,(c.value||'').length||6)); };
+  const setVal=()=>{
+    if(locked){ val.innerHTML=`<span class="cred-lock">${icon('lock')} Encrypted — unlock in Admin → Data source</span>`; return; }
+    val.textContent = shown ? (c.value||'—') : '•'.repeat(Math.min(14,(c.value||'').length||6));
+  };
   setVal();
-  row.innerHTML=`<span class="qicon" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--brand-b),var(--consensus));color:#05121a">${icon('key')}</span>`;
+  row.innerHTML=`<span class="qicon" style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--brand-b),var(--consensus));color:#05121a">${icon(locked?'lock':'key')}</span>`;
   const mid=el('div',{class:'cred-row-mid'});
   mid.innerHTML=`<b>${escapeHtml(c.name||c.key||'Credential')}</b> ${c.key?`<span class="tiny mono muted">${escapeHtml(c.key)}</span>`:''}${c.note?`<div class="tiny muted">${escapeHtml(c.note)}</div>`:''}`;
   const valWrap=el('div',{style:'margin-top:2px'}); valWrap.append(val); mid.append(valWrap);
   row.append(mid);
   const actions=el('div',{class:'cred-row-actions'});
-  actions.append(el('button',{class:'btn ghost icon sm', title:'Reveal', 'aria-label':'Reveal value', html:icon('eye'), onclick:()=>{ shown=!shown; setVal(); }}));
-  actions.append(el('button',{class:'btn ghost icon sm', title:'Copy', 'aria-label':'Copy value', html:icon('copy'), onclick:()=>navigator.clipboard?.writeText(c.value||'').then(()=>toast('Copied',{kind:'ok'}))}));
-  actions.append(el('button',{class:'btn ghost icon sm', title:'Edit', 'aria-label':'Edit credential', html:icon('edit'), onclick:()=>editCred(c.id, ctx)}));
+  if(!locked){
+    actions.append(el('button',{class:'btn ghost icon sm', title:'Reveal', 'aria-label':'Reveal value', html:icon('eye'), onclick:()=>{ shown=!shown; setVal(); }}));
+    actions.append(el('button',{class:'btn ghost icon sm', title:'Copy', 'aria-label':'Copy value', html:icon('copy'), onclick:()=>navigator.clipboard?.writeText(c.value||'').then(()=>toast('Copied',{kind:'ok'}))}));
+  }
+  actions.append(el('button',{class:'btn ghost icon sm', title:locked?'Edit (locked)':'Edit', 'aria-label':'Edit credential', html:icon('edit'), disabled:locked, onclick:()=>editCred(c.id, ctx)}));
   row.append(actions);
   return row;
 }

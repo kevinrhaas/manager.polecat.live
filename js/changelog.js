@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 58,
+    title: 'Encrypt your secrets at rest on the database',
+    kind: 'feature',
+    ts: '2026-07-10T20:28:52.000Z',
+    items: [
+      'The Credentials vault can now be stored encrypted on a connected data source. Turn on “Encrypt secrets” (Admin → Data source), pick a passphrase, and Manager AES-256-GCM encrypts each credential value before it’s written to the remote — the database only ever holds ciphertext.',
+      'Zero-knowledge: the passphrase is stretched into a key with PBKDF2 and never leaves your browser (it’s not stored on the server), so a leaked database dump reveals nothing without it. It’s all standard WebCrypto — no dependencies.',
+      'Connect from another browser and encrypted secrets show as 🔒 locked until you enter the same passphrase once to unlock them there; the rest of the workspace loads normally. Everything non-secret stays readable as usual.',
+      'Keep the passphrase safe — if you lose it, the encrypted secrets can’t be recovered. You can turn encryption back off any time to re-store them as plaintext.',
+    ],
+  },
+  {
     v: 57,
     title: 'Data-source polish: edit a connection, clearer sync, a what’s-new legend',
     kind: 'polish',
