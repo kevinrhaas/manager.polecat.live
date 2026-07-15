@@ -122,6 +122,8 @@ export function attentionRow(a, ctx){
   const reasonsWrap=el('span',{class:'areasons'});
   reasons.forEach(r=>{
     if(r.kind==='health') reasonsWrap.append(el('span',{class:`hchip ${band.cls}`, html:`${icon('activity')} ${escapeHtml(r.text)}`}));
+    else if(r.kind==='steward') reasonsWrap.append(el('span',{class:'fail-chip', title:'A steward PR failed its checks — details on the project page’s Steward card', html:`${icon('branch')} ${escapeHtml(r.text)}`}));
+    else if(r.kind==='sweep') reasonsWrap.append(el('span',{class:'sweep-chip', title:'Open sweep-finding issues — details on the project page’s Steward card', html:`${icon('eye')} ${escapeHtml(r.text)}`}));
     else reasonsWrap.append(el('span',{class:'fail-chip', title:p.autoSyncLastError||'', html:`${icon('warning')} ${escapeHtml(r.text)}`}));
   });
   row.append(reasonsWrap);

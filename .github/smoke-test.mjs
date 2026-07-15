@@ -1237,6 +1237,24 @@ try {
     const warned = await page.evaluate(() => [...document.querySelectorAll('.toast')].some((t) => /token/i.test(t.textContent)));
     return warned;
   });
+  await check('steward signals flow into Needs attention: bell + rail badge + dashboard chips, and dismissal clears them', async () => {
+    // deterministic: inject signals directly (the live fetcher is offline in CI)
+    const before = await store(`(S)=>S.needsAttentionActive().length`);
+    await store(`(S)=>{ const repo=S.project('games').repo; S.setStewardSignals({ [repo]: { openPRs:1, redPRs:1, sweepIssues:2 } }); }`);
+    await openSec('home'); await page.waitForTimeout(300);
+    const after = await store(`(S)=>S.needsAttentionActive().length`);
+    if (after !== before + 1) return false;
+    const chips = await page.evaluate(() => {
+      const row = [...document.querySelectorAll('.attn-row')].find((r) => r.textContent.includes('Games'));
+      return row ? { steward: /red steward PR/.test(row.textContent), sweep: /sweep finding/.test(row.textContent) } : null;
+    });
+    const badgeText = await page.$eval('.notif-btn .badge', (e) => (e.hidden ? null : e.textContent)).catch(() => null);
+    // dismissal is signature-scoped: acknowledging drops it from the active set
+    await store(`(S)=>{ const a=S.needsAttentionActive().find(x=>x.project.id==='games'); if(a) S.dismissAttention(a); }`);
+    const dismissed = (await store(`(S)=>S.needsAttentionActive().length`)) === before;
+    await store(`(S)=>{ S.setStewardSignals(null); S.undismissAttention('games'); }`);
+    return !!chips && chips.steward && chips.sweep && badgeText != null && parseInt(badgeText, 10) >= after && dismissed;
+  });
   await check('project page shows a Steward card for a repo-linked project', async () => {
     await store(`(S)=>{ location.hash='project/manager'; }`);
     await page.waitForTimeout(600);
