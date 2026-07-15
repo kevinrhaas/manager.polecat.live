@@ -129,8 +129,8 @@ body{
   background:color-mix(in srgb,var(--rail-bg) 82%, transparent);
   backdrop-filter:blur(12px);
 }
-/* branded keyboard-focus ring on chrome the shell doesn't cover itself */
-.ps-rail-brand:focus-visible,.ps-rail-toggle:focus-visible{outline:none;box-shadow:var(--ring)}
+/* (rail brand/toggle focus rings + badge tones come from the shell as of
+   v0.2.0 — Manager only keeps the active-item combination below) */
 .ps-rail-logo{background:none;box-shadow:none}
 .ps-rail-logo img{width:32px;height:32px;
   filter:drop-shadow(0 3px 10px rgba(34,211,238,.4))}
@@ -144,7 +144,6 @@ body{
 .ps-rail-item.active svg{color:var(--brand-b)}
 .ps-rail-item .badge{background:var(--consensus);opacity:0;transition:opacity .2s}
 .ps-rail.open .ps-rail-item .badge{opacity:1}
-.ps-rail-item .badge.tone-danger{background:var(--danger)}
 /* collapsed rail: the pill has no room next to a hidden label, so it shrinks
    to a plain dot pinned over the icon's corner instead of disappearing —
    otherwise a flagged project stays invisible until the rail is opened */

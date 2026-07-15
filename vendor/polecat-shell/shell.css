@@ -86,6 +86,7 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
 .ps-rail.open{width:var(--rail-w-open)}
 .ps-rail.dragging{transition:none}
 .ps-rail-brand{display:flex;align-items:center;gap:11px;padding:16px 14px;background:none;border:none;cursor:pointer;color:var(--text);width:100%}
+.ps-rail-brand:focus-visible{outline:none;box-shadow:var(--ring)}
 .ps-rail-logo{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:11px;background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;box-shadow:var(--shadow-sm)}
 .ps-rail-logo svg,.ps-rail-logo img{width:22px;height:22px}
 .ps-rail-brand .bt{display:flex;flex-direction:column;line-height:1.15;opacity:0;transition:opacity .2s;text-align:left;white-space:nowrap}
@@ -103,10 +104,12 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
 .ps-rail-item.active{background:color-mix(in srgb,var(--rail-accent) 16%,transparent);color:var(--text)}
 .ps-rail-item.active::before{content:'';position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:3px;background:linear-gradient(var(--brand),var(--accent))}
 .ps-rail-item .badge{margin-left:auto;background:var(--accent);color:#fff;font-size:10.5px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;padding:0 5px}
+.ps-rail-item .badge.tone-danger{background:var(--danger)}
 /* the count badge is empty/hidden until a section sets one — the explicit
    display above would otherwise override the [hidden] attribute */
 .ps-rail-item .badge[hidden]{display:none}
 .ps-rail-toggle{position:absolute;bottom:12px;left:14px;width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;display:grid;place-items:center;transition:transform .22s}
+.ps-rail-toggle:focus-visible{outline:none;box-shadow:var(--ring);transition:transform .22s,box-shadow .1s}
 .ps-rail.open .ps-rail-toggle{transform:rotate(180deg)}
 .ps-rail-resize{position:absolute;top:0;right:0;width:6px;height:100%;cursor:col-resize;z-index:5}
 .ps-rail-resize:hover,.ps-rail.dragging .ps-rail-resize{background:color-mix(in srgb,var(--rail-accent) 40%,transparent)}

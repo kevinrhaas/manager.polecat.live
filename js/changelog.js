@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 64,
+    title: 'Polecat Shell v0.2.0 — Manager’s patches graduate into the shared library',
+    kind: 'polish',
+    ts: '2026-07-15T22:56:44.946Z',
+    items: [
+      'The vendored Polecat Shell steps to v0.2.0, carrying two improvements Manager had been patching locally: keyboard-focus rings on the rail’s logo and collapse toggle, and native badge tones (the red “needs attention” count on Dashboard) — now every fleet app gets them for free.',
+      'Manager’s local workarounds for both are deleted; the app now uses the shell’s native setBadge tone directly. No visible change — that’s the point.',
+    ],
+  },
+  {
     v: 63,
     title: 'Steward problems ring the same bell as everything else',
     kind: 'feature',

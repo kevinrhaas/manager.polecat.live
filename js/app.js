@@ -164,12 +164,7 @@ function buildShell(){
   window.__rail = {
     setActive:(key)=>shell.setActive(key),
     setOpen:(v)=>shell.setOpen(v),
-    // the shell's badge, plus Manager's danger tone for "needs attention"
-    setBadge:(key,n,tone)=>{
-      shell.setBadge(key,n);
-      const b=shell.els.rail.querySelector(`.ps-rail-item[data-sec="${key}"] .badge`);
-      if(b) b.classList.toggle('tone-danger', tone==='danger');
-    },
+    setBadge:(key,n,tone)=>shell.setBadge(key,n,tone),   // tone native since shell v0.2.0
     setSource:(st)=>{
       const dotColor = st.source?.accent || 'var(--brand)';
       source.dataset.status = st.status;

@@ -132,8 +132,12 @@ export function initShell({
 
   return {
     setActive:(key)=>rail.querySelectorAll('.ps-rail-item').forEach(n=>n.classList.toggle('active', n.dataset.sec===key)),
-    setBadge:(key,n)=>{
+    // tone (optional) themes the badge — 'danger' ships in shell.css; apps
+    // may style their own `tone-<name>` classes. Omitted = the default accent.
+    setBadge:(key,n,tone)=>{
       const b = rail.querySelector(`.ps-rail-item[data-sec="${key}"] .badge`); if(!b) return;
+      [...b.classList].filter(c=>c.startsWith('tone-')).forEach(c=>b.classList.remove(c));
+      if(tone) b.classList.add('tone-'+tone);
       if(n>0){ b.textContent = n>99?'99+':String(n); b.hidden=false; } else b.hidden=true;
     },
     setOpen:(v)=>setOpen(v),
