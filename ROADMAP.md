@@ -32,8 +32,10 @@ with new, ambitious, fun ideas.
       queued: roster edits via PR (instead of direct data commit) if the
       platform ever asks for it. Also shipped 2026-07-15: the Fleet safety
       nets strip (janitor + sweep last outcomes) and live check dots on open
-      steward PRs. Next natural step: feed red steward PRs / open sweep issues
-      into the dashboard's Needs attention signal per project.
+      steward PRs. Also shipped 2026-07-15: red steward PRs + open sweep
+      findings now feed the Needs-attention pipeline (bell, rail badge,
+      dashboard chips, signature-scoped dismissals) via an in-memory
+      steward-signals overlay (js/steward-signals.js).
 
 - [ ] Polecat Shell follow-ups (migrated 2026-07-15 — the app frame, theme,
       icons and What's-New now come from `vendor/polecat-shell/`, READ-ONLY):

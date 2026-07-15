@@ -25,6 +25,7 @@ import { startTour, MANAGER_TOUR } from './tour.js';
 import { runAutoSync, guessChangelogUrl } from './ingest.js';
 import { CHANGELOG } from './changelog.js';
 import { initSync, onSync, syncState, pushNow } from './sync.js';
+import { startStewardSignals } from './steward-signals.js';
 
 const TITLES = { home:'Dashboard', projects:'Projects', project:'Project', releases:'Releases', activity:'Activity', fleetops:'Fleet Ops',
   credentials:'Credentials', docs:'Docs', admin:'Admin', settings:'Settings' };
@@ -80,6 +81,8 @@ async function boot(){
   window.__rail?.setSource?.(syncState());
   Store.on('replaced', ()=>{ if(!document.querySelector('.overlay.show, .cmdk.show, .ps-rpanel.in, .tour-pop.show')) render(); });
   initSync().then(st=>{ window.__rail?.setSource?.(st); });
+  // steward state (red PRs / sweep findings) → the Needs-attention pipeline
+  startStewardSignals();
   // best-effort final flush so a pending mirror isn't lost on tab close
   window.addEventListener('pagehide', ()=>{ if(syncState().isRemote) pushNow(); });
 

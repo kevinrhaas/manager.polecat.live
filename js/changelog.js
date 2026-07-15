@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 63,
+    title: 'Steward problems ring the same bell as everything else',
+    kind: 'feature',
+    ts: '2026-07-15T22:34:09.775Z',
+    items: [
+      'Red steward PRs (a self-improvement change that failed its checks and got parked) and open sweep findings now count as “Needs attention” reasons — they show as chips on the dashboard callout, in the notification bell, and in the rail badge, right next to health and sync issues, and click through to the project’s Steward card for details.',
+      'Same dismissal rules as every other reason: acknowledge a known finding and it stops pinging you, but a new red PR or a fresh finding changes the signature and comes back through.',
+      'The signals refresh once at open, then every 5 minutes while a vault token is connected and the tab is visible — offline or rate-limited sessions simply show the local picture, never an error.',
+    ],
+  },
+  {
     v: 62,
     title: 'Fleet Ops shows the safety nets — janitor, sweeps, and per-PR checks',
     kind: 'feature',

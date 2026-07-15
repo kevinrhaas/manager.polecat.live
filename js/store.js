@@ -819,6 +819,20 @@ export const Store = new (class {
   // agree on exactly the same set of projects, sorted worst-off first. Each
   // reason is `{ kind:'health'|'sync', text }` so callers can render the
   // right chip style without recomputing the logic themselves.
+  // ---- steward signals (in-memory overlay, never persisted) ---------------
+  // Red steward PRs and open sweep-finding issues per repo, fetched from the
+  // GitHub API by js/steward-signals.js. Held OUTSIDE the persisted workspace
+  // on purpose: it's derived remote state that must go stale-and-refetch, not
+  // sync between browsers. Feeding it through needsAttention() means the
+  // bell, rail badge, dashboard callout, and per-signature dismissals all
+  // pick it up with zero extra wiring.
+  setStewardSignals(map){
+    this._stewardSignals = map || null;
+    this.emit('change', { table:'steward' });
+    this.emit('projects', {});
+  }
+  stewardSignalsFor(repo){ return (this._stewardSignals && repo) ? this._stewardSignals[repo] : null; }
+
   needsAttention(){
     return this.projects().map(p=>{
       const t = this.attentionThresholdsFor(p.id);
@@ -827,6 +841,9 @@ export const Store = new (class {
       const reasons = [];
       if(score < t.healthMax) reasons.push({ kind:'health', text:`${band.label} · ${score}/100` });
       if(p.autoSync && (p.autoSyncFailCount||0)>=t.autoSyncFails) reasons.push({ kind:'sync', text:`Auto-sync failing ×${p.autoSyncFailCount}` });
+      const sig = this.stewardSignalsFor(p.repo);
+      if(sig?.redPRs) reasons.push({ kind:'steward', text:`${sig.redPRs} red steward PR${sig.redPRs===1?'':'s'}` });
+      if(sig?.sweepIssues) reasons.push({ kind:'sweep', text:`${sig.sweepIssues} sweep finding${sig.sweepIssues===1?'':'s'}` });
       return reasons.length ? { project:p, score, band, reasons } : null;
     }).filter(Boolean).sort((a,b)=>a.score-b.score);
   }
