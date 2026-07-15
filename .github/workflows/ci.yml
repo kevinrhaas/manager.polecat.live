@@ -1,0 +1,30 @@
+name: CI
+
+# Advisory checks on PRs and non-main pushes — gives the platform steward (and
+# humans) a green check to merge on. Never a deploy gate (fleet rule: smoke
+# advises, auto-revert heals).
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check every ES module
+        run: |
+          set -e
+          for f in $(git ls-files '*.js' | grep -v vendor/); do
+            node --input-type=module --check < "$f" || { echo "SYNTAX FAIL: $f"; exit 1; }
+          done
+          for f in $(git ls-files '.github/*.mjs'); do
+            node --check "$f"
+          done

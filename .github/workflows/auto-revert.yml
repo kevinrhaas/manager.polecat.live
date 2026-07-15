@@ -1,0 +1,65 @@
+name: Guard main (auto-revert)
+
+# Last line of defence for the live site (Pages deploys main → manager.polecat.live).
+# On every push to main, syntax-check all JS. If main is broken, automatically
+# revert the offending commit and push the revert, so the site self-heals within
+# ~a minute. (Fleet pattern from polecat-platform — see its docs/AUTOMATION.md.
+# Smoke stays ADVISORY and never gates deploy; this backstop is why.)
+#
+# Note: pushes made with GITHUB_TOKEN do NOT trigger workflows, so the revert
+# push will not re-trigger this job — no infinite loop.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: guard-main
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate main; auto-revert HEAD if it fails
+        run: |
+          validate() {
+            set -e
+            for f in $(git ls-files '*.js' | grep -v vendor/); do
+              node --input-type=module --check < "$f" || return 1
+            done
+          }
+          if validate; then
+            echo "main passes validation."
+            exit 0
+          fi
+          git checkout -- . 2>/dev/null || true
+          echo "::error::main failed validation."
+          if git log -1 --pretty=%s | grep -q '^Auto-revert:'; then
+            echo "::error::HEAD is already an auto-revert and still failing — not reverting again. Needs a human."
+            exit 1
+          fi
+          bad_subject="$(git log -1 --pretty=%s)"
+          bad_sha="$(git rev-parse --short HEAD)"
+          git config user.name  "polecat-ci"
+          git config user.email "ci@polecat.live"
+          if ! git revert --no-edit HEAD; then
+            git revert --abort || true
+            echo "::error::Auto-revert of $bad_sha failed to apply cleanly — needs a human."
+            exit 1
+          fi
+          git commit --amend -m "Auto-revert: \"$bad_subject\" ($bad_sha) — failed validation"
+          git push origin HEAD:main
+          echo "::error::Reverted $bad_sha. The live site has been restored to the last passing commit."
+          exit 1
