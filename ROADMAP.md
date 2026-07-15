@@ -22,6 +22,15 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [x] **Fleet Ops in Manager** (shipped 2026-07-15) — a steward panel that
+      toggles the platform's focus roster and dispatches/observes steward runs
+      through the GitHub API using a credential from the vault, with recent-run
+      history, open steward PRs, and sweep findings fleet-wide + on each
+      project page. Follow-ons: live auto-refresh of the runs list while the
+      panel is open; roster edits via PR (instead of direct data commit) if the
+      platform ever asks for it; per-run app attribution once the steward
+      workflow exposes its picked app as a run annotation.
+
 - [ ] Polecat Shell follow-ups (migrated 2026-07-15 — the app frame, theme,
       icons and What's-New now come from `vendor/polecat-shell/`, READ-ONLY):
       (a) adopt the shell's modal/confirmDialog/toast signatures when shell v2

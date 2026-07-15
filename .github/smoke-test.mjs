@@ -1216,6 +1216,33 @@ try {
   await openSec('activity');
   await check('activity shows the cadence + run log', async () => !!(await $('.cadence')) && (await count('.run-row')) >= 1);
 
+  // ---------- Fleet Ops (steward console) ----------
+  // GitHub may be unreachable/rate-limited in CI — the panel must render its
+  // chrome and settle every async card into data OR an inline error state,
+  // with zero pageerrors either way.
+  console.log('Fleet Ops');
+  await check('fleet ops panel renders: connect card, roster/dispatch/runs/work cards all settle without errors', async () => {
+    if (!(await openSec('fleetops'))) return false;
+    if (!(await $('.fo-connect'))) return false;
+    if ((await count('#view .card')) < 4) return false;
+    await page.waitForTimeout(2500);   // async GitHub loads settle (data or .fo-err)
+    const stillLoading = await page.evaluate(() =>
+      [...document.querySelectorAll('#view .fo-body')].some((b) => /Loading|Scanning/.test(b.textContent)));
+    return !stillLoading;
+  });
+  await check('fleet ops dispatch + roster writes are gated behind a vault token (no silent unauthenticated writes)', async () => {
+    // with no credential selected, the Improve run button must toast a warning, not POST
+    await page.click('#view .btn.primary:has-text("Improve run")'); await page.waitForTimeout(300);
+    const warned = await page.evaluate(() => [...document.querySelectorAll('.toast')].some((t) => /token/i.test(t.textContent)));
+    return warned;
+  });
+  await check('project page shows a Steward card for a repo-linked project', async () => {
+    await store(`(S)=>{ location.hash='project/manager'; }`);
+    await page.waitForTimeout(600);
+    return (await count('.card.health .section-title h2')) >= 2 &&
+      (await page.evaluate(() => [...document.querySelectorAll('.card.health h2')].some((h) => h.textContent === 'Steward')));
+  });
+
   // ---------- What's new ----------
   console.log("What's new");
   await check("what's new panel opens (shell right panel), lists dated entries, searches, filters", async () => {

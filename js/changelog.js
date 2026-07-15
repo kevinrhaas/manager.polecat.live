@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 60,
+    title: 'Fleet Ops — drive the platform steward from Manager',
+    kind: 'feature',
+    ts: '2026-07-15T21:16:26.838Z',
+    items: [
+      'A new Fleet Ops section turns Manager into the steward’s console: toggle each app’s hourly improve lane on the platform’s focus roster, pick a cadence, and commit the change straight from the browser — it takes effect on the next hourly tick.',
+      'Dispatch one-off steward runs without leaving Manager: a focused improve run on any project (or the fleet-wide pick), plus the daily UX and Tech sweeps on demand. Recent steward runs stream in below with live status and links to the logs.',
+      'Open steward work is visible at a glance: every open steward/* or shell-vendoring PR and every unresolved sweep-finding issue, across the whole fleet — and each project’s detail page gains a Steward card showing the same for just that repo.',
+      'GitHub access uses a token from your Credentials vault — pick the row once and Manager reads it live (only the row’s id is stored; encrypted-and-locked values are detected and never sent). Without a token everything degrades to public read-only, and writes stay disabled.',
+    ],
+  },
+  {
     v: 59,
     title: 'Manager moves onto the shared Polecat Shell',
     kind: 'polish',

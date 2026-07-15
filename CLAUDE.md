@@ -46,6 +46,7 @@ app/index.html        The app (tokens.css + shell.css + styles.css + js/app.js)
 vendor/polecat-shell/ Shared fleet UI library (READ-ONLY — see above)
 js/app.js             Boot, gate, routing, shell wiring, command palette
 js/store.js           Relational localStorage layer (projects/releases/runs/…)
+js/github.js          GitHub REST client for Fleet Ops (vault-backed token)
 js/sources/           DataSource adapters (schema, local, supabase, turso)
 js/sync.js            Remote mirror + write-through
 js/views/*            One module per section, wired in app.js
@@ -57,6 +58,9 @@ js/access.js          ECDSA invite/admin gate (UX gating, not security)
 
 ## Rules for any agent working here
 
+- **Read the platform's docs/FLEET-GUIDE.md first** (in kevinrhaas/
+  polecat-platform) — it is the one-page authority on how work ships
+  fleet-wide; the rules below are Manager's local restatement.
 - **The changelog contract is sacred** (platform SHELL-API.md § contract):
   `js/changelog.js` stays fleet-format and parseable — Manager's own ingest and
   the polecat.live launcher read it live. New entries go on TOP with `ts: ''`;
@@ -65,7 +69,8 @@ js/access.js          ECDSA invite/admin gate (UX gating, not security)
   Playwright drives the real app, desktop + mobile widths, zero pageerrors.
   Mobile is a release gate. Smoke is ADVISORY in CI — never a deploy gate;
   auto-revert.yml ("Guard main") self-heals a broken main.
-- Ship via branch + PR (steward model); never push to main directly.
+- Ship via `steward/<topic>` branch + PR; self-merge only when smoke is
+  green ("merge is ship"); never push to main directly.
 - Scheduled self-improvement runs centrally from polecat-platform's steward
   (see its docs/AUTOMATION.md); this repo's self-improve.yml is a
   dispatch-only fallback.
