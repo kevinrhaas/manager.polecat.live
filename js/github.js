@@ -95,6 +95,16 @@ export async function stewardRuns(limit = 30){
   return (j.workflow_runs || []).filter(r => /steward/i.test(r.name || ''));
 }
 
+// Reduce a PR head commit's check runs to one signal for a status dot.
+export async function checkState(repo, sha){
+  const j = await gh(`/repos/${repo}/commits/${sha}/check-runs?per_page=20`);
+  const runs = j.check_runs || [];
+  if(!runs.length) return 'none';
+  if(runs.some(r => r.status !== 'completed')) return 'pending';
+  if(runs.some(r => ['failure', 'timed_out', 'startup_failure'].includes(r.conclusion))) return 'failure';
+  return runs.every(r => ['success', 'neutral', 'skipped'].includes(r.conclusion)) ? 'success' : 'none';
+}
+
 export async function stewardPRs(repo){
   const prs = await gh(`/repos/${repo}/pulls?state=open&per_page=30`);
   return (prs || []).filter(p => /^(steward|chore)\//.test(p.head?.ref || '') || /^chore: polecat-shell/.test(p.title || ''));

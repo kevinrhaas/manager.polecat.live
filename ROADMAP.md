@@ -30,7 +30,10 @@ with new, ambitious, fun ideas.
       runs list (token-gated, visibility-aware) and per-run app attribution
       (the platform steward now titles runs with their target app). Still
       queued: roster edits via PR (instead of direct data commit) if the
-      platform ever asks for it.
+      platform ever asks for it. Also shipped 2026-07-15: the Fleet safety
+      nets strip (janitor + sweep last outcomes) and live check dots on open
+      steward PRs. Next natural step: feed red steward PRs / open sweep issues
+      into the dashboard's Needs attention signal per project.
 
 - [ ] Polecat Shell follow-ups (migrated 2026-07-15 — the app frame, theme,
       icons and What's-New now come from `vendor/polecat-shell/`, READ-ONLY):

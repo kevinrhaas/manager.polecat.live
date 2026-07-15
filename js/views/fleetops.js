@@ -16,7 +16,7 @@ import { icon } from '../icons.js';
 import {
   whoami, ghCred, ghToken, fleetOpsCfg, setFleetOpsCfg,
   getRoster, putRoster, dispatchWorkflow, stewardRuns, stewardPRs, sweepIssues,
-  fleetRepos, IMPROVE_WORKFLOW, SWEEP_WORKFLOWS,
+  checkState, fleetRepos, IMPROVE_WORKFLOW, SWEEP_WORKFLOWS,
 } from '../github.js';
 
 export function renderFleetOps(root, ctx){
@@ -33,6 +33,7 @@ export function renderFleetOps(root, ctx){
   const grid = el('div', { class: 'fo-grid' });
   grid.append(rosterCard(), dispatchCard());
   wrap.append(grid);
+  wrap.append(healthCard());
   wrap.append(runsCard());
   wrap.append(workCard(ctx));
 
@@ -166,6 +167,43 @@ function dispatchCard(){
   return card;
 }
 
+// ---- fleet health: is the fleet shipping itself? -----------------------------
+// The zero-touch guarantee rests on three recurring Claude-free jobs: the
+// janitor (re-smokes + merges green steward PRs every 2h) and the two daily
+// sweeps. This strip shows each one's LAST outcome, so a silently-failing
+// safety net is visible from Manager instead of only in the Actions tab.
+const HEALTH_JOBS = [
+  { match: /janitor/i,      label: 'Janitor',    sub: 'merges green steward PRs · 2h' },
+  { match: /sweep \(ux\)/i,  label: 'UX sweep',   sub: 'files findings issues · daily' },
+  { match: /sweep \(tech\)/i, label: 'Tech sweep', sub: 'audits contracts · daily' },
+];
+function healthCard(){
+  const card = el('div', { class: 'card', style: 'margin-top:16px' });
+  card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Fleet safety nets</h2></div>`;
+  const body = el('div', { class: 'fo-body fo-health', html: `<span class="tiny muted">Loading safety-net status…</span>` });
+  card.append(body);
+  (async () => {
+    try{
+      const runs = await stewardRuns(50);
+      body.innerHTML = '';
+      HEALTH_JOBS.forEach(job => {
+        const last = runs.find(r => job.match.test(r.name || ''));
+        const row = el(last ? 'a' : 'div', { class: 'fo-run-row', ...(last ? { href: last.html_url, target: '_blank', rel: 'noopener' } : {}) });
+        const dot = !last ? 'muted' : last.status !== 'completed' ? 'live' : (RUN_DOT[last.conclusion] || 'muted');
+        const state = !last ? 'no runs yet' : last.status !== 'completed' ? last.status.replace('_', ' ') : (last.conclusion || 'done');
+        row.innerHTML = `<span class="fo-dot ${dot}"></span>
+          <span class="fo-run-name">${escapeHtml(job.label)}</span>
+          <span class="tiny muted fo-health-sub">${escapeHtml(job.sub)}</span>
+          <span class="sp"></span>
+          <span class="tiny ${dot === 'err' ? 'fo-warn' : 'muted'}">${escapeHtml(state)}</span>
+          ${last ? `<span class="tiny muted fo-when">${escapeHtml(ago(new Date(last.created_at).getTime()))}</span>` : ''}`;
+        body.append(row);
+      });
+    }catch(e){ body.innerHTML = `<span class="fo-err tiny">${icon('warning')} ${escapeHtml(e.message)}</span>`; }
+  })();
+  return card;
+}
+
 // ---- recent steward runs -----------------------------------------------------
 const RUN_DOT = { success: 'ok', failure: 'err', cancelled: 'muted', startup_failure: 'err' };
 const RUNS_POLL_MS = 30000;
@@ -241,7 +279,18 @@ function workCard(ctx){
       shown++;
       const g = el('div', { class: 'fo-repo-group' });
       g.append(el('div', { class: 'fo-repo-name mono tiny', text: repo }));
-      prs.forEach(p => g.append(workRow('branch', `PR #${p.number} · ${p.title}`, p.html_url)));
+      prs.forEach(p => {
+        const row = workRow('branch', `PR #${p.number} · ${p.title}`, p.html_url);
+        // live check dot: green = the janitor will merge it on its next pass,
+        // red = it commented and parked it, hollow = checks still running
+        const dot = el('span', { class: 'fo-dot muted', title: 'Checks: loading…' });
+        row.prepend(dot);
+        if(p.head?.sha) checkState(repo, p.head.sha).then(s => {
+          dot.className = 'fo-dot ' + (s === 'success' ? 'ok' : s === 'failure' ? 'err' : s === 'pending' ? 'live' : 'muted');
+          dot.title = 'Checks: ' + s;
+        }).catch(() => { dot.title = 'Checks: unknown'; });
+        g.append(row);
+      });
       issues.forEach(i => g.append(workRow('eye', `Issue #${i.number} · ${i.title}`, i.html_url)));
       body.append(g);
     });
