@@ -833,6 +833,8 @@ a.link:hover{text-decoration:underline}
 .fo-dot.err{background:var(--danger)}
 .fo-dot.muted{background:var(--text-3)}
 .fo-dot.live{background:var(--brand-b);animation:src-pulse 1s ease-in-out infinite}
+.fo-live{display:inline-flex;align-items:center;gap:5px;margin-left:8px}
+.fo-live[hidden]{display:none}
 .fo-work-ic{display:inline-flex;color:var(--text-3);flex:0 0 auto}
 .fo-work-ic svg{width:14px;height:14px}
 .fo-repo-group{padding:6px 0}

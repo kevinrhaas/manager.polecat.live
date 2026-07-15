@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 61,
+    title: 'Fleet Ops follows steward runs live, labeled by app',
+    kind: 'polish',
+    ts: '2026-07-15T21:48:33.540Z',
+    items: [
+      'The Recent steward runs list now updates itself every 30 seconds while the panel is open — watch a dispatched run go from queued to green without touching Refresh. A small “live” indicator shows when following is active.',
+      'Live-following is deliberately polite: it only polls with a vault token connected (unauthenticated GitHub rate limits are tiny), pauses while the tab is hidden, and stops entirely when you navigate away.',
+      'Each run is now labeled with the app it targeted (e.g. “Steward improve — manager.polecat.live”) — the platform’s steward runs carry their target in the run title as of today, so attribution needs no log-diving.',
+    ],
+  },
+  {
     v: 60,
     title: 'Fleet Ops — drive the platform steward from Manager',
     kind: 'feature',
