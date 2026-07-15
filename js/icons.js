@@ -1,67 +1,12 @@
-// Inline SVG icon set (stroke-based, currentColor). Keep 24x24 viewBox.
-export const ICONS = {
-  home:      'M3 11.5 12 4l9 7.5M5 10v10h5v-6h4v6h5V10',
-  grid:      'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
-  layers:    'M12 3 3 8l9 5 9-5-9-5ZM3 13l9 5 9-5M3 18l9 5 9-5',
-  activity:  'M3 12h4l3 8 4-16 3 8h4',
-  gauge:     'M12 13l4-4M20 16a8 8 0 1 0-16 0M12 13a1.5 1.5 0 1 0 0 .01',
-  settings:  'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19 12a7 7 0 0 0-.14-1.4l2-1.55-2-3.46-2.36.95a7 7 0 0 0-2.42-1.4L13.6 2h-4l-.48 2.54a7 7 0 0 0-2.42 1.4L4.34 5 2.34 8.46l2 1.55A7 7 0 0 0 4.2 12c0 .48.05.94.14 1.4l-2 1.55 2 3.46 2.36-.95a7 7 0 0 0 2.42 1.4L9.6 22h4l.48-2.54a7 7 0 0 0 2.42-1.4l2.36.95 2-3.46-2-1.55c.09-.46.14-.92.14-1.4Z',
-  chevron:   'M9 6l6 6-6 6',
-  chevronDown:'M6 9l6 6 6-6',
-  chevronUp: 'M6 15l6-6 6 6',
-  grip:      'M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01',
-  plus:      'M12 5v14M5 12h14',
-  search:    'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM21 21l-4-4',
-  pin:       'M12 2l2.4 5 5.6.5-4.2 3.8 1.3 5.7L12 19l-5.1 3 1.3-5.7L4 12.5 9.6 12 12 2Z',
-  flag:      'M5 21V4M5 5h11l-2 3 2 3H5',
-  trophy:    'M7 4h10v4a5 5 0 0 1-10 0V4ZM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M9 15v2h6v-2M8 21h8M10 17h4',
-  trash:     'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
-  edit:      'M4 20h4L18.5 9.5a2 2 0 0 0-3-3L5 17v3ZM13.5 6.5l3 3',
-  sun:       'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM12 1v3M12 20v3M4.2 4.2l2 2M17.8 17.8l2 2M1 12h3M20 12h3M4.2 19.8l2-2M17.8 6.2l2-2',
-  moon:      'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z',
-  download:  'M12 3v12M7 10l5 5 5-5M5 21h14',
-  upload:    'M12 21V9M7 14l5-5 5 5M5 3h14',
-  link:      'M10 14a4 4 0 0 0 6 .5l3-3a4 4 0 0 0-5.7-5.7L11.5 8M14 10a4 4 0 0 0-6-.5l-3 3a4 4 0 0 0 5.7 5.7l1.8-1.8',
-  external:  'M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4',
-  check:     'M4 12l5 5L20 6',
-  x:         'M6 6l12 12M18 6L6 18',
-  copy:      'M9 9h11v11H9zM5 15V4h11',
-  refresh:   'M4 12a8 8 0 0 1 14-5.3L21 9M20 12a8 8 0 0 1-14 5.3L3 15M21 4v5h-5M3 20v-5h5',
-  undo:      'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
-  info:      'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 11v6M12 7.5h.01',
-  shield:    'M12 3l8 3v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6l8-3Z',
-  key:       'M15 7a4 4 0 1 1-3.5 6l-6.5 6.5V22H2v-3l1.5-1.5M11 12l4-5',
-  lock:      'M6 11h12v9a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-9ZM8 11V7a4 4 0 0 1 8 0v4',
-  star:      'M12 2l2.9 6.3 6.8.6-5.1 4.5 1.5 6.6L12 17l-6 3.5 1.5-6.6L2.4 8.9l6.8-.6L12 2Z',
-  bolt:      'M13 2 4 14h7l-1 8 9-12h-7l1-8Z',
-  db:        'M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3ZM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
-  clock:     'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 7v5l3 2',
-  calendar:  'M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6ZM4 10h16M9 3v3M15 3v3',
-  filter:    'M3 5h18l-7 8v6l-4-2v-4L3 5Z',
-  sort:      'M7 4v16M7 20l-3-3M7 4l3 3M17 20V4M17 4l3 3M17 20l-3-3',
-  menu:      'M4 6h16M4 12h16M4 18h16',
-  chat:      'M21 12a8 8 0 0 1-8 8H7l-4 2 1.3-4.2A8 8 0 1 1 21 12ZM8 11h.01M12 11h.01M16 11h.01',
-  sparkle:   'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3ZM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z',
-  folder:    'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z',
-  rocket:    'M5 15c-1.5 1.3-2 5-2 5s3.7-.5 5-2a2.8 2.8 0 0 0-3-3ZM9 13l-2-2c1-5 5-9 9-9 0 4-4 8-9 9l2 2ZM14.5 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z',
-  terminal:  'M4 5h16v14H4zM7 9l3 3-3 3M13 15h4',
-  book:      'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5ZM19 3v18',
-  tag:       'M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9-9-9ZM7.5 7.5h.01',
-  compass:   'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM16 8l-2 6-6 2 2-6 6-2Z',
-  globe:     'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20Z',
-  sliders:   'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
-  play:      'M6 4l14 8-14 8V4Z',
-  eye:       'M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
-  branch:    'M6 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM6 7v6a4 4 0 0 0 4 4h4M18 13a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM18 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM18 7v0',
-  bell:      'M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0',
-  warning:   'M12 2 1 21h22L12 2ZM12 9v5M12 17h.01',
-  eyeOff:    'M17.9 17.9A9.96 9.96 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5-5.9M9.9 4.24A9.5 9.5 0 0 1 12 4c7 0 11 8 11 8a18.4 18.4 0 0 1-2.16 3.19M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22',
-  archive:   'M3 4h18v5H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4',
-  notes:     'M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM14 2v6h6M8 13h8M8 17h5',
-};
+// icons.js — Manager's icon surface, served by the vendored Polecat Shell.
+// The base set lives in vendor/polecat-shell/icons.js (single-color,
+// stroke-based, currentColor — the fleet design bar). Only glyphs the shell
+// doesn't ship are registered here as Manager's app family.
+import { icon, registerIcons, iconNames } from '../vendor/polecat-shell/icons.js';
 
-export function icon(name, cls){
-  const d = ICONS[name] || ICONS.info;
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
-    stroke-linecap="round" stroke-linejoin="round"${cls?` class="${cls}"`:''}><path d="${d}"/></svg>`;
-}
+registerIcons({
+  x:       'M6 6l12 12M18 6L6 18',
+  warning: 'M12 2 1 21h22L12 2ZM12 9v5M12 17h.01',
+});
+
+export { icon, registerIcons, iconNames };

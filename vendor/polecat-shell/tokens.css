@@ -1,0 +1,108 @@
+/* =========================================================================
+   Polecat Shell — tokens.css (v0.1.0)
+   The fleet's design-token vocabulary. Two axes stamped on <html> by
+   theme.js: [data-palette] × [data-theme]. Palettes shipped in v1:
+
+     polecat  — warm amber/brown house style (from jobtracker/manager DNA)
+     aurora   — violet / teal
+     neon     — Miami-Vice magenta / cyan on deep violet night (for Games)
+
+   Cascade contract (order matters, blocks rely on it):
+     :root                       = base — polecat DARK values
+     [data-theme="light"]        = polecat light overrides
+     [data-palette="X"]          = X dark values  (same specificity as the
+                                   light block, but later → wins; then…)
+     [data-palette="X"][data-theme="light"] = X light (higher specificity)
+
+   Apps may define their own [data-palette] block in app CSS — the shell
+   only ever reads tokens, never palette names.
+   ========================================================================= */
+
+/* ---- polecat dark (base) ------------------------------------------------ */
+:root{
+  --bg:#0a0a0f; --bg-2:#12121c;
+  --surface:#111118; --surface-2:#18181f; --surface-3:#222230;
+  --border:#2a2a3c; --line:color-mix(in srgb, var(--border) 55%, transparent);
+  --text:#e8e8f2; --text-2:#8888aa; --text-3:#4a4a6a;
+  --brand:#d4773b; --brand-2:#e79a5f; --accent:#9333ea; --accent-2:#f4a6a6;
+  --success:#34d399; --danger:#f87171; --warning:#fbbf24; --info:#60a5fa;
+  --rail-bg:#0d0d14; --rail-bg2:#17171f; --rail-line:#23233330;
+  --rail-accent:var(--brand);
+  --shadow:0 24px 64px rgba(0,0,0,.5); --shadow-sm:0 6px 20px rgba(0,0,0,.35);
+
+  /* geometry + type — shared across every palette */
+  --radius:14px; --radius-sm:9px; --radius-lg:20px;
+  --ring:0 0 0 3px color-mix(in srgb, var(--brand) 40%, transparent);
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --mono:'SF Mono','Fira Code',ui-monospace,'JetBrains Mono',monospace;
+  --font-display:var(--font);   /* apps opt in to display faces per-app */
+  --rail-w:66px; --rail-w-open:232px;
+}
+
+/* ---- polecat light ------------------------------------------------------ */
+[data-theme="light"]{
+  --bg:#f4f4fb; --bg-2:#ebebf5;
+  --surface:#ffffff; --surface-2:#ebebf5; --surface-3:#e0e0ee;
+  --border:#d0d0e4;
+  --text:#111120; --text-2:#55556e; --text-3:#9090b0;
+  --brand:#b8632e; --brand-2:#d4773b; --accent:#9333ea; --accent-2:#e08a8a;
+  --rail-bg:#ffffff; --rail-bg2:#eef0f8; --rail-line:#d0d0e480;
+  --shadow:0 24px 64px rgba(30,30,60,.18); --shadow-sm:0 6px 20px rgba(30,30,60,.10);
+}
+
+/* ---- aurora dark — violet / teal ---------------------------------------- */
+[data-palette="aurora"]{
+  --bg:#0c0b1e; --bg-2:#14122b;
+  --surface:#14122b; --surface-2:#1b1938; --surface-3:#262350;
+  --border:#2e2b55;
+  --text:#eceafb; --text-2:#9a95c8; --text-3:#5b5690;
+  --brand:#8b5cf6; --brand-2:#a78bfa; --accent:#14b8a6; --accent-2:#2dd4bf;
+  --rail-bg:#0e0d24; --rail-bg2:#191740; --rail-line:#2e2b5540;
+  --rail-accent:var(--brand);
+  --shadow:0 24px 64px rgba(0,0,0,.55); --shadow-sm:0 6px 20px rgba(0,0,0,.4);
+}
+[data-palette="aurora"][data-theme="light"]{
+  --bg:#f1f0fa; --bg-2:#e8e6f6;
+  --surface:#ffffff; --surface-2:#eae9f6; --surface-3:#dedcf0;
+  --border:#cfcce6;
+  --text:#14122b; --text-2:#4f4b74; --text-3:#8d89b4;
+  --brand:#7c3aed; --brand-2:#8b5cf6; --accent:#0d9488; --accent-2:#14b8a6;
+  --rail-bg:#ffffff; --rail-bg2:#eeecf8; --rail-line:#cfcce680;
+  --shadow:0 24px 64px rgba(50,40,110,.16); --shadow-sm:0 6px 20px rgba(50,40,110,.10);
+}
+
+/* ---- neon dark — synthwave magenta / cyan (games.polecat.live values) ---- */
+[data-palette="neon"]{
+  --bg:#0b0420; --bg-2:#150a35;
+  --surface:#1a0d40; --surface-2:#241457; --surface-3:#2f1c6b;
+  --border:#43307f;
+  --text:#e9e6ff; --text-2:#9d92c7; --text-3:#665c93;
+  --brand:#ff2e97; --brand-2:#ff6ab8; --accent:#21e6ff; --accent-2:#9b5cff;
+  --success:#5dff8f; --danger:#ff5470; --warning:#ffe14d; --info:#21e6ff;
+  --rail-bg:#0d0526; --rail-bg2:#1b0f42; --rail-line:#43307f40;
+  --rail-accent:var(--accent);
+  --shadow:0 24px 64px rgba(6,1,20,.65); --shadow-sm:0 6px 20px rgba(6,1,20,.5);
+}
+/* neon light — a dusk-pastel take on the same magenta/cyan identity */
+[data-palette="neon"][data-theme="light"]{
+  --bg:#f4effc; --bg-2:#eae2f8;
+  --surface:#ffffff; --surface-2:#efe8fa; --surface-3:#e3d9f4;
+  --border:#d4c8ec;
+  --text:#1c0e40; --text-2:#5b4f86; --text-3:#948ab8;
+  --brand:#e0187f; --brand-2:#ff2e97; --accent:#0899b8; --accent-2:#7c3aed;
+  --success:#0f9d58; --danger:#e0405c; --warning:#c98a00; --info:#0899b8;
+  --rail-bg:#ffffff; --rail-bg2:#f0e9fb; --rail-line:#d4c8ec80;
+  --shadow:0 24px 64px rgba(60,20,110,.16); --shadow-sm:0 6px 20px rgba(60,20,110,.10);
+}
+
+/* ---- compat aliases ------------------------------------------------------
+   Keep Manager-era (--brand-a/b/c) and Games-era (--ink/--ink-dim) CSS
+   working during migration. Canonical names are --brand/--brand-2/--accent
+   and --text/--text-2; these var() references track the active palette. */
+:root{
+  --brand-a:var(--brand);
+  --brand-b:var(--brand-2);
+  --brand-c:var(--accent);
+  --ink:var(--text);
+  --ink-dim:var(--text-2);
+}

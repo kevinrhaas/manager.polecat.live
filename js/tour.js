@@ -6,15 +6,15 @@ import { icon } from './icons.js';
 export const MANAGER_TOUR = [
   { title:'Welcome to Mission Control', icon:'rocket',
     body:'Manager is the console for your whole fleet of self-improving Claude Code projects. This 60-second tour shows the essentials — you can replay it any time from Settings.' },
-  { sel:'.rail-brand', title:'The rail', icon:'compass', open:true,
+  { sel:'.ps-rail-brand', title:'The rail', icon:'compass', open:true,
     body:'Everything lives on this rail. Drag its edge to resize, or collapse it for focus. On mobile it becomes a drawer.' },
   { sel:'.tile', title:'Project tiles', icon:'grid',
     body:'Each tile is one project: its status, when it last shipped (in CT), the latest version, and a short assessment. The buttons jump to the live site, its what’s-new, and the Claude Code session you steer it from.' },
   { sel:'.wn-btn', title:'What’s new', icon:'sparkle',
     body:'This app improves itself hourly. Click here any time to see what shipped — searchable, filterable, and sortable.' },
-  { sel:'.rail-item[data-sec="projects"]', title:'Your library', icon:'grid', open:true,
+  { sel:'.ps-rail-item[data-sec="projects"]', title:'Your library', icon:'grid', open:true,
     body:'Filter, sort, search, pin, and edit every project — add your own metadata fields. This is the source of truth for the fleet.' },
-  { sel:'.rail-item[data-sec="settings"]', title:'Make it yours', icon:'settings', open:true,
+  { sel:'.ps-rail-item[data-sec="settings"]', title:'Make it yours', icon:'settings', open:true,
     body:'Themes, Simple mode for a calmer view, credentials, and this tour all live in Settings. You’re ready — welcome aboard.' },
 ];
 

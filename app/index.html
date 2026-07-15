@@ -7,13 +7,22 @@
   <meta name="theme-color" content="#0a0b12"/>
   <title>Manager · polecat.live</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+  <!-- Polecat Shell (vendored, read-only) first; styles.css is Manager's
+       design system + skin over it and must load LAST so it wins conflicts -->
+  <link rel="stylesheet" href="/vendor/polecat-shell/tokens.css"/>
+  <link rel="stylesheet" href="/vendor/polecat-shell/shell.css"/>
   <link rel="stylesheet" href="/css/styles.css"/>
-  <!-- avoid theme flash: apply saved preference before paint -->
+  <!-- avoid theme flash: stamp palette/theme/motion before paint (shell
+       theme.js format; migrates Manager's legacy bare 'dark'/'light' values) -->
   <script>
     (function(){try{
-      var p=localStorage.getItem('manager.theme')||'dark';
-      var light=p==='light'||(p==='system'&&matchMedia('(prefers-color-scheme: light)').matches);
-      document.documentElement.setAttribute('data-theme',light?'light':'dark');
+      var k='manager.theme',v=localStorage.getItem(k)||'manager:dark';
+      if(v.indexOf(':')<0){v='manager:'+v;localStorage.setItem(k,v);}
+      var p=v.split(':'),m=p[1]||'dark';
+      if(m==='system')m=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';
+      var d=document.documentElement;d.setAttribute('data-palette',p[0]);d.setAttribute('data-theme',m);
+      var r=localStorage.getItem(k+'.motion');
+      if(r==='1'||(r!=='0'&&matchMedia('(prefers-reduced-motion: reduce)').matches))d.setAttribute('data-reduce-motion','1');
     }catch(e){}})();
   </script>
 </head>

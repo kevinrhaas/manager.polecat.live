@@ -1,26 +1,29 @@
 name: Hourly self-improvement
 
-# Runs Claude Code on a schedule to build the next roadmap item (or, every 5th
-# feature run, do a design/feature SWEEP across the app + public site), gate it
-# behind the Playwright smoke battery, then commit to main. Deployment is NOT
-# done here — committing to main triggers the "Deploy to GitHub Pages" workflow
-# via its `workflow_run` listener, so there is exactly one deploy authority and
-# no two workflows ever race for the github-pages environment.
+# DISPATCH-ONLY FALLBACK — superseded by the polecat-platform steward.
 #
-# Pause any time by disabling this workflow or removing the
-# CLAUDE_CODE_OAUTH_TOKEN secret.
+# Scheduled self-improvement for this app now runs CENTRALLY from
+# kevinrhaas/polecat-platform (`steward-improve.yml`, prompts in
+# `.github/steward/`): focus it on this app via the STEWARD_FOCUS_APP repo
+# variable or a dispatch with app=manager.polecat.live. See
+# polecat-platform/docs/AUTOMATION.md for the full playbook. The steward ships
+# via steward/* branch → smoke → PR → merge-when-green, and this repo's
+# auto-revert.yml ("Guard main") self-heals main as the backstop.
 #
-# PAUSED (2026-07-04, to save tokens): the hourly `schedule` trigger is
-# commented out, so no automatic runs happen. Manual runs still work via
-# workflow_dispatch (Actions tab → "Run workflow"). To resume the hourly
-# cadence, un-comment the `schedule:` block below and push to main.
+# This workflow stays as a manual fallback only (Actions tab → "Run workflow").
+# Its schedule must remain commented out — per the platform playbook it is
+# slated for DELETION once the steward has a few weeks of solid runs. Note:
+# unlike the steward, a run here still commits straight to main (the legacy
+# model); prefer dispatching the steward in focus mode instead.
+#
+# Deployment is NOT done here — committing to main triggers the "Deploy to
+# GitHub Pages" workflow via its `workflow_run` listener, so there is exactly
+# one deploy authority and no two workflows ever race for the github-pages
+# environment.
 on:
-  # schedule:
-  #   # Off-peak minutes: GitHub heavily delays/drops scheduled jobs at :00.
-  #   # Two runs/hour improves the odds of a roughly-hourly cadence; the
-  #   # concurrency lock keeps them from overlapping.
+  # schedule:            # intentionally disabled — the platform steward owns scheduling
   #   - cron: '17,47 * * * *'
-  workflow_dispatch: {}    # run manually from the Actions tab
+  workflow_dispatch: {}    # manual fallback only
 
 permissions:
   contents: write
@@ -79,18 +82,14 @@ jobs:
             --max-turns 120 \
             --allowedTools "Bash,Edit,Write,Read,Glob,Grep" || echo "claude exited non-zero (continuing to smoke test)"
 
-      # Stamp the newest changelog entry with the real ship time. The agent
-      # leaves `ts: ''` on any new top entry; we fill it here so timestamps
-      # reflect when the change actually shipped and can never be fabricated.
-      # Stamp the NEWEST changelog entry with the real ship time. We overwrite
-      # the top entry's `ts` whenever it is empty, unparseable, OR set to a time
-      # in the future — so an agent that ignores the "leave ts empty" rule and
-      # hard-codes a (often round, future) timestamp still ends up with the real
-      # commit time. Legitimate past stamps on the top entry are left untouched.
+      # Stamp the newest changelog entry with the real ship time using the
+      # repo's own tool (fleet convention — the platform steward calls the same
+      # script). It fills an empty top `ts`, and overwrites an unparseable or
+      # future one, so timestamps are never fabricated.
       - name: Stamp changelog timestamp (real ship time; never fabricated/future)
         run: |
           if git diff --name-only | grep -q '^js/changelog.js$'; then
-            node -e "const fs=require('fs');const f='js/changelog.js';let s=fs.readFileSync(f,'utf8');const now=new Date().toISOString();let changed=false;s=s.replace(/ts:\s*'([^']*)'/, (m,val)=>{const t=Date.parse(val);if(!val||isNaN(t)||t>Date.now()+60000){changed=true;return \"ts: '\"+now+\"'\";}return m;});fs.writeFileSync(f,s);console.log(changed?('Stamped top changelog entry: '+now):'Top changelog ts already valid; left as-is.');"
+            node .github/stamp-changelog.mjs
           else
             echo "changelog.js unchanged; nothing to stamp."
           fi

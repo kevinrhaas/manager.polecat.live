@@ -1,8 +1,12 @@
 // app.js — main controller: boot, gate, routing, top bar, cross-view glue.
+// The app frame (rail + topbar + view + right panel + app switcher) comes
+// from the vendored Polecat Shell; Manager's rail furniture (the data-source
+// indicator) and its sections/topbar content are wired here.
 import { Store } from './store.js';
 import { Access } from './access.js';
-import { applyTheme, getThemePref, setTheme } from './theme.js';
-import { buildRail, SECTIONS } from './shell.js';
+import { configure as configureTheme, applyTheme, toggleMode } from '../vendor/polecat-shell/theme.js';
+import { initShell, appSwitcher } from '../vendor/polecat-shell/shell.js';
+import { FLEET } from '../vendor/polecat-shell/catalog.js';
 import { el, $, escapeHtml, toast, trapFocus } from './ui.js';
 import { icon } from './icons.js';
 import { renderHome } from './views/home.js';
@@ -26,7 +30,35 @@ const TITLES = { home:'Dashboard', projects:'Projects', project:'Project', relea
 const RENDERERS = { home:renderHome, projects:renderProjects, project:renderProject, releases:renderReleases, activity:renderActivity,
   credentials:renderCredentials, docs:renderDocs, admin:renderAdmin, settings:renderSettings };
 
-let rail, view, topTitle, wnBtn, themeBtn, undoBtn;
+// Rail sections (shell format): `minMode:'standard'` items hide in Simple
+// mode; `admin` items appear only when the Admin area is unlocked.
+const SECTIONS = [
+  { group:'Fleet' },
+  { key:'home',        label:'Dashboard',   icon:'home' },
+  { key:'projects',    label:'Projects',    icon:'grid' },
+  { key:'releases',    label:'Releases',    icon:'sparkle' },
+  { key:'activity',    label:'Activity',    icon:'activity', minMode:'standard' },
+  { group:'Setup' },
+  { key:'credentials', label:'Credentials', icon:'key',      minMode:'standard' },
+  { key:'docs',        label:'Docs',        icon:'book' },
+  { group:'System' },
+  { key:'admin',       label:'Admin',       icon:'shield',   admin:true },
+  { key:'settings',    label:'Settings',    icon:'settings' },
+];
+
+// Manager keeps its historical theme key; bare legacy values ('dark' /
+// 'light' / 'system') upgrade once to the shell's palette:mode format.
+try{
+  const legacyTheme = localStorage.getItem('manager.theme');
+  if(legacyTheme && !legacyTheme.includes(':')) localStorage.setItem('manager.theme', 'manager:'+legacyTheme);
+}catch{}
+configureTheme({
+  storageKey: 'manager.theme',
+  defaultTheme: 'manager:dark',
+  palettes: [{ key:'manager', label:'Mission Control', hint:'Cyan / indigo command console' }],
+});
+
+let shell=null, view, topTitle, wnBtn, themeBtn, undoBtn;
 let currentSection='home', currentParams={};
 
 async function boot(){
@@ -36,17 +68,7 @@ async function boot(){
 
   syncOwnChangelog();
 
-  const app=$('#app');
-  app.innerHTML='';
-  rail=el('nav',{id:'rail','aria-label':'Navigation'});
-  const main=el('div',{id:'main'});
-  const topbar=buildTopbar();
-  view=el('div',{class:'view', id:'view', tabindex:'-1'});
-  main.append(topbar, view);
-  const backdrop=el('div',{class:'rail-backdrop', onclick:()=>window.__rail.setOpen(false)});
-  app.append(rail, backdrop, main);
-
-  rebuildRail();
+  buildShell();
   wireEvents();
 
   // data source: reflect the live connection in the rail, restore a saved
@@ -54,7 +76,7 @@ async function boot(){
   // and re-render the current view once a remote load swaps the workspace.
   onSync((st)=>{ window.__rail?.setSource?.(st); });
   window.__rail?.setSource?.(syncState());
-  Store.on('replaced', ()=>{ if(!document.querySelector('.overlay.show, .cmdk.show, .sheet-overlay.show, .tour-pop.show')) render(); });
+  Store.on('replaced', ()=>{ if(!document.querySelector('.overlay.show, .cmdk.show, .ps-rpanel.in, .tour-pop.show')) render(); });
   initSync().then(st=>{ window.__rail?.setSource?.(st); });
   // best-effort final flush so a pending mirror isn't lost on tab close
   window.addEventListener('pagehide', ()=>{ if(syncState().isRemote) pushNow(); });
@@ -101,23 +123,62 @@ function tickAutoSync(){
     if(!res || (!res.added && !res.updated)) return;
     toast('Auto-synced the fleet', { kind:'ok', body:`${res.added} new, ${res.updated} updated across ${res.ok} project${res.ok===1?'':'s'}.` });
     // refresh the current view, but never yank the ground out from under an open dialog
-    if(!document.querySelector('.overlay.show, .cmdk.show, .sheet-overlay.show, .tour-pop.show')) render();
+    if(!document.querySelector('.overlay.show, .cmdk.show, .ps-rpanel.in, .tour-pop.show')) render();
   }).catch(()=>{});
 }
 
-function rebuildRail(){
-  window.__rail = buildRail(rail, { onNav:(s)=>go(s), isAdmin:Access.isAdmin(), simple:Store.settings().simpleMode });
+const escapeLbl = (s)=>escapeHtml(String(s||''));
+
+// Build (or rebuild — admin unlock, Simple-mode toggle) the whole app frame
+// via the vendored shell, then re-attach Manager's rail furniture.
+function buildShell(){
+  const app=$('#app');
+  app.innerHTML='';
+  topTitle=el('h1',{text:TITLES[currentSection]||'Dashboard'});
+  shell=initShell({
+    app:{ id:'manager', name:'Manager', wordmark:'<img src="/assets/logo.svg" alt=""/>' },
+    sections: SECTIONS.map(s=> s.group ? s : { ...s, icon:icon(s.icon) }),
+    onNav:(s)=>go(s),
+    isAdmin:()=>Access.isAdmin(),
+    uiMode:()=>Store.settings().simpleMode ? 'simple' : 'expert',
+    rail:{ storageKey:'manager.rail' },
+    topbar:{ left:[topTitle], right:buildTopbarActions() },
+    mount: app,
+  });
+  view=shell.els.main;
+  view.id='view'; view.classList.add('view'); view.tabIndex=-1;
+
+  // data-source indicator (Manager-specific rail furniture) — shows where
+  // the workspace lives with a live status dot, pinned above the collapse
+  // toggle; click jumps to Admin → Data source. Updated via setSource().
+  const source=el('button',{class:'rail-source', title:'Data source', 'data-status':'local',
+    html:`<span class="rail-src-dot"></span><span class="rail-src-txt"><b>Local</b><small>this browser</small></span>`,
+    onclick:()=>go('admin')});
+  shell.els.rail.insertBefore(source, shell.els.rail.querySelector('.ps-rail-toggle'));
+
+  window.__rail = {
+    setActive:(key)=>shell.setActive(key),
+    setOpen:(v)=>shell.setOpen(v),
+    // the shell's badge, plus Manager's danger tone for "needs attention"
+    setBadge:(key,n,tone)=>{
+      shell.setBadge(key,n);
+      const b=shell.els.rail.querySelector(`.ps-rail-item[data-sec="${key}"] .badge`);
+      if(b) b.classList.toggle('tone-danger', tone==='danger');
+    },
+    setSource:(st)=>{
+      const dotColor = st.source?.accent || 'var(--brand)';
+      source.dataset.status = st.status;
+      source.title = st.isRemote ? `Data source: ${st.label} (${st.status})` : 'Data source: Local (this browser)';
+      source.style.setProperty('--src-dot', dotColor);
+      const sub = st.isRemote ? (st.status==='error'?'sync error':(st.status==='syncing'?'syncing…':'connected')) : 'this browser';
+      source.querySelector('.rail-src-txt').innerHTML=`<b>${escapeLbl(st.label)}</b><small>${sub}</small>`;
+    },
+  };
   window.__rail.setActive(currentSection);
   window.__rail.setSource(syncState());
 }
 
-function buildTopbar(){
-  const bar=el('div',{class:'topbar'});
-  const menuBtn=el('button',{class:'btn icon ghost topbar-menu', title:'Menu', 'aria-label':'Open navigation',
-    html:icon('menu'), onclick:()=>window.__rail.setOpen(!rail.classList.contains('open'))});
-  topTitle=el('h1',{text:'Dashboard'});
-  bar.append(menuBtn, topTitle, el('span',{class:'sp'}));
-
+function buildTopbarActions(){
   const cmdBtn=el('button',{class:'btn sm hide-sm', html:`${icon('search')} <span class="kbd">⌘K</span>`, title:'Command palette',
     onclick:()=>openPalette()});
   const notifBtn=buildNotifBell(ctx);
@@ -128,12 +189,11 @@ function buildTopbar(){
   if(hasUnread()) wnBtn.classList.add('has-unread');
   themeBtn=el('button',{class:'btn icon ghost', title:'Toggle theme', 'aria-label':'Toggle theme',
     html:icon(isLight()?'moon':'sun'),
-    onclick:()=>{ setTheme(isLight()?'dark':'light'); syncTheme(); }});
+    onclick:()=>{ toggleMode(); syncTheme(); }});
+  const waffle=appSwitcher(FLEET.map(a=>({ ...a, icon:icon(a.icon) })), { current:'manager' });
   const addBtn=el('button',{class:'btn sm primary', html:`${icon('plus')} <span class="hide-sm">Add project</span>`,
     onclick:()=>openProjectEditor(null, ctx)});
-
-  bar.append(cmdBtn, notifBtn, undoBtn, wnBtn, themeBtn, addBtn);
-  return bar;
+  return [cmdBtn, notifBtn, undoBtn, wnBtn, themeBtn, waffle, addBtn];
 }
 function isLight(){ return document.documentElement.getAttribute('data-theme')==='light'; }
 function syncTheme(){ themeBtn.innerHTML=icon(isLight()?'moon':'sun'); }
@@ -145,7 +205,9 @@ function go(section, params={}){
   location.hash = section==='project' && params.id ? `project/${params.id}` : section;
   topTitle.textContent = section==='project' && Store.project(params.id) ? Store.project(params.id).name : (TITLES[section]||'Manager');
   window.__rail.setActive(section);
-  if(window.innerWidth<=720) window.__rail.setOpen(false);
+  // below the shell's drawer breakpoint the rail overlays content — close it
+  // on navigation (matches the shell's own rail-click behavior)
+  if(window.matchMedia('(max-width: 860px)').matches) window.__rail.setOpen(false);
   // Apply the default saved view (if any) only on a fresh navigation into
   // Projects — never from the reactive re-render a Store change triggers
   // while the user is already there — so it can't yank an active filter out
@@ -164,7 +226,7 @@ function render(){
   refreshAttentionBadges();
   refreshReleasesBadge();
 }
-function refresh(){ rebuildRail(); render(); }
+function refresh(){ buildShell(); render(); }
 function refreshUndo(){ if(undoBtn) undoBtn.disabled = !Store.canUndo(); }
 // the bell and the rail's Dashboard item both mirror Store.needsAttention() —
 // keep them refreshing together so a slipping project never shows in one and
