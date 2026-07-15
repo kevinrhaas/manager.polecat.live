@@ -1,25 +1,17 @@
 // Stateless DOM + UX helpers (toasts, modals, formatting).
+//
+// Migrated onto the vendored Polecat Shell: the primitives that are
+// behavior-identical ($, el, escapeHtml, uuid) re-export from
+// vendor/polecat-shell/ui.js — one fleet implementation, not eight. What
+// stays app-local is Manager-specific: helpers the shell doesn't ship
+// (trapFocus, mdToHtml, sparkline, drag-reorder…), Manager's brand-arc
+// avatarColor, debounce with the autosave-tuned 700ms default, and the
+// toast/modal/confirmDialog trio, which every view calls with Manager's
+// historical signatures (candidates for shell v2 adoption).
 import { icon } from './icons.js';
 
-export const $  = (s, r=document) => r.querySelector(s);
-
-export function el(tag, attrs={}, children){
-  const n = document.createElement(tag);
-  for(const [k,v] of Object.entries(attrs)){
-    if(k==='class') n.className=v;
-    else if(k==='html') n.innerHTML=v;
-    else if(k==='text') n.textContent=v;
-    else if(k.startsWith('on') && typeof v==='function') n.addEventListener(k.slice(2),v);
-    else if(v!=null&&v!==false) n.setAttribute(k, v===true?'':v);
-  }
-  if(children!=null){
-    (Array.isArray(children)?children:[children]).forEach(c=>{
-      if(c==null) return;
-      n.append(c.nodeType?c:document.createTextNode(c));
-    });
-  }
-  return n;
-}
+export { $, el, escapeHtml, uuid } from '../vendor/polecat-shell/ui.js';
+import { $, el, escapeHtml, uuid } from '../vendor/polecat-shell/ui.js';
 
 // A non-button element (card, tile, table row) that acts like a button —
 // wires it up for keyboard users: focusable, announced as a button, and
@@ -66,10 +58,6 @@ export function trapFocus(container, { skip }={}){
   };
 }
 
-export function escapeHtml(s){
-  return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
 // ---- deterministic color from a string (avatars / dots) ------------------
 export function hue(str){
   let h=0; for(let i=0;i<String(str).length;i++) h=(h*31+str.charCodeAt(i))>>>0;
@@ -104,12 +92,6 @@ export function fmtCT(ts, {withTime=true}={}){
     if(withTime){ opts.hour='numeric'; opts.minute='2-digit'; }
     return d.toLocaleString('en-US', opts) + ' CT';
   }catch{ return d.toISOString(); }
-}
-export function uuid(){
-  if(crypto?.randomUUID) return crypto.randomUUID();
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
-    const r=Math.random()*16|0, v=c==='x'?r:(r&0x3|0x8); return v.toString(16);
-  });
 }
 // ---- tiny inline bar-chart (release-velocity trend) ---------------------
 export function sparkline(data, { width=64, height=20, color='var(--brand-b)', gap=2 }={}){

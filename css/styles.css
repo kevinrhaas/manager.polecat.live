@@ -22,6 +22,14 @@
   --brand-c:   #a3e635;   /* lime signal */
   --consensus: #6366f1;   /* indigo     */
 
+  /* Polecat Shell canonical tokens (vendor chrome reads these; Manager's
+     historical --brand-a/b/c stay the source of truth above) */
+  --brand:     #22d3ee;   /* = --brand-b */
+  --brand-2:   #38bdf8;   /* = --brand-a */
+  --accent:    #38bdf8;   /* shell gradients run cyan → sky   */
+  --accent-2:  #a3e635;
+  --font-display: var(--font);
+
   /* semantic */
   --success:   #34d399;
   --danger:    #f87171;
@@ -112,103 +120,45 @@ body{
    plain 100vh line is the fallback for browsers without dvh support. */
 #app{position:relative;z-index:1;height:100vh;height:100dvh;display:flex}
 
-/* ---- rail navigation --------------------------------------------------- */
-#rail{
-  position:relative;flex:0 0 auto;width:var(--rail-w);
-  display:flex;flex-direction:column;
+/* ---- rail navigation — Polecat Shell chrome, skinned for Mission Control --
+   Structure and behavior come from vendor/polecat-shell (shell.js/shell.css,
+   ps- prefixed classes — READ-ONLY); the rules here only re-skin that chrome
+   to Manager's glassy command-console look. The .rail-source indicator is
+   Manager-owned furniture that app.js pins into the shell's rail. */
+.ps-rail{
   background:color-mix(in srgb,var(--rail-bg) 82%, transparent);
   backdrop-filter:blur(12px);
-  border-right:1px solid var(--border);
-  transition:width .22s cubic-bezier(.4,.0,.2,1);
-  z-index:20;
 }
-#rail.open{width:var(--rail-w-open)}
-#rail.dragging{transition:none;user-select:none}
-
-.rail-brand{
-  display:flex;align-items:center;gap:12px;
-  padding:16px 14px 14px;border:0;background:none;cursor:pointer;
-  color:var(--text);text-align:left;width:100%;white-space:nowrap;
-  border-radius:var(--radius-sm);
-}
-.rail-brand:focus-visible{outline:none;box-shadow:var(--ring)}
-.rail-brand img{width:32px;height:32px;flex:0 0 auto;
+/* branded keyboard-focus ring on chrome the shell doesn't cover itself */
+.ps-rail-brand:focus-visible,.ps-rail-toggle:focus-visible{outline:none;box-shadow:var(--ring)}
+.ps-rail-logo{background:none;box-shadow:none}
+.ps-rail-logo img{width:32px;height:32px;
   filter:drop-shadow(0 3px 10px rgba(34,211,238,.4))}
-.rail-brand .bt{display:flex;flex-direction:column;line-height:1.15;
-  opacity:0;transform:translateX(-6px);transition:.2s;pointer-events:none}
-#rail.open .rail-brand .bt{opacity:1;transform:none}
-.rail-brand .bt b{font-size:14.5px;font-weight:680;letter-spacing:.2px}
-.rail-brand .bt small{font-size:10.5px;color:var(--text-2);letter-spacing:.3px}
-
-.rail-scroll{flex:1;min-height:0;overflow:hidden auto;padding:6px 0;
-  display:flex;flex-direction:column;gap:2px}
-.rail-scroll::-webkit-scrollbar{width:0}
-
-.rail-sec-label{
-  padding:12px 20px 4px;font-size:9.5px;letter-spacing:1.4px;
-  text-transform:uppercase;color:var(--text-3);white-space:nowrap;
-  opacity:0;transition:.2s;height:0;overflow:hidden;
-}
-#rail.open .rail-sec-label{opacity:1;height:auto}
-
-.rail-item{
-  position:relative;display:flex;align-items:center;gap:14px;
-  margin:0 10px;padding:10px 10px;border:0;border-radius:var(--radius-sm);
-  background:none;color:var(--text-2);cursor:pointer;font-size:13px;
-  white-space:nowrap;font-family:inherit;text-align:left;width:calc(100% - 20px);
-  transition:background .15s,color .15s;
-}
-.rail-item svg{width:20px;height:20px;flex:0 0 auto}
-.rail-item .lbl{opacity:0;transform:translateX(-6px);transition:.2s;pointer-events:none}
-#rail.open .rail-item .lbl{opacity:1;transform:none}
-.rail-item:hover{background:var(--rail-bg2);color:var(--text)}
-.rail-item:focus-visible{outline:none;box-shadow:var(--ring)}
-.rail-item.active{
-  color:var(--text);background:var(--rail-bg2);
-  box-shadow:inset 3px 0 0 var(--rail-accent);
-}
-.rail-item.active:focus-visible{box-shadow:inset 3px 0 0 var(--rail-accent),var(--ring)}
-.rail-item.active svg{color:var(--brand-b)}
-.rail-item .badge{
-  margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:9px;
-  background:var(--consensus);color:#fff;font-size:10px;font-weight:700;
-  display:flex;align-items:center;justify-content:center;
-  opacity:0;transition:.2s
-}
-.rail-item .badge.tone-danger{background:var(--danger)}
-#rail.open .rail-item .badge{opacity:1}
-.rail-item .badge[hidden]{display:none}
+.ps-rail-brand b{font-size:14.5px;font-weight:680;letter-spacing:.2px}
+.ps-rail-brand small{font-size:10.5px;letter-spacing:.3px}
+.ps-rail-scroll{padding-bottom:6px}   /* toggle clearance moves to .rail-source */
+.ps-rail-item:hover{background:var(--rail-bg2)}
+.ps-rail-item.active{background:var(--rail-bg2);box-shadow:inset 3px 0 0 var(--rail-accent)}
+.ps-rail-item.active:focus-visible{box-shadow:inset 3px 0 0 var(--rail-accent),var(--ring)}
+.ps-rail-item.active::before{display:none}
+.ps-rail-item.active svg{color:var(--brand-b)}
+.ps-rail-item .badge{background:var(--consensus);opacity:0;transition:opacity .2s}
+.ps-rail.open .ps-rail-item .badge{opacity:1}
+.ps-rail-item .badge.tone-danger{background:var(--danger)}
 /* collapsed rail: the pill has no room next to a hidden label, so it shrinks
    to a plain dot pinned over the icon's corner instead of disappearing —
    otherwise a flagged project stays invisible until the rail is opened */
-#rail:not(.open) .rail-item .badge:not([hidden]){
+.ps-rail:not(.open) .ps-rail-item .badge:not([hidden]){
   opacity:1;position:absolute;top:6px;left:30px;
   min-width:9px;width:9px;height:9px;padding:0;border-radius:50%;
   font-size:0;box-shadow:0 0 0 2px var(--rail-bg)
 }
 
-/* drag-to-resize handle + collapse tab */
-.rail-resize{
-  position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:22;
-}
-.rail-resize::after{content:"";position:absolute;top:0;right:3px;width:2px;height:100%;
-  background:transparent;transition:.15s}
-.rail-resize:hover::after,#rail.dragging .rail-resize::after{background:var(--brand-b)}
-.rail-toggle{
-  position:absolute;top:22px;right:-11px;width:22px;height:22px;border-radius:50%;
-  border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);
-  display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:23;
-  box-shadow:var(--shadow-sm);transition:transform .22s,background .15s,color .15s;
-}
-.rail-toggle:hover{color:var(--text);background:var(--surface-3)}
-.rail-toggle:focus-visible{outline:none;box-shadow:var(--ring)}
-.rail-toggle svg{width:13px;height:13px;transition:transform .22s}
-#rail.open .rail-toggle svg{transform:rotate(180deg)}
-
-/* ---- rail data-source indicator ---------------------------------------- */
+/* ---- rail data-source indicator (Manager-owned, pinned above the shell's
+   bottom collapse toggle — the 58px margin clears it) --------------------- */
 .rail-source{
   --src-dot:var(--brand-b);
-  display:flex;align-items:center;gap:10px;margin:4px 8px 8px;padding:8px 10px;
+  display:flex;align-items:center;gap:10px;margin:4px 8px 58px;padding:8px 10px;
   border:1px solid var(--border);border-radius:10px;background:var(--rail-bg2);
   color:var(--text-2);cursor:pointer;text-align:left;width:calc(100% - 16px);
   transition:background .15s,color .15s,border-color .15s;
@@ -223,10 +173,10 @@ body{
 @keyframes src-pulse{50%{opacity:.35}}
 .rail-src-txt{display:flex;flex-direction:column;line-height:1.2;opacity:0;transform:translateX(-6px);
   transition:.2s;pointer-events:none;min-width:0;overflow:hidden}
-#rail.open .rail-src-txt{opacity:1;transform:none}
+.ps-rail.open .rail-src-txt{opacity:1;transform:none}
 .rail-src-txt b{font-size:12.5px;font-weight:640;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rail-src-txt small{font-size:10px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#rail:not(.open) .rail-source{justify-content:center;padding:8px 0;width:auto;margin:4px auto 8px}
+.ps-rail:not(.open) .rail-source{justify-content:center;padding:8px 0;width:auto;margin:4px auto 58px}
 
 /* ---- data source (Admin card + connect wizard) ------------------------- */
 .ds-current{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;
@@ -277,18 +227,13 @@ body{
 .cred-lock svg{width:12px;height:12px}
 .cred-row.cred-locked .qicon{background:linear-gradient(135deg,var(--warning),var(--brand-c))!important}
 
-/* ---- main content ------------------------------------------------------ */
-#main{flex:1;min-width:0;height:100%;display:flex;flex-direction:column}
-.topbar{
-  display:flex;align-items:center;gap:12px;padding:14px 26px;
-  border-bottom:1px solid var(--border);
+/* ---- main content (shell topbar skin) ----------------------------------- */
+.ps-topbar{
+  gap:12px;padding:14px 26px;
   background:color-mix(in srgb,var(--surface) 55%, transparent);
-  backdrop-filter:blur(10px);z-index:10;
+  backdrop-filter:blur(10px);
 }
-.topbar h1{margin:0;font-size:17px;font-weight:680;letter-spacing:.2px}
-.topbar .sp{flex:1}
-.topbar .topbar-menu{display:none}         /* hamburger — mobile only */
-.rail-backdrop{display:none}               /* drawer backdrop — mobile only */
+.ps-topbar h1{margin:0;font-size:17px;font-weight:680;letter-spacing:.2px}
 
 .view{flex:1;min-height:0;overflow:auto;padding:26px;scroll-behavior:smooth;
   -webkit-overflow-scrolling:touch;overscroll-behavior:contain}
@@ -856,31 +801,9 @@ a.link:hover{text-decoration:underline}
 .rec-milestone .rec-foot{display:flex;gap:8px;flex-wrap:wrap}
 .rec-detail{margin:10px 0 4px}
 
-/* ---- what's new (slide-in sheet) -------------------------------------- */
-.sheet-overlay{position:fixed;inset:0;z-index:1300;background:rgba(4,5,10,.5);
-  backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.24s;
-  display:flex;justify-content:flex-end}
-.sheet-overlay.show{opacity:1;pointer-events:auto}
-.sheet{width:min(460px,100%);height:100%;background:var(--surface);
-  border-left:1px solid var(--border);box-shadow:var(--shadow);display:flex;
-  flex-direction:column;transform:translateX(100%);transition:transform .24s cubic-bezier(.2,.8,.2,1)}
-.sheet-overlay.show .sheet{transform:none}
-.sheet-head{display:flex;align-items:center;gap:12px;padding:20px 20px 12px;border-bottom:1px solid var(--border)}
-.sheet-head h3{margin:0;font-size:16px}
-.sheet-head .btn{margin-left:auto}
-.sheet-tools{display:flex;gap:8px;align-items:center;padding:10px 20px 4px;flex-wrap:wrap}
-.sheet-body{flex:1;min-height:0;overflow:auto;padding:4px 20px 24px}
-.wn-entry{padding:16px 0;border-bottom:1px solid var(--border)}
-.wn-entry:last-child{border-bottom:0}
-.wn-top{display:flex;align-items:center;gap:10px}
-.wn-top b{font-size:14.5px}
-.wn-badge{flex:0 0 auto;font-family:var(--mono);font-size:11px;font-weight:700;color:#05121a;
-  padding:2px 8px;border-radius:999px;background:linear-gradient(135deg,var(--brand-b),var(--consensus))}
-.wn-kind{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);
-  border:1px solid var(--border);border-radius:999px;padding:1px 7px}
-.wn-date{font-size:11.5px;color:var(--text-3);margin:6px 0 0}
-.wn-entry ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
-.wn-entry li{font-size:13px;color:var(--text-2);line-height:1.5}
+/* ---- what's new ---------------------------------------------------------
+   The feed itself renders in the shell's right panel with the shell's wn-*
+   styles (vendor/polecat-shell/shell.css); only Manager extras live here. */
 .wn-btn{position:relative}
 .wn-btn.has-unread::after{content:"";position:absolute;top:5px;right:5px;width:8px;height:8px;
   border-radius:50%;background:var(--brand-c);box-shadow:0 0 0 2px var(--surface),0 0 8px var(--brand-c)}
@@ -1011,22 +934,20 @@ a.link:hover{text-decoration:underline}
 .notes-hist-row>.btn{flex:0 0 auto}
 .notes-hist-preview{margin-top:4px;overflow-wrap:anywhere;white-space:pre-wrap}
 
-/* ---- mobile ------------------------------------------------------------ */
+/* ---- mobile ------------------------------------------------------------
+   The rail's drawer behavior itself lives in shell.css (breakpoint 860px);
+   these are Manager's small-screen tweaks. */
+@media (max-width:860px){
+  /* drawer always shows labels; the collapse toggle is hidden, so the
+     data-source card doesn't need to clear it */
+  .ps-rail .rail-src-txt{opacity:1;transform:none}
+  .rail-source,.ps-rail:not(.open) .rail-source{margin:4px 8px 12px;justify-content:flex-start;
+    padding:8px 10px;width:calc(100% - 16px)}
+}
 @media (max-width:720px){
-  #rail{position:absolute;top:0;left:0;height:100%;box-shadow:var(--shadow);
-    --rail-w-open:min(80vw,320px)}
-  #rail:not(.open){width:0;border:0;overflow:hidden}
-  #rail.open{width:var(--rail-w-open)}
-  #rail .rail-item .lbl,#rail .rail-brand .bt,#rail .rail-sec-label{opacity:1!important;transform:none!important}
-  .rail-resize{display:none}
-  .rail-toggle{display:none}
-  #rail.open ~ .rail-backdrop{display:block;position:fixed;inset:0;z-index:15;
-    background:rgba(4,5,10,.58);backdrop-filter:blur(2px)}
-
-  .topbar .topbar-menu{display:inline-flex}
-  .topbar{padding:11px 14px;gap:8px}
-  .topbar h1{font-size:15px}
-  .topbar .hide-sm{display:none}
+  .ps-topbar{padding:11px 14px;gap:8px}
+  .ps-topbar h1{font-size:15px}
+  .ps-topbar .hide-sm{display:none}
 
   /* extra bottom room so the last row clears the home indicator / gesture bar */
   .view{padding:16px 14px calc(24px + env(safe-area-inset-bottom))}

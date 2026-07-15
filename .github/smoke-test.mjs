@@ -51,7 +51,7 @@ try {
   });
   const $ = (s) => page.$(s);
   const count = (s) => page.$$eval(s, (e) => e.length).catch(() => 0);
-  const sec = (s) => page.$(`.rail-item[data-sec="${s}"]`);
+  const sec = (s) => page.$(`.ps-rail-item[data-sec="${s}"]`);
   const openSec = async (s) => { const el = await sec(s); if (el) { await el.click(); await page.waitForTimeout(320); } return !!el; };
   const store = (fn) => page.evaluate(`(async()=>{const{Store}=await import('/js/store.js');return (${fn})(Store);})()`);
 
@@ -136,7 +136,7 @@ try {
   await page.waitForTimeout(1100);
   await page.keyboard.press('Escape');   // dismiss the first-run welcome tour
   await page.waitForTimeout(300);
-  await check('nav rail renders (>=5 sections)', async () => (await count('.rail-item')) >= 5);
+  await check('nav rail renders (>=5 sections)', async () => (await count('.ps-rail-item')) >= 5);
   await check('app shell has a working skip-to-content link (jumps keyboard focus straight to the view)', async () => {
     const href = await page.$eval('.skip-link', (a) => a.getAttribute('href')).catch(() => null);
     if (href !== '#view') return false;
@@ -153,7 +153,7 @@ try {
       await page.$eval(sel, (n) => n.blur());
       return after !== 'none' && after !== before;
     };
-    return (await ringOf('.rail-brand')) && (await ringOf('.rail-item[data-sec="home"]')) && (await ringOf('.rail-toggle'));
+    return (await ringOf('.ps-rail-brand')) && (await ringOf('.ps-rail-item[data-sec="home"]')) && (await ringOf('.ps-rail-toggle'));
   });
   for (const s of ['home', 'projects', 'releases', 'activity', 'credentials', 'docs', 'settings']) {
     await check(`section "${s}" opens`, async () => { if (!(await openSec(s))) return false; return (await count('#view *')) > 0; });
@@ -279,11 +279,11 @@ try {
     }`);
     await openSec('home');   // navigate away first so the rail badge reflects the fresh unread count, not a stale one
     await page.waitForTimeout(250);
-    const badgeText = await page.$eval('.rail-item[data-sec="releases"] .badge', (e) => (e.hidden ? null : e.textContent)).catch(() => null);
+    const badgeText = await page.$eval('.ps-rail-item[data-sec="releases"] .badge', (e) => (e.hidden ? null : e.textContent)).catch(() => null);
     const hadUnreadBadge = badgeText != null && parseInt(badgeText, 10) > 0;
     await openSec('releases');
     const hasNewCard = (await count('.rel-card.is-new')) > 0;
-    const badgeAfter = await page.$eval('.rail-item[data-sec="releases"] .badge', (e) => (e.hidden ? null : e.textContent)).catch(() => null);
+    const badgeAfter = await page.$eval('.ps-rail-item[data-sec="releases"] .badge', (e) => (e.hidden ? null : e.textContent)).catch(() => null);
     await store(`(S)=>S.remove('projects','smoke-unread-proj',{silent:true})`);   // cascades the seeded release too
     return hadUnreadBadge && hasNewCard && badgeAfter == null;
   });
@@ -1115,15 +1115,15 @@ try {
     }`);
     await openSec('home');
     const expected = await store(`(S)=>S.needsAttention().length`);
-    const railBadgeText = () => page.$eval('.rail-item[data-sec="home"] .badge', (e) => (e.hidden ? null : e.textContent)).catch(() => null);
-    const railBadgeVisible = () => page.$eval('.rail-item[data-sec="home"] .badge', (e) => !e.hidden && getComputedStyle(e).opacity !== '0');
-    const railOpenBefore = await page.$eval('#rail', (e) => e.classList.contains('open'));
-    if (!railOpenBefore) { await page.click('.rail-toggle'); await page.waitForTimeout(300); }
+    const railBadgeText = () => page.$eval('.ps-rail-item[data-sec="home"] .badge', (e) => (e.hidden ? null : e.textContent)).catch(() => null);
+    const railBadgeVisible = () => page.$eval('.ps-rail-item[data-sec="home"] .badge', (e) => !e.hidden && getComputedStyle(e).opacity !== '0');
+    const railOpenBefore = await page.$eval('.ps-rail', (e) => e.classList.contains('open'));
+    if (!railOpenBefore) { await page.click('.ps-rail-toggle'); await page.waitForTimeout(300); }
     const openBadgeText = await railBadgeText();
     const openVisible = await railBadgeVisible();
-    await page.click('.rail-toggle'); await page.waitForTimeout(300); // collapse
+    await page.click('.ps-rail-toggle'); await page.waitForTimeout(300); // collapse
     const collapsedVisible = await railBadgeVisible();
-    if (railOpenBefore) { await page.click('.rail-toggle'); await page.waitForTimeout(300); } // restore original rail state
+    if (railOpenBefore) { await page.click('.ps-rail-toggle'); await page.waitForTimeout(300); } // restore original rail state
     // clean up
     await store(`(S)=>{
       S.releasesFor('games').filter(r=>r.source==='sync').forEach(r=>S.remove('releases', r.id, {silent:true}));
@@ -1218,23 +1218,24 @@ try {
 
   // ---------- What's new ----------
   console.log("What's new");
-  await check("what's new panel opens, lists entries, dates in CT, searches, filters", async () => {
+  await check("what's new panel opens (shell right panel), lists dated entries, searches, filters", async () => {
     await (await $('.wn-btn')).click(); await page.waitForTimeout(320);
-    if (!(await $('.sheet-overlay.show'))) return false;
+    if (!(await $('.ps-rpanel.in'))) return false;
     if ((await count('.wn-entry')) < 1) return false;
+    // the shell feed shows "Mon D, YYYY · relative" for stamped entries
     const dateText = await page.evaluate(() => { const d = document.querySelector('.wn-entry .wn-date'); return d ? d.textContent.trim() : ''; });
-    if (!/\bCT$/.test(dateText)) return false;
-    await page.fill('.sheet .search input', 'zzzznomatch'); await page.waitForTimeout(250);
+    if (!/\d{4}/.test(dateText)) return false;
+    await page.fill('.ps-rpanel .search input', 'zzzznomatch'); await page.waitForTimeout(250);
     const none = (await count('.wn-entry')) === 0;
-    await page.fill('.sheet .search input', ''); await page.waitForTimeout(200);
+    await page.fill('.ps-rpanel .search input', ''); await page.waitForTimeout(200);
     // kind filter chip — compare against the real data so this doesn't assume which kinds exist
     const expectPolish = await page.evaluate(async () => {
       const { CHANGELOG } = await import('/js/changelog.js');
       return CHANGELOG.filter((e) => (e.kind || 'feature') === 'polish').length;
     });
-    await page.click('.sheet-tools .filter-chip:has-text("Polish")'); await page.waitForTimeout(200);
+    await page.click('.ps-rpanel .filter-chip:has-text("Polish")'); await page.waitForTimeout(200);
     const filtered = (await count('.wn-entry')) === expectPolish;
-    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
     return none && filtered;
   });
 
@@ -1249,13 +1250,13 @@ try {
     return t0 !== t1 && t1 === 'light';
   });
   await check('simple mode trims the rail then restores', async () => {
-    const full = await count('.rail-item');
+    const full = await count('.ps-rail-item');
     // toggle simple mode on (first toggle in Appearance card)
     await page.click('.opt-row .toggle'); await page.waitForTimeout(350);
-    const trimmed = await count('.rail-item');
+    const trimmed = await count('.ps-rail-item');
     await openSec('settings');
     await page.click('.opt-row .toggle'); await page.waitForTimeout(350);
-    const restored = await count('.rail-item');
+    const restored = await count('.ps-rail-item');
     return trimmed < full && restored === full;
   });
   await check('healthWeights() renormalizes any ratio to sum to 100', async () => {
@@ -1879,7 +1880,7 @@ try {
   console.log('Accessibility');
   await check('the "Add project" modal moves focus inside itself, traps Tab within it, and Escape restores focus to the button that opened it', async () => {
     await openSec('home');
-    const btn = await page.$('.topbar .btn.primary');
+    const btn = await page.$('.ps-topbar .btn.primary');
     await btn.click(); await page.waitForTimeout(300);
     const focusedInModal = await page.evaluate(() => !!document.querySelector('.overlay.show .modal')?.contains(document.activeElement));
     let staysTrapped = true;
@@ -1901,18 +1902,18 @@ try {
     const restored = await page.evaluate((b) => document.activeElement === b, bell);
     return focusedInPop && restored;
   });
-  await check('the "What\'s new" sheet moves focus inside itself; Escape restores focus to the wn-btn that opened it', async () => {
+  await check('the "What\'s new" right panel moves focus inside itself; Escape restores focus to the wn-btn that opened it', async () => {
     await openSec('home');
     const wn = await page.$('.wn-btn');
     await wn.click(); await page.waitForTimeout(300);
-    const focusedInSheet = await page.evaluate(() => !!document.querySelector('.sheet')?.contains(document.activeElement));
+    const focusedInPanel = await page.evaluate(() => !!document.querySelector('.ps-rpanel')?.contains(document.activeElement));
     await page.keyboard.press('Escape'); await page.waitForTimeout(400);
     const restored = await page.evaluate((b) => document.activeElement === b, wn);
-    return focusedInSheet && restored;
+    return focusedInPanel && restored;
   });
   await check('the ⌘K palette keeps Tab from leaving its input, and Escape restores focus to the trigger button', async () => {
     await openSec('home');
-    const cmdBtn = await page.$('.topbar button[title="Command palette"]');
+    const cmdBtn = await page.$('.ps-topbar button[title="Command palette"]');
     await cmdBtn.click(); await page.waitForTimeout(250);
     const focused = await page.evaluate(() => document.activeElement?.classList.contains('cmdk-in'));
     await page.keyboard.press('Tab');
@@ -1927,8 +1928,8 @@ try {
   await check('mobile: hamburger opens the rail drawer', async () => {
     await page.setViewportSize({ width: 390, height: 780 }); await page.waitForTimeout(300);
     await page.evaluate(() => window.__rail && window.__rail.setOpen(false)); await page.waitForTimeout(250);
-    await page.click('.topbar-menu'); await page.waitForTimeout(300);
-    const open = await page.$eval('#rail', (r) => r.classList.contains('open'));
+    await page.click('.ps-topbar-menu'); await page.waitForTimeout(300);
+    const open = await page.$eval('.ps-rail', (r) => r.classList.contains('open'));
     await page.setViewportSize({ width: 1280, height: 900 });
     return open;
   });

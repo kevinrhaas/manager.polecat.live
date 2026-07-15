@@ -1,0 +1,25 @@
+{
+  "version": "0.1.0",
+  "files": {
+    "VERSION": "e9dd8507f4bf0c6f42458e41aea833ad0bd3f6127272335eee9bf4d58541ed67",
+    "access.js": "532ce507b67afd4c87e87ec0abc0793319e4fa8a04f0a5ce0d67ce0b7c0a703b",
+    "auth/null.js": "639217faef1c10efc8c1148fc33241900b7257a0d401fd09e62f05f64aab42d3",
+    "auth/schema.js": "48379b720041131223f15735855057cd7e343392f6a8ff1ef99942b467ca2878",
+    "auth/supabase.js": "266d27f7c4727df9774376406d7e12888157cc8db1bd9aefb6c688487a69b4f6",
+    "catalog.js": "8d60e41706b785197e464dee0568482233d959fed184df72826d994da176b75f",
+    "icons.js": "7c68dcd4d0fc0231e775250d41f7d11347ee65a6b99e34cddf5422bef02f30e6",
+    "notifications.js": "3d988b693bca4786ac059a2a1759c5cd14449b9e3d4ea4fd6302dd68bd287ce6",
+    "settings.js": "18181e8e08153586405fea9d844980df95943351a7e09fd6fe6f7f788e286873",
+    "shell.css": "8f6e5391037e462cf229154f3d0da1321cb727d1d7853ff395fab70f4b50ce3b",
+    "shell.js": "32e3a818bc9fc4b1867cb13b5a56380378d1e2d0addeecb1a9dad6b0c45de6f5",
+    "shortcuts.js": "d4841184ded6274f98355f9b3d764e982aa2f6e4c064e9e2ed4f7cf410cb2bd2",
+    "store.js": "aa3a1cb89ff59d5fa8446cc6b404f556c0eb09b47a5bb91cc9ac4d70543b396f",
+    "sw-template.js": "f6137168fa3a9c4a51adb4130f4c8d42d16de1b47f106ac73b65a7418172d682",
+    "theme.js": "90fb0d150e30bd5949ac085d9e85addd582a61d4ae00ea848f7265be00b8841e",
+    "tokens.css": "714742206c7f8c84f7ee2c2a741fea4a21dd580d9ba51c86ba85baa769aaffe2",
+    "tour.js": "f77d13a50e829894da5fa0d47efb15751c710ecf883f230841823f2b531f8dd8",
+    "ui.js": "7807801d8aaf9ceeebccdfae1838bbe0b425cdfe7dab8ac50ac53a5b4039e2b4",
+    "views.js": "74ff4597b0cc641a316949db33c776ebcbb2442175f3db20af01d93be0776902",
+    "whatsnew.js": "fc6d1eb28c257bf5fdfed198695b49bcf9188091260425e76b278c9ceb681284"
+  }
+}

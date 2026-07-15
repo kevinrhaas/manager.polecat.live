@@ -1,8 +1,8 @@
-// Settings — theme, Simple mode, welcome tour, what's-new preferences,
+// Settings — theme, Simple mode, welcome tour,
 // data (export/import/reset), and access.
 import { Store, FIELD_TYPES, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, DEFAULT_AUTO_SYNC_BACKOFF_CAP, healthBand } from '../store.js';
 import { Access } from '../access.js';
-import { getThemePref, setTheme } from '../theme.js';
+import { getTheme, setTheme } from '../../vendor/polecat-shell/theme.js';
 import { el, escapeHtml, toast, modal, confirmDialog, ago, wireDragReorder, swapNeighbor } from '../ui.js';
 import { icon } from '../icons.js';
 import { setLibrarySearch } from './projects.js';
@@ -20,7 +20,7 @@ export function renderSettings(root, ctx){
   const themeRow=optRow('Theme','Dark, light, or follow your system.');
   const seg=el('div',{class:'seg'});
   [['dark','Dark'],['light','Light'],['system','System']].forEach(([v,t])=>{
-    const b=el('button',{class:getThemePref()===v?'on':'', text:t, onclick:()=>{ setTheme(v); [...seg.children].forEach(x=>x.classList.remove('on')); b.classList.add('on'); ctx.syncTheme&&ctx.syncTheme(); }});
+    const b=el('button',{class:getTheme().mode===v?'on':'', text:t, onclick:()=>{ setTheme(getTheme().palette, v); [...seg.children].forEach(x=>x.classList.remove('on')); b.classList.add('on'); ctx.syncTheme&&ctx.syncTheme(); }});
     seg.append(b);
   });
   themeRow.append(seg);
@@ -36,18 +36,6 @@ export function renderSettings(root, ctx){
   onboard.append(tourRow);
   onboard.append(optRow('Documentation','The complete guide for first-time users.').also(r=>r.append(el('button',{class:'btn sm', html:`${icon('book')} Open docs`, onclick:()=>ctx.go('docs')}))));
   wrap.append(onboard);
-
-  // ---- What's new preferences (tracked attributes) ----
-  const wn=card("What’s-new preferences", 'sparkle');
-  wn.append(el('p',{class:'muted tiny', style:'margin:0 0 6px', text:'Choose which attributes show in the What’s-new panel and the default order.'}));
-  const tracked={...s.wnTracked};
-  const attrs=[['version','Version badge'],['date','Ship date'],['kind','Kind (feature/polish/fix)'],['items','Detail bullets']];
-  attrs.forEach(([k,lbl])=>wn.append(toggleRow(lbl, '', tracked[k]!==false, (on)=>{ tracked[k]=on; Store.setSetting('wnTracked', tracked); }, true)));
-  const sortRow=optRow('Default sort','');
-  const sortSeg=el('div',{class:'seg'});
-  [['newest','Newest'],['oldest','Oldest']].forEach(([v,t])=>{ const b=el('button',{class:s.wnSort===v?'on':'', text:t, onclick:()=>{ Store.setSetting('wnSort',v); [...sortSeg.children].forEach(x=>x.classList.remove('on')); b.classList.add('on'); }}); sortSeg.append(b); });
-  sortRow.append(sortSeg); wn.append(sortRow);
-  wrap.append(wn);
 
   // ---- Auto-sync (quiet, on-a-cadence changelog ingestion) ----
   const auto=card('Auto-sync', 'refresh');

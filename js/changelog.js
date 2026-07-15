@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 59,
+    title: 'Manager moves onto the shared Polecat Shell',
+    kind: 'polish',
+    ts: '2026-07-15T20:21:07.419Z',
+    items: [
+      'The app frame — rail, top bar, theme engine and icons — now comes from the fleet’s shared, vendored Polecat Shell, the same foundation the other polecat.live apps are adopting. Manager keeps its Mission-Control look, and your saved theme, rail width and unread markers carry over untouched.',
+      'New in the top bar: a 3×3 app switcher — jump to any app in the Polecat suite (Chat, JobTracker, Analytics, AutoSelector, Relay, Games) from anywhere in Manager.',
+      'What’s-new opens in a slide-in panel on the right (the fleet’s standard), with the same search and feature/polish/fix filters. Each entry now shows a relative time next to its ship date.',
+      'Retired the per-app What’s-new display preferences (tracked attributes and default sort) in favor of the fleet-standard feed. Everything is still searchable and filterable.',
+    ],
+  },
+  {
     v: 58,
     title: 'Encrypt your secrets at rest on the database',
     kind: 'feature',

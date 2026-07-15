@@ -1,0 +1,341 @@
+/* =========================================================================
+   Polecat Shell — shell.css (v0.1.0)
+   Component CSS for everything shell.js + ui.js build: layout (rail +
+   topbar + main), right panel, app-switcher waffle, toasts, modal / sheet /
+   popover, and the button / input / pill basics. Ported from JobTracker's
+   design system onto the tokens.css vocabulary — load tokens.css first.
+
+   Naming contract:
+   - NEW shell surfaces (layout, rail, topbar, right panel, waffle) are
+     `ps-` prefixed — shell.js owns them.
+   - Toast / modal / popover / field / control selectors are kept VERBATIM
+     from JobTracker (`#toasts .toast .modal-back .modal .pop-menu .field
+     .btn .input .pill …`) because the vendored ui.js keeps those names.
+   ========================================================================= */
+
+/* ---- base ---------------------------------------------------------------- */
+*{box-sizing:border-box}
+html,body.ps-shell{height:100%}
+body.ps-shell{
+  margin:0;font-family:var(--font);color:var(--text);background:var(--bg);
+  font-size:14px;line-height:1.5;overflow:hidden;
+  display:flex;position:relative;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+@supports (height:100dvh){ body.ps-shell{height:100dvh} }
+body.ps-shell h1,body.ps-shell h2,body.ps-shell h3,body.ps-shell h4{margin:0;font-weight:700;letter-spacing:-.01em}
+body.ps-shell a{color:var(--brand-2);text-decoration:none}
+body.ps-shell a:hover{text-decoration:underline}
+body.ps-shell button{font-family:inherit}
+.ic{display:inline-block;vertical-align:middle;flex:none}
+.muted{color:var(--text-2)}
+.tiny{font-size:12px}
+.sp{flex:1}
+.mono{font-family:var(--mono)}
+.hide{display:none!important}
+kbd{font-family:var(--mono);font-size:11px;background:var(--surface-3);border:1px solid var(--border);border-radius:6px;padding:1px 6px}
+::selection{background:color-mix(in srgb,var(--brand) 40%,transparent)}
+
+/* reduced motion: OS preference or the stored override stamped by theme.js */
+@media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms!important;transition-duration:.01ms!important} }
+html[data-reduce-motion="1"] *{animation:none!important;transition:none!important}
+
+/* ---- buttons / controls (ui.js contract — names verbatim) ---------------- */
+.btn{display:inline-flex;align-items:center;gap:7px;justify-content:center;
+  padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);
+  background:var(--surface-2);color:var(--text);cursor:pointer;font-size:13.5px;font-weight:600;
+  transition:transform .08s,background .15s,border-color .15s,box-shadow .15s;white-space:nowrap}
+.btn:hover{background:var(--surface-3);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn:focus-visible{outline:none;box-shadow:var(--ring)}
+.btn.primary{background:linear-gradient(135deg,var(--brand),var(--accent));border-color:transparent;color:#fff}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{background:color-mix(in srgb,var(--danger) 18%,var(--surface-2));border-color:color-mix(in srgb,var(--danger) 40%,var(--border));color:var(--danger)}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.sm{padding:6px 11px;font-size:12.5px}
+.btn.icon{padding:8px;width:38px;height:38px}
+.btn.icon.sm{width:32px;height:32px;padding:6px}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn.block{width:100%}
+
+.input,textarea.input,select.input{
+  width:100%;padding:9px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);
+  background:var(--surface);color:var(--text);font-size:13.5px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
+.input:focus{outline:none;border-color:var(--brand);box-shadow:var(--ring)}
+textarea.input{resize:vertical;line-height:1.55}
+select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a95c8' stroke-width='2.5' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:12px;font-weight:600;color:var(--text-2);letter-spacing:.02em}
+.field .hint{font-size:11.5px;color:var(--text-3)}
+.field-row{display:flex;gap:12px;flex-wrap:wrap}
+.field-row .field{flex:1;min-width:160px}
+
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;transition:all .12s;white-space:nowrap}
+.pill:hover{border-color:var(--brand);color:var(--text)}
+.pill.on{background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;border-color:transparent}
+.pill:disabled{opacity:.5;cursor:not-allowed}
+.pill:disabled:hover{border-color:var(--border);color:var(--text-2)}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:var(--surface-3);color:var(--text-2)}
+
+/* ---- layout: rail + topbar + main (ps- — shell.js owns these) ------------ */
+.ps-rail{width:var(--rail-w);flex:none;background:linear-gradient(180deg,var(--rail-bg),var(--rail-bg2));
+  border-right:1px solid var(--border);display:flex;flex-direction:column;position:relative;
+  transition:width .22s cubic-bezier(.4,0,.2,1);overflow:hidden;z-index:30}
+.ps-rail.open{width:var(--rail-w-open)}
+.ps-rail.dragging{transition:none}
+.ps-rail-brand{display:flex;align-items:center;gap:11px;padding:16px 14px;background:none;border:none;cursor:pointer;color:var(--text);width:100%}
+.ps-rail-logo{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:11px;background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;box-shadow:var(--shadow-sm)}
+.ps-rail-logo svg,.ps-rail-logo img{width:22px;height:22px}
+.ps-rail-brand .bt{display:flex;flex-direction:column;line-height:1.15;opacity:0;transition:opacity .2s;text-align:left;white-space:nowrap}
+.ps-rail.open .ps-rail-brand .bt{opacity:1}
+.ps-rail-brand b{font-size:15px;font-family:var(--font-display)}
+.ps-rail-brand small{font-size:11px;color:var(--text-2)}
+.ps-rail-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 10px 56px;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
+.ps-rail-group{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--text-3);padding:12px 10px 4px;opacity:0;transition:opacity .2s;white-space:nowrap}
+.ps-rail.open .ps-rail-group{opacity:1}
+.ps-rail-item{display:flex;align-items:center;gap:12px;padding:9px 11px;border-radius:10px;background:none;border:none;cursor:pointer;color:var(--text-2);width:100%;position:relative;transition:background .13s,color .13s}
+.ps-rail-item .lbl{opacity:0;transition:opacity .2s;white-space:nowrap;font-weight:600;font-size:13.5px}
+.ps-rail.open .ps-rail-item .lbl{opacity:1}
+.ps-rail-item:hover{background:var(--surface-2);color:var(--text)}
+.ps-rail-item:focus-visible{outline:none;box-shadow:var(--ring)}
+.ps-rail-item.active{background:color-mix(in srgb,var(--rail-accent) 16%,transparent);color:var(--text)}
+.ps-rail-item.active::before{content:'';position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:3px;background:linear-gradient(var(--brand),var(--accent))}
+.ps-rail-item .badge{margin-left:auto;background:var(--accent);color:#fff;font-size:10.5px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;padding:0 5px}
+/* the count badge is empty/hidden until a section sets one — the explicit
+   display above would otherwise override the [hidden] attribute */
+.ps-rail-item .badge[hidden]{display:none}
+.ps-rail-toggle{position:absolute;bottom:12px;left:14px;width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;display:grid;place-items:center;transition:transform .22s}
+.ps-rail.open .ps-rail-toggle{transform:rotate(180deg)}
+.ps-rail-resize{position:absolute;top:0;right:0;width:6px;height:100%;cursor:col-resize;z-index:5}
+.ps-rail-resize:hover,.ps-rail.dragging .ps-rail-resize{background:color-mix(in srgb,var(--rail-accent) 40%,transparent)}
+.ps-rail-backdrop{display:none}
+
+.ps-main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;isolation:isolate}
+.ps-topbar{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);
+  background:color-mix(in srgb,var(--surface) 70%,transparent);backdrop-filter:blur(12px);z-index:20}
+.ps-topbar h1{font-size:18px;font-family:var(--font-display)}
+.ps-topbar-menu{display:none}
+.ps-tb-left,.ps-tb-center,.ps-tb-right{display:flex;align-items:center;gap:10px;min-width:0}
+.ps-tb-center{flex:1;justify-content:center}
+.ps-view{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:22px 24px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+
+/* ---- right panel (slide-in from the right) -------------------------------- */
+.ps-rpanel-back{position:fixed;inset:0;z-index:90;background:rgba(6,4,20,.45);backdrop-filter:blur(2px);
+  opacity:0;transition:opacity .2s;pointer-events:none}
+.ps-rpanel-back.in{opacity:1;pointer-events:auto}
+.ps-rpanel{position:fixed;top:0;right:0;bottom:0;z-index:95;width:min(420px,100vw);
+  background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--shadow);
+  display:flex;flex-direction:column;transform:translateX(102%);transition:transform .24s cubic-bezier(.2,.8,.3,1);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.ps-rpanel.in{transform:none}
+.ps-rpanel:focus-visible{outline:none}
+.ps-rpanel-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border);flex:none}
+.ps-rpanel-head h2{font-size:16px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-rpanel-body{flex:1;overflow-y:auto;padding:18px 20px;-webkit-overflow-scrolling:touch}
+
+/* ---- app-switcher waffle --------------------------------------------------- */
+.ps-waffle-pop{position:fixed;z-index:120;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:12px;width:min(320px,92vw);animation:pop-in .12s ease}
+.ps-waffle-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);padding:0 4px 8px}
+.ps-waffle-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ps-waffle-item{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 6px 10px;border-radius:11px;
+  color:var(--text);text-decoration:none;cursor:pointer;border:1px solid transparent;transition:background .12s,border-color .12s;text-align:center}
+.ps-waffle-item:hover{background:var(--surface-2);text-decoration:none}
+.ps-waffle-item:focus-visible{outline:none;box-shadow:var(--ring)}
+.ps-waffle-item.current{border-color:color-mix(in srgb,var(--brand) 45%,var(--border));background:color-mix(in srgb,var(--brand) 10%,transparent)}
+.ps-waffle-item.soon{opacity:.45;cursor:default}
+.ps-waffle-ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#fff;font-size:17px;font-weight:700;
+  background:linear-gradient(135deg,var(--w-accent,var(--brand)),color-mix(in srgb,var(--w-accent,var(--brand)) 55%,var(--accent)))}
+.ps-waffle-ic svg{width:20px;height:20px}
+.ps-waffle-name{font-size:11.5px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.ps-waffle-item .chip{font-size:9.5px;padding:1px 7px}
+
+/* ---- toasts (ui.js contract — selectors verbatim from JobTracker) --------- */
+#toasts{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));right:calc(20px + env(safe-area-inset-right,0px));z-index:200;display:flex;flex-direction:column;gap:10px;max-width:340px}
+.toast{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--brand);border-radius:11px;padding:12px 15px;box-shadow:var(--shadow);cursor:pointer;transform:translateX(120%);transition:transform .26s cubic-bezier(.2,.9,.3,1.2)}
+.toast.in{transform:none}
+.toast.ok{border-left-color:var(--success)} .toast.err{border-left-color:var(--danger)} .toast.info{border-left-color:var(--info)}
+.toast-title{font-weight:700;font-size:13.5px}
+.toast-body{font-size:12.5px;color:var(--text-2);margin-top:3px}
+
+/* ---- modal (ui.js contract — selectors verbatim from JobTracker) ---------- */
+.modal-back{position:fixed;inset:0;background:rgba(6,4,20,.6);backdrop-filter:blur(4px);z-index:100;display:grid;place-items:center;padding:20px;opacity:0;transition:opacity .2s}
+.modal-back.in{opacity:1}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);width:min(560px,100%);max-height:90vh;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s}
+.modal:focus-visible{outline:none;box-shadow:var(--shadow),var(--ring)}
+.modal-back.in .modal{transform:none}
+.modal.wide{width:min(920px,100%)}
+.modal.full{width:min(1100px,100%);height:90vh}
+.modal-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.modal-title{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;flex:1}
+.modal-body{padding:20px;overflow-y:auto;flex:1}
+.modal-foot{display:flex;gap:10px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);flex-wrap:wrap}
+
+/* sheet — a side-anchored variant of the modal (ui.js sheet()); rendered
+   inside the same .modal-back so stacking/Escape behavior is shared */
+.modal-back.sheet-back{place-items:stretch end;padding:0}
+.modal.sheet{border-radius:0;max-height:none;height:100%;width:min(440px,100%);
+  transform:translateX(24px);border-top:none;border-bottom:none;border-right:none}
+.modal.sheet[data-side="left"]{margin-right:auto;transform:translateX(-24px);border-left:none;border-right:1px solid var(--border)}
+.modal.sheet[data-side="bottom"]{margin-top:auto;height:auto;max-height:88vh;width:100%;transform:translateY(24px);
+  border:none;border-top:1px solid var(--border);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.modal-back.in .modal.sheet{transform:none}
+
+/* ---- anchored popover menus (ui.js contract — verbatim) ------------------- */
+.pop-menu{position:fixed;z-index:120;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:6px;min-width:190px;display:flex;flex-direction:column;gap:2px;animation:pop-in .12s ease}
+.pop-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border:none;background:none;
+  color:var(--text);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;text-align:left}
+.pop-menu button:hover{background:var(--surface-2)}
+.pop-menu:focus-visible{outline:none;box-shadow:var(--shadow),var(--ring)}
+@keyframes pop-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+/* ---- confetti burst (ui.js celebrate() — verbatim) ------------------------- */
+.confetti-root{position:fixed;inset:0 0 auto 0;height:0;z-index:210;pointer-events:none;overflow:visible}
+.confetti-piece{position:absolute;top:-16px;border-radius:2px;opacity:.95;
+  animation-name:confetti-fall;animation-timing-function:cubic-bezier(.25,.46,.45,.94);animation-fill-mode:forwards}
+@keyframes confetti-fall{
+  0%{transform:translate(0,0) rotate(0deg);opacity:.95}
+  100%{transform:translate(var(--drift),100vh) rotate(var(--rot));opacity:0}
+}
+
+/* ---- responsive ------------------------------------------------------------
+   Below 860px the rail becomes an overlay drawer with a backdrop; the
+   hamburger appears in the topbar. Everything stays usable at 390px. */
+@media (max-width:860px){
+  .ps-rail{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:var(--rail-w-open);transition:transform .22s;
+    padding-top:env(safe-area-inset-top,0px);padding-left:env(safe-area-inset-left,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .ps-rail.open{transform:none}
+  .ps-rail-backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s;z-index:25}
+  .ps-rail.open ~ .ps-rail-backdrop{opacity:1;pointer-events:auto}
+  .ps-rail-toggle,.ps-rail-resize{display:none}
+  .ps-topbar-menu{display:grid}
+  .ps-view{padding:16px 14px}
+}
+@media (max-width:520px){
+  .ps-topbar h1{display:none}
+  .ps-topbar{gap:4px;padding:12px 10px}
+  .ps-rpanel{width:100vw;border-left:none}
+
+  /* wide dialogs become a fixed, full-screen sheet so page content can
+     never push them wider than the viewport (JobTracker mobile pattern) */
+  .modal-back{padding:0}
+  .modal,.modal.wide,.modal.full{position:fixed;inset:0;width:auto;max-width:none;
+    height:auto;max-height:none;border-radius:0;transform:none;display:flex;flex-direction:column;
+    padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+  .modal-body{overflow-x:hidden;flex:1;min-width:0}
+  .modal-head,.modal-foot{flex:none}
+  .modal-foot{position:sticky;bottom:0;background:var(--surface)}
+  .modal *{max-width:100%}
+  .field-row{flex-direction:column;gap:0}
+}
+
+/* =========================================================================
+   Widget layer — CSS for the shell's companion modules (whatsnew.js,
+   notifications.js, views.js, settings.js, tour.js, shortcuts.js) plus the
+   sheet's inner regions. Same token vocabulary; loaded with shell.css.
+   ========================================================================= */
+
+/* ---- sheet inner regions (ui.js sheet() — mirrors modal-head/body/foot) --- */
+.sheet-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border);flex:none}
+.sheet-title{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;flex:1;min-width:0}
+.sheet-title span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet-body{padding:20px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.sheet-foot{display:flex;gap:10px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);flex-wrap:wrap;flex:none}
+
+/* ---- What's-New feed (whatsnew.js) ---------------------------------------- */
+.shell-whatsnew{display:flex;flex-direction:column;gap:12px;min-height:0}
+.wn-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.wn-search .input{max-width:100%}
+.wn-kinds{display:flex;gap:6px;flex-wrap:wrap}
+.filter-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;transition:all .12s}
+.filter-chip:hover{border-color:var(--brand);color:var(--text)}
+.filter-chip.on{background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;border-color:transparent}
+.wn-list{display:flex;flex-direction:column;gap:14px;overflow-y:auto;min-height:0}
+.wn-entry{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.wn-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.wn-top h3,.wn-top h4{font-size:14px;flex:1;min-width:0}
+.wn-badge{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--brand-2);background:color-mix(in srgb,var(--brand) 14%,transparent);border-radius:7px;padding:2px 8px}
+.wn-kind{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:999px;padding:2px 8px;background:var(--surface-3);color:var(--text-2)}
+.wn-kind.kind-feature{color:var(--success);background:color-mix(in srgb,var(--success) 14%,transparent)}
+.wn-kind.kind-fix{color:var(--danger);background:color-mix(in srgb,var(--danger) 14%,transparent)}
+.wn-kind.kind-polish{color:var(--info);background:color-mix(in srgb,var(--info) 14%,transparent)}
+.wn-date{margin:2px 0 6px}
+.wn-entry ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px;color:var(--text-2);font-size:13px}
+.empty{padding:26px 10px;text-align:center}
+
+/* ---- notification bell (notifications.js) --------------------------------- */
+.notif-btn{position:relative}
+.nb-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;border-radius:8px;background:var(--danger);color:#fff;
+  font-size:9.5px;font-weight:700;display:grid;place-items:center;padding:0 4px;pointer-events:none}
+.nb-badge[hidden]{display:none}
+.notif-panel{display:flex;flex-direction:column;max-height:min(480px,72vh);width:min(360px,92vw);padding:0}
+.notif-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:13.5px}
+.notif-body{overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:2px}
+.notif-item{display:flex;gap:10px;align-items:flex-start;padding:10px 10px;border-radius:9px;transition:background .12s}
+.notif-item:hover{background:var(--surface-2)}
+.ni-ic{flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--brand-2);background:color-mix(in srgb,var(--brand) 12%,transparent)}
+.notif-item[data-kind="danger"] .ni-ic,.notif-item[data-kind="overdue"] .ni-ic{color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)}
+.notif-item[data-kind="warn"] .ni-ic{color:var(--warning);background:color-mix(in srgb,var(--warning) 14%,transparent)}
+.ni-main{flex:1;min-width:0}
+.ni-title{font-weight:600;font-size:13px}
+.notif-empty{padding:30px 16px;text-align:center;color:var(--text-3);font-size:13px}
+
+/* ---- views system (views.js): pills row, dropdowns, manage dialog --------- */
+.shell-pills,.shell-views{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.filter-count{font-size:10.5px;font-weight:700;background:color-mix(in srgb,currentColor 16%,transparent);border-radius:999px;padding:1px 6px}
+.t-ic{display:inline-flex;align-items:center}
+.filter-pop{position:fixed;z-index:120;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:8px;min-width:210px;max-height:min(380px,60vh);display:flex;flex-direction:column;animation:pop-in .12s ease}
+.fp-group{overflow-y:auto;display:flex;flex-direction:column;gap:1px;padding:2px}
+.fp-row{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;cursor:pointer;font-size:13px}
+.fp-row:hover{background:var(--surface-2)}
+.fp-row input[type="checkbox"]{accent-color:var(--brand)}
+.fp-row .muted{margin-left:auto}
+.fp-ic{display:inline-flex;color:var(--text-2)}
+.fp-foot{display:flex;justify-content:space-between;gap:8px;padding:8px 4px 2px;border-top:1px solid var(--border);margin-top:6px}
+.icon-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:5px;margin-top:4px}
+.icon-opt{display:grid;place-items:center;padding:8px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer}
+.icon-opt:hover{color:var(--text);border-color:var(--brand)}
+.icon-opt.on{color:#fff;background:linear-gradient(135deg,var(--brand),var(--accent));border-color:transparent}
+.col-check{display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;cursor:pointer}
+.mv-row{display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:9px}
+.mv-row:hover{background:var(--surface-2)}
+.mv-ic{display:inline-flex;color:var(--text-2);flex:none}
+.mv-name{flex:1;min-width:0;font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn.star.on{color:var(--warning)}
+
+/* ---- settings framework (settings.js) ------------------------------------- */
+.ps-settings-section{max-width:640px;margin:0 0 30px}
+.ps-settings-section h2{font-size:16px;margin-bottom:4px}
+.ps-settings-blurb{color:var(--text-2);font-size:13px;margin:0 0 14px}
+.ps-toggle{position:relative;width:44px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--surface-3);cursor:pointer;transition:background .15s,border-color .15s;padding:0}
+.ps-toggle .ps-toggle-knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--text-2);transition:transform .18s,background .15s}
+.ps-toggle.on{background:linear-gradient(135deg,var(--brand),var(--accent));border-color:transparent}
+.ps-toggle.on .ps-toggle-knob{transform:translateX(20px);background:#fff}
+.ps-toggle:focus-visible{outline:none;box-shadow:var(--ring)}
+.ps-seg{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface-2)}
+.ps-seg-btn{padding:7px 14px;border:none;background:none;color:var(--text-2);font-size:12.5px;font-weight:600;cursor:pointer;border-right:1px solid var(--border)}
+.ps-seg-btn:last-child{border-right:none}
+.ps-seg-btn.on{background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff}
+
+/* ---- onboarding tour (tour.js) --------------------------------------------- */
+.tour-back{position:fixed;inset:0;z-index:150;background:rgba(6,4,20,.55);backdrop-filter:blur(2px)}
+.tour-pop{position:fixed;z-index:155;width:min(320px,calc(100vw - 24px));background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;animation:pop-in .15s ease}
+.tour-pop h3{font-size:14.5px;margin-bottom:6px}
+.tour-pop p{font-size:13px;color:var(--text-2);margin:0}
+.tour-foot{display:flex;align-items:center;gap:8px;margin-top:14px}
+.tour-dots{display:flex;gap:5px;flex:1}
+.tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--surface-3)}
+.tour-dots i.on{background:var(--brand)}
+
+/* ---- shortcuts cheat sheet (shortcuts.js) ---------------------------------- */
+.shortcuts-list{display:flex;flex-direction:column;gap:2px}
+.sc-group-title{margin:12px 0 4px;text-transform:uppercase;letter-spacing:.07em;font-size:10.5px}
+.sc-group-title:first-child{margin-top:0}
+.sc-row{display:flex;align-items:center;gap:12px;padding:6px 2px}
+.sc-keys{display:flex;gap:4px;min-width:110px}
+.sc-label{font-size:13px;color:var(--text-2)}
