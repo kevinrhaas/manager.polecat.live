@@ -1224,7 +1224,8 @@ try {
   await check('fleet ops panel renders: connect card, roster/dispatch/runs/work cards all settle without errors', async () => {
     if (!(await openSec('fleetops'))) return false;
     if (!(await $('.fo-connect'))) return false;
-    if ((await count('#view .card')) < 4) return false;
+    if ((await count('#view .card')) < 5) return false;
+    if (!(await $('.fo-health'))) return false;
     await page.waitForTimeout(2500);   // async GitHub loads settle (data or .fo-err)
     const stillLoading = await page.evaluate(() =>
       [...document.querySelectorAll('#view .fo-body')].some((b) => /Loading|Scanning/.test(b.textContent)));

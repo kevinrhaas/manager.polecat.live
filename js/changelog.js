@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 62,
+    title: 'Fleet Ops shows the safety nets — janitor, sweeps, and per-PR checks',
+    kind: 'feature',
+    ts: '2026-07-15T22:13:02.579Z',
+    items: [
+      'A new Fleet safety nets strip answers “is the fleet shipping itself?” at a glance: the janitor (which re-tests and merges green steward PRs every 2 hours) and the daily UX and Tech sweeps each show their last outcome, when it ran, and a link to the logs — a silently-failing safety net is now visible from Manager, not just the Actions tab.',
+      'Every open steward PR in the fleet-work list (and each project’s Steward card feed) now carries a live check dot: green means the janitor will merge it on its next pass, red means it failed and was parked with a comment, pulsing means checks are still running.',
+    ],
+  },
+  {
     v: 61,
     title: 'Fleet Ops follows steward runs live, labeled by app',
     kind: 'polish',

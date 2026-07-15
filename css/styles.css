@@ -838,6 +838,8 @@ a.link:hover{text-decoration:underline}
 .fo-work-ic{display:inline-flex;color:var(--text-3);flex:0 0 auto}
 .fo-work-ic svg{width:14px;height:14px}
 .fo-repo-group{padding:6px 0}
+.fo-health .fo-run-name{flex:0 0 auto}
+.fo-health-sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .fo-repo-name{color:var(--text-3);margin-bottom:2px}
 @media (max-width:900px){ .fo-grid{grid-template-columns:1fr} }
 
