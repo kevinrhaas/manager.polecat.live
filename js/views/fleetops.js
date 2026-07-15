@@ -168,10 +168,13 @@ function dispatchCard(){
 
 // ---- recent steward runs -----------------------------------------------------
 const RUN_DOT = { success: 'ok', failure: 'err', cancelled: 'muted', startup_failure: 'err' };
+const RUNS_POLL_MS = 30000;
 function runsCard(){
   const card = el('div', { class: 'card', style: 'margin-top:16px' });
   const head = el('div', { class: 'section-title', style: 'margin-top:0' });
-  head.innerHTML = `<h2 style="font-size:13px">Recent steward runs</h2><span class="sp"></span>`;
+  head.innerHTML = `<h2 style="font-size:13px">Recent steward runs</h2>`;
+  const live = el('span', { class: 'tiny muted fo-live', hidden: true, html: `<span class="fo-dot live"></span> live` });
+  head.append(live, el('span', { class: 'sp' }));
   const refresh = el('button', { class: 'btn ghost icon sm', title: 'Refresh runs', 'aria-label': 'Refresh runs', html: icon('refresh'), onclick: () => load() });
   head.append(refresh);
   const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loading runs…</span>` });
@@ -185,9 +188,13 @@ function runsCard(){
       runs.slice(0, 12).forEach(r => {
         const state = r.status !== 'completed' ? r.status.replace('_', ' ') : (r.conclusion || 'done');
         const dot = r.status !== 'completed' ? 'live' : (RUN_DOT[r.conclusion] || 'muted');
+        // run-name (display_title) carries the target app — "Steward improve
+        // — manager.polecat.live" — fall back to the workflow name for runs
+        // from before the platform annotated them.
+        const title = r.display_title && r.display_title !== r.name ? r.display_title : r.name;
         const row = el('a', { class: 'fo-run-row', href: r.html_url, target: '_blank', rel: 'noopener' });
         row.innerHTML = `<span class="fo-dot ${dot}"></span>
-          <span class="fo-run-name">${escapeHtml(r.name)}</span>
+          <span class="fo-run-name">${escapeHtml(title)}</span>
           <span class="tiny muted">${escapeHtml(r.event)}</span>
           <span class="sp"></span>
           <span class="tiny ${dot === 'err' ? 'fo-warn' : 'muted'}">${escapeHtml(state)}</span>
@@ -197,6 +204,18 @@ function runsCard(){
     }catch(e){ body.innerHTML = `<span class="fo-err tiny">${icon('warning')} ${escapeHtml(e.message)}</span>`; }
   };
   load();
+
+  // Live-follow while the panel is on screen: poll every 30s, but only with a
+  // token connected (unauthenticated rate limit is ~60/h — polling would eat
+  // it), only while the tab is visible, and stop for good once the card
+  // leaves the DOM (navigation re-renders the view).
+  const timer = setInterval(() => {
+    if(!body.isConnected){ clearInterval(timer); return; }
+    const on = !!ghToken() && !document.hidden;
+    live.hidden = !on;
+    if(on) load();
+  }, RUNS_POLL_MS);
+  live.hidden = !ghToken();
   return card;
 }
 

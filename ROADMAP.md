@@ -26,10 +26,11 @@ with new, ambitious, fun ideas.
       toggles the platform's focus roster and dispatches/observes steward runs
       through the GitHub API using a credential from the vault, with recent-run
       history, open steward PRs, and sweep findings fleet-wide + on each
-      project page. Follow-ons: live auto-refresh of the runs list while the
-      panel is open; roster edits via PR (instead of direct data commit) if the
-      platform ever asks for it; per-run app attribution once the steward
-      workflow exposes its picked app as a run annotation.
+      project page. Follow-ons shipped 2026-07-15: live auto-refresh of the
+      runs list (token-gated, visibility-aware) and per-run app attribution
+      (the platform steward now titles runs with their target app). Still
+      queued: roster edits via PR (instead of direct data commit) if the
+      platform ever asks for it.
 
 - [ ] Polecat Shell follow-ups (migrated 2026-07-15 — the app frame, theme,
       icons and What's-New now come from `vendor/polecat-shell/`, READ-ONLY):
