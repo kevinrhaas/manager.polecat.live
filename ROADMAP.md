@@ -42,9 +42,10 @@ with new, ambitious, fun ideas.
       (a) adopt the shell's modal/confirmDialog/toast signatures when shell v2
       lands and delete Manager's local trio in `js/ui.js`; (b) consider the
       shell settings framework (`defineSettings`) for the Settings view;
-      (c) upstream to the platform repo: `:focus-visible` rings for
-      `.ps-rail-brand`/`.ps-rail-toggle` (Manager skins them locally today) and
-      a badge `tone` option on `setBadge`.
+      (c) DONE 2026-07-15 (shell v0.2.0 vendored): `:focus-visible` rings for
+      `.ps-rail-brand`/`.ps-rail-toggle` and a badge `tone` option on
+      `setBadge` — both upstreamed to the platform and Manager's local
+      compensations deleted.
 
 - [ ] Data sources (see Done, 2026-07-08) — the follow-on queue, roughly in
       value order: (a) **validate the live remote adapters** end to end against
