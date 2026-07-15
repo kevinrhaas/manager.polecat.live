@@ -801,6 +801,44 @@ a.link:hover{text-decoration:underline}
 .rec-milestone .rec-foot{display:flex;gap:8px;flex-wrap:wrap}
 .rec-detail{margin:10px 0 4px}
 
+/* ---- fleet ops (steward console) ---------------------------------------- */
+.fo-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.fo-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.fo-status{display:flex;align-items:center;gap:6px;margin-top:10px;min-height:18px}
+.fo-status svg{width:14px;height:14px}
+.fo-ok{color:var(--success)}
+.fo-warn{color:var(--warning);display:inline-flex;align-items:center;gap:5px}
+.fo-warn svg{width:13px;height:13px}
+.fo-err{color:var(--danger);display:inline-flex;align-items:center;gap:6px}
+.fo-err svg{width:14px;height:14px;flex:0 0 auto}
+.fo-body{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fo-app-row{display:flex;align-items:center;gap:10px;min-width:0;padding:4px 0}
+.fo-app-name{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fo-cad{width:auto;max-width:110px;padding:5px 26px 5px 9px;font-size:12px;flex:0 0 auto}
+.fo-toggle{position:relative;width:38px;height:21px;flex:0 0 auto;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface-3);cursor:pointer;padding:0;transition:background .15s,border-color .15s}
+.fo-toggle .fo-knob{position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+  background:var(--text-2);transition:transform .18s,background .15s}
+.fo-toggle.on{background:linear-gradient(135deg,var(--brand-b),var(--brand-a));border-color:transparent}
+.fo-toggle.on .fo-knob{transform:translateX(17px);background:#05121a}
+.fo-toggle:focus-visible{outline:none;box-shadow:var(--ring)}
+.fo-run-row{display:flex;align-items:center;gap:9px;min-width:0;padding:7px 9px;border-radius:9px;
+  color:var(--text);text-decoration:none;border:1px solid transparent;transition:background .12s,border-color .12s}
+.fo-run-row:hover{background:var(--surface-2);border-color:var(--border)}
+.fo-run-row:focus-visible{outline:none;box-shadow:var(--ring)}
+.fo-run-name{font-size:12.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fo-when{flex:0 0 auto}
+.fo-dot{width:9px;height:9px;flex:0 0 auto;border-radius:50%}
+.fo-dot.ok{background:var(--success)}
+.fo-dot.err{background:var(--danger)}
+.fo-dot.muted{background:var(--text-3)}
+.fo-dot.live{background:var(--brand-b);animation:src-pulse 1s ease-in-out infinite}
+.fo-work-ic{display:inline-flex;color:var(--text-3);flex:0 0 auto}
+.fo-work-ic svg{width:14px;height:14px}
+.fo-repo-group{padding:6px 0}
+.fo-repo-name{color:var(--text-3);margin-bottom:2px}
+@media (max-width:900px){ .fo-grid{grid-template-columns:1fr} }
+
 /* ---- what's new ---------------------------------------------------------
    The feed itself renders in the shell's right panel with the shell's wn-*
    styles (vendor/polecat-shell/shell.css); only Manager extras live here. */

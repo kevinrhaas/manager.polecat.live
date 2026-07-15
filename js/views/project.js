@@ -1,4 +1,5 @@
 // Project detail — the full what's-new timeline + health panel + links.
+import { projectStewardCard } from './fleetops.js';
 import { Store, STATUSES, healthBand, statusPill, DEFAULT_HEALTH_WEIGHTS, DEFAULT_ATTENTION_THRESHOLDS, DEFAULT_AUTO_SYNC_BACKOFF_CAP } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline, debounce, mdToHtml } from '../ui.js';
 import { icon } from '../icons.js';
@@ -109,6 +110,9 @@ export function renderProject(root, ctx, params){
     fieldEntries.forEach(([k,v])=>{ const r=el('div',{class:'row'}); r.innerHTML=`<span class="k">${escapeHtml(k)}</span><span class="v">${v}</span>`; meta.append(r); });
     side.append(meta);
   }
+  // steward at a glance — this repo's open steward PRs + sweep findings
+  const steward=projectStewardCard(p);
+  if(steward) side.append(steward);
   grid.append(side);
   wrap.append(grid);
   wrap.append(notesSection(p, ctx));
