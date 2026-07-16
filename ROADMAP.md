@@ -35,7 +35,10 @@ with new, ambitious, fun ideas.
       steward PRs. Also shipped 2026-07-15: red steward PRs + open sweep
       findings now feed the Needs-attention pipeline (bell, rail badge,
       dashboard chips, signature-scoped dismissals) via an in-memory
-      steward-signals overlay (js/steward-signals.js).
+      steward-signals overlay (js/steward-signals.js). Shipped 2026-07-16:
+      full lane scheduling (cadence + offset/"runs at" + window + start/until,
+      next-run previews) — js/schedule.js mirrors the platform's canonical
+      evaluator; keep the two in sync.
 
 - [ ] Polecat Shell follow-ups (migrated 2026-07-15 — the app frame, theme,
       icons and What's-New now come from `vendor/polecat-shell/`, READ-ONLY):

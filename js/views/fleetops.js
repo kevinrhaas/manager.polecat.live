@@ -12,6 +12,8 @@
 // error/empty states — no call here may crash the view or log to console.
 import { Store } from '../store.js';
 import { el, escapeHtml, toast, ago, confirmDialog } from '../ui.js';
+import { fmtCT } from '../ui.js';
+import { nextRunAt, isoToLocalInput, localInputToIso, utcHourLabel } from '../schedule.js';
 import { icon } from '../icons.js';
 import {
   whoami, ghCred, ghToken, fleetOpsCfg, setFleetOpsCfg,
@@ -75,17 +77,91 @@ function connectCard(ctx){
   return card;
 }
 
-// ---- focus roster: toggle per-app hourly lanes ------------------------------
+// ---- focus roster: full schedule control per lane ---------------------------
+// Each lane carries the platform's schedule fields (see js/schedule.js and
+// the canonical evaluator in polecat-platform): cadence, offset ("runs at"),
+// an active hour window, a start moment, and an expiry ("run every X until
+// Y"). The tick is hourly at :03 UTC — that's the scheduling granularity.
+function laneNextLabel(a){
+  if(!a.enabled) return 'off';
+  const n = nextRunAt(a);
+  if(!n) return a.until && new Date(a.until) <= new Date() ? 'ended' : 'never';
+  return `next ${fmtCT(n.getTime())}`;
+}
 function rosterCard(){
   const card = el('div', { class: 'card fo-roster' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Focus roster</h2>
     <span class="sp"></span></div>
-    <p class="tiny muted" style="margin:0 0 10px">Hourly per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform). Flips commit straight to main — the roster is data, and the hourly tick picks changes up automatically.</p>`;
+    <p class="tiny muted" style="margin:0 0 10px">Per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform; ticks hourly at :03 UTC). Set cadence, align which hours it lands on, fence it to a time window, or give it a start/stop — then commit; the next tick picks it up.</p>`;
   const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loading roster…</span>` });
   card.append(body);
 
   let state = null;   // { roster, sha }
   let dirty = false;
+  const openEditors = new Set();
+
+  const touch = () => { dirty = true; save.disabled = false; };
+
+  const laneEditor = (name, a, refreshRow) => {
+    const ed = el('div', { class: 'fo-lane-editor' });
+    const row = (label, control) => {
+      const r = el('div', { class: 'fo-ed-row' });
+      r.append(el('label', { class: 'tiny muted', text: label }), control);
+      return r;
+    };
+    const every = Math.max(1, a.everyHours || 1);
+
+    // Align: which hours the cadence lands on — meaningless when hourly.
+    if(every > 1){
+      const align = el('select', { class: 'input fo-cad', 'aria-label': `Align ${name} runs` });
+      for(let h = 0; h < every && h < 24; h++){
+        const hours = [];
+        for(let x = h; x < 24; x += every) hours.push(utcHourLabel(x));
+        const cur = ((a.offset || 0) % every + every) % every;
+        align.append(el('option', { value: h, text: hours.join(', '), selected: cur === h }));
+      }
+      align.addEventListener('change', () => { a.offset = parseInt(align.value, 10); touch(); refreshRow(); });
+      ed.append(row('Runs at', align));
+    }
+
+    // Active window (local labels, UTC values). '' = all day.
+    const winWrap = el('div', { class: 'fo-row', style: 'gap:6px' });
+    const winSel = (which) => {
+      const s = el('select', { class: 'input fo-cad', 'aria-label': `Window ${which} for ${name}` });
+      s.append(el('option', { value: '', text: which === 0 ? 'all day' : '—' }));
+      for(let h = 0; h < 24; h++) s.append(el('option', { value: h, text: utcHourLabel(h),
+        selected: Array.isArray(a.window) && a.window[which] === h }));
+      return s;
+    };
+    const winFrom = winSel(0), winTo = winSel(1);
+    const applyWindow = () => {
+      if(winFrom.value === '' || winTo.value === '' || winFrom.value === winTo.value) delete a.window;
+      else a.window = [parseInt(winFrom.value, 10), parseInt(winTo.value, 10)];
+      touch(); refreshRow();
+    };
+    winFrom.addEventListener('change', applyWindow); winTo.addEventListener('change', applyWindow);
+    winWrap.append(winFrom, el('span', { class: 'tiny muted', text: 'to' }), winTo);
+    ed.append(row('Only between', winWrap));
+
+    // Start / stop moments ("run every X until Y").
+    const dtRow = (label, key) => {
+      const inp = el('input', { type: 'datetime-local', class: 'input fo-dt', value: isoToLocalInput(a[key]),
+        'aria-label': `${label} for ${name}` });
+      const clr = el('button', { class: 'btn ghost icon sm', title: `Clear ${label.toLowerCase()}`,
+        'aria-label': `Clear ${label.toLowerCase()}`, html: icon('x'),
+        onclick: () => { inp.value = ''; delete a[key]; touch(); refreshRow(); } });
+      inp.addEventListener('change', () => {
+        const iso = localInputToIso(inp.value);
+        if(iso) a[key] = iso; else delete a[key];
+        touch(); refreshRow();
+      });
+      const wrap = el('div', { class: 'fo-row', style: 'gap:6px' }, [inp, clr]);
+      ed.append(row(label, wrap));
+    };
+    dtRow('Start at', 'startAt');
+    dtRow('Run until', 'until');
+    return ed;
+  };
 
   const render = () => {
     body.innerHTML = '';
@@ -93,17 +169,28 @@ function rosterCard(){
     Object.keys(apps).forEach(name => {
       const a = apps[name];
       const r = el('div', { class: 'fo-app-row' });
+      const nextEl = el('span', { class: 'tiny muted fo-next', text: laneNextLabel(a) });
+      const refreshRow = () => { nextEl.textContent = laneNextLabel(a); };
       const tog = el('button', {
         class: 'fo-toggle' + (a.enabled ? ' on' : ''), role: 'switch', 'aria-checked': String(!!a.enabled),
         'aria-label': `Focus lane for ${name}`,
-        onclick: () => { a.enabled = !a.enabled; dirty = true; render(); },
+        onclick: () => { a.enabled = !a.enabled; touch(); render(); },
       }, el('span', { class: 'fo-knob' }));
       const cad = el('select', { class: 'input fo-cad', 'aria-label': `Cadence for ${name}` });
       [[1, 'hourly'], [2, 'every 2h'], [3, 'every 3h'], [6, 'every 6h'], [12, 'every 12h'], [24, 'daily']]
         .forEach(([h, t]) => cad.append(el('option', { value: h, text: t, selected: (a.everyHours || 1) === h })));
-      cad.addEventListener('change', () => { a.everyHours = parseInt(cad.value, 10); dirty = true; save.disabled = false; });
-      r.append(tog, el('span', { class: 'fo-app-name mono', text: name }), el('span', { class: 'sp' }), cad);
+      cad.addEventListener('change', () => {
+        a.everyHours = parseInt(cad.value, 10);
+        if(a.offset != null) a.offset = a.offset % Math.max(1, a.everyHours);
+        touch(); render();   // re-render: the align options depend on cadence
+      });
+      const gear = el('button', { class: 'btn ghost icon sm fo-gear' + (openEditors.has(name) ? ' on' : ''),
+        title: 'Schedule details', 'aria-label': `Schedule details for ${name}`, 'aria-expanded': String(openEditors.has(name)),
+        html: icon('sliders'),
+        onclick: () => { openEditors.has(name) ? openEditors.delete(name) : openEditors.add(name); render(); } });
+      r.append(tog, el('span', { class: 'fo-app-name mono', text: name }), nextEl, el('span', { class: 'sp' }), cad, gear);
       body.append(r);
+      if(openEditors.has(name)) body.append(laneEditor(name, a, refreshRow));
     });
     body.append(saveRow);
     save.disabled = !dirty;
@@ -116,6 +203,13 @@ function rosterCard(){
       'All lanes will be paused.', okText: 'Commit to main' });
     if(!ok) return;
     save.disabled = true;
+    // keep the roster file tidy: drop schedule fields at their defaults
+    Object.values(state.roster.apps || {}).forEach(a => {
+      if(!a.offset) delete a.offset;
+      if(!a.startAt) delete a.startAt;
+      if(!a.until) delete a.until;
+      if(!Array.isArray(a.window) || a.window.length !== 2) delete a.window;
+    });
     try{
       const res = await putRoster(state.roster, state.sha, `fleet-ops: roster update via Manager (${on.length} lane${on.length === 1 ? '' : 's'} on)`);
       state.sha = res.content?.sha || state.sha;
