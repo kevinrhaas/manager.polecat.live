@@ -77,7 +77,7 @@ function openSaveViewPrompt(s, ctx){
     ctx.refresh();
   }});
   input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); save.click(); } });
-  const {hide}=modal({ title:'Save current view', icon:'star', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
+  const {hide}=modal({ title:'Save current view', icon:icon('star'), body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
   setTimeout(()=>input.focus(),50);
 }
 
@@ -98,7 +98,7 @@ function openReorderSavedViews(ctx){
   wireDragReorder(list, '.field-row', '.field-row-grip', (ids)=>{
     if(Store.reorderSavedViews(ids)){ toast('Saved-view order updated',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); render(); }
   });
-  const {hide}=modal({ title:'Reorder saved views', icon:'sliders', body:list,
+  const {hide}=modal({ title:'Reorder saved views', icon:icon('sliders'), body:list,
     foot:[el('button',{class:'btn primary', text:'Done', onclick:()=>{ hide(); ctx.refresh(); }})] });
 }
 
@@ -380,7 +380,7 @@ function openBulkTagPrompt(ctx, ids){
     ctx.refresh();
   }});
   input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); add.click(); } });
-  const {hide}=modal({ title:'Add tag', icon:'tag', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), add] });
+  const {hide}=modal({ title:'Add tag', icon:icon('tag'), body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), add] });
   setTimeout(()=>input.focus(),50);
 }
 
@@ -404,7 +404,7 @@ function openBulkRemoveTagPrompt(ctx, ids){
     toast(n?`Removed "${t}" from ${n===1?'1 project':n+' projects'}`:'Already gone',{kind:n?'ok':'info', action:n?{label:'Undo', fn:()=>Store.undo()}:undefined});
     ctx.refresh();
   }});
-  const {hide}=modal({ title:'Remove tag', icon:'tag', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), remove] });
+  const {hide}=modal({ title:'Remove tag', icon:icon('tag'), body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), remove] });
 }
 
 // Bulk delete needs its own explicit confirm — unlike tag/status/archive
@@ -413,11 +413,7 @@ function openBulkRemoveTagPrompt(ctx, ids){
 // single project's Delete button, just scoped to the whole selection.
 async function openBulkDeleteConfirm(ctx, ids){
   const names = ids.map(id=>Store.project(id)?.name).filter(Boolean);
-  const ok = await confirmDialog(
-    `Delete ${ids.length} project${ids.length===1?'':'s'}`,
-    `Remove ${names.slice(0,3).map(n=>`"${n}"`).join(', ')}${names.length>3?`, and ${names.length-3} more`:''} and their releases from Manager? You can undo this.`,
-    { danger:true, okLabel:'Delete' }
-  );
+  const ok = await confirmDialog({ title:`Delete ${ids.length} project${ids.length===1?'':'s'}`, message:`Remove ${names.slice(0,3).map(n=>`"${n}"`).join(', ')}${names.length>3?`, and ${names.length-3} more`:''} and their releases from Manager? You can undo this.`, danger:true, okText:'Delete' });
   if(!ok) return;
   selected.clear();
   const n=Store.bulkRemove('projects', ids);
@@ -688,11 +684,11 @@ export function openProjectEditor(id, ctx){
   }});
   const foot=[ el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}) ];
   if(!isNew) foot.unshift(el('button',{class:'btn danger', html:`${icon('trash')} Delete`, onclick:async()=>{
-    if(await confirmDialog('Delete project', `Remove "${v.name}" and its releases from Manager? You can undo this.`, {danger:true, okLabel:'Delete'})){
+    if(await confirmDialog({ title:'Delete project', message:`Remove "${v.name}" and its releases from Manager? You can undo this.`, danger:true, okText:'Delete' })){
       Store.remove('projects', id); hide(); toast('Project deleted',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); ctx.go('projects');
     }
   }}));
   foot.push(save);
-  const {hide}=modal({ title:isNew?'Add project':'Edit project', icon:isNew?'plus':'edit', body, foot, wide:true });
+  const {hide}=modal({ title:isNew?'Add project':'Edit project', icon:icon(isNew?'plus':'edit'), body, foot, wide:true });
   setTimeout(()=>name.focus(),50);
 }

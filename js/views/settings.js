@@ -200,7 +200,7 @@ export function renderSettings(root, ctx){
   dataBtns.append(el('button',{class:'btn sm', html:`${icon('undo')} Undo last change`, onclick:()=>{ if(Store.canUndo()){ const o=Store.undo(); toast('Undone: '+(o?.label||''),{kind:'ok'}); ctx.render&&ctx.render(); } else toast('Nothing to undo',{kind:'info'}); }}));
   const deletedCount=Store.recentlyDeletedProjects().length;
   dataBtns.append(el('button',{class:'btn sm', html:`${icon('trash')} Recently deleted${deletedCount?` (${deletedCount})`:''}`, onclick:()=>openRecentlyDeleted(ctx)}));
-  dataBtns.append(el('button',{class:'btn sm danger', html:`${icon('trash')} Reset workspace`, onclick:async()=>{ if(await confirmDialog('Reset workspace','This wipes your local Manager data and restores the seeded fleet. This cannot be undone.',{danger:true,okLabel:'Reset'})){ Store.reset(); toast('Workspace reset',{kind:'ok'}); ctx.go('home'); } }}));
+  dataBtns.append(el('button',{class:'btn sm danger', html:`${icon('trash')} Reset workspace`, onclick:async()=>{ if(await confirmDialog({ title:'Reset workspace', message:'This wipes your local Manager data and restores the seeded fleet. This cannot be undone.', danger:true,okText:'Reset' })){ Store.reset(); toast('Workspace reset',{kind:'ok'}); ctx.go('home'); } }}));
   data.append(dataBtns);
   wrap.append(data);
 
@@ -257,7 +257,7 @@ function fieldDefRow(d, onChange, index, total){
   actions.append(el('button',{class:'btn ghost icon sm', title:'Move down', 'aria-label':`Move ${d.label} down`, html:icon('chevronDown'), disabled: index===total-1, onclick:()=>moveFieldDef(d.id, 1, onChange)}));
   actions.append(el('button',{class:'btn ghost icon sm', title:'Edit', 'aria-label':'Edit field', html:icon('edit'), onclick:()=>editFieldDef(d.id, onChange)}));
   actions.append(el('button',{class:'btn ghost icon sm', title:'Remove', 'aria-label':'Remove field', html:icon('trash'), onclick:async()=>{
-    if(await confirmDialog('Remove field', `Remove "${d.label}" from the schema? Existing values stay on projects, but the field won’t appear in the editor, filters, or sort unless you re-add it.`, {danger:true, okLabel:'Remove'})){
+    if(await confirmDialog({ title:'Remove field', message:`Remove "${d.label}" from the schema? Existing values stay on projects, but the field won’t appear in the editor, filters, or sort unless you re-add it.`, danger:true, okText:'Remove' })){
       Store.removeFieldDef(d.id); toast('Field removed',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); onChange();
     }
   }}));
@@ -314,7 +314,7 @@ export function editFieldDef(id, onChange, extra={}){
       hide(); toast(isNew?'Field added':'Field saved',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); onChange&&onChange(); extra.onAdded&&extra.onAdded(saved);
     }catch(e){ toast('Couldn’t save field',{body:e.message, kind:'err'}); }
   }});
-  const {hide}=modal({ title:extra.title || (isNew?'Add custom field':'Edit custom field'), icon:'sliders', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
+  const {hide}=modal({ title:extra.title || (isNew?'Add custom field':'Edit custom field'), icon:icon('sliders'), body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
   setTimeout(()=>label.focus(),50);
 }
 
@@ -358,7 +358,7 @@ function openRenameTag(tag, onChange){
     onChange();
   }});
   input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); save.click(); } });
-  const {hide}=modal({ title:'Rename tag', icon:'tag', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
+  const {hide}=modal({ title:'Rename tag', icon:icon('tag'), body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
   setTimeout(()=>{ input.focus(); input.select(); },50);
 }
 
@@ -396,7 +396,7 @@ function openRecentlyDeleted(ctx){
     });
     body.append(wrap);
   }
-  const {hide}=modal({ title:'Recently deleted', icon:'trash', body });
+  const {hide}=modal({ title:'Recently deleted', icon:icon('trash'), body });
 }
 
 // ---- data helpers --------------------------------------------------------
@@ -420,7 +420,7 @@ export function importJSON(ctx){
       const summary=`This file has ${counts.projects} project${counts.projects===1?'':'s'}, `
         +`${counts.releases} release${counts.releases===1?'':'s'}, and ${counts.credentials} credential${counts.credentials===1?'':'s'}. `
         +`Importing replaces everything in this browser's Manager workspace right now — export a backup first if you want to keep it.`;
-      const go=await confirmDialog('Import workspace', summary, {danger:true, okLabel:'Import & replace'});
+      const go=await confirmDialog({ title:'Import workspace', message:summary, danger:true, okText:'Import & replace' });
       if(!go) return;
       try{ Store.importJSON(text); toast('Workspace imported',{kind:'ok'}); ctx.go('home'); }
       catch(e){ toast('Import failed',{body:e.message,kind:'err'}); }
@@ -564,7 +564,7 @@ export function mergeImportFile(ctx){
       const ok=el('button',{class:'btn primary', text:'Merge in', disabled: !totalAdd});
       const cancel=el('button',{class:'btn', text:'Cancel'});
       const go=await new Promise(res=>{
-        const {hide}=modal({ title:'Merge workspace', icon:'layers', body, foot:[cancel, ok] });
+        const {hide}=modal({ title:'Merge workspace', icon:icon('layers'), body, foot:[cancel, ok] });
         ok.onclick=()=>{hide();res(true)}; cancel.onclick=()=>{hide();res(false)};
       });
       if(!go) return;

@@ -39,8 +39,9 @@ with new, ambitious, fun ideas.
 
 - [ ] Polecat Shell follow-ups (migrated 2026-07-15 — the app frame, theme,
       icons and What's-New now come from `vendor/polecat-shell/`, READ-ONLY):
-      (a) adopt the shell's modal/confirmDialog/toast signatures when shell v2
-      lands and delete Manager's local trio in `js/ui.js`; (b) consider the
+      (a) DONE 2026-07-16 (shell v0.3.0): Manager's modal/confirmDialog/toast
+      deleted; every call site uses the shell trio (toast action + HTML bodies
+      were upstreamed first); (b) consider the
       shell settings framework (`defineSettings`) for the Settings view;
       (c) DONE 2026-07-15 (shell v0.2.0 vendored): `:focus-visible` rings for
       `.ps-rail-brand`/`.ps-rail-toggle` and a badge `tone` option on

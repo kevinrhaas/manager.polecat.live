@@ -189,7 +189,7 @@ export function openDismissedModal(ctx){
     });
   }
   const closeBtn=el('button',{class:'btn primary', text:'Close', onclick:()=>hide()});
-  const {hide}=modal({ title:'Dismissed notifications', icon:'eyeOff', body, foot:[closeBtn] });
+  const {hide}=modal({ title:'Dismissed notifications', icon:icon('eyeOff'), body, foot:[closeBtn] });
 }
 
 function sectionTitle(text, ic, extra){
@@ -284,7 +284,7 @@ export function openSyncAll(ctx){
   body.append(summary);
 
   const closeBtn=el('button',{class:'btn primary', text:targets.length?'Close':'OK', onclick:()=>hide()});
-  const {hide}=modal({ title:'Sync all changelogs', icon:'refresh', body, foot:[closeBtn] });
+  const {hide}=modal({ title:'Sync all changelogs', icon:icon('refresh'), body, foot:[closeBtn] });
   if(!targets.length) return;
 
   (async()=>{
@@ -332,7 +332,7 @@ async function openForceSyncAll(ctx){
   const targets=all.filter(p=>p.changelogUrl||p.site);
   if(!targets.length){ toast('Nothing to force sync', {kind:'info', body:'Add a site or changelog URL to a project first.'}); return; }
 
-  const proceed=await confirmDialog('Force sync all', `This fully reconciles ${targets.length} project${targets.length===1?'':'s'} to its source — any local edits to a matching version are overwritten, and previously-synced releases no longer published upstream are removed. Releases added by hand are left alone.`, {danger:true, okLabel:'Force sync all'});
+  const proceed=await confirmDialog({ title:'Force sync all', message:`This fully reconciles ${targets.length} project${targets.length===1?'':'s'} to its source — any local edits to a matching version are overwritten, and previously-synced releases no longer published upstream are removed. Releases added by hand are left alone.`, danger:true, okText:'Force sync all' });
   if(!proceed) return;
 
   const body=el('div');
@@ -351,7 +351,7 @@ async function openForceSyncAll(ctx){
   body.append(summary);
 
   const closeBtn=el('button',{class:'btn primary', text:'Close', onclick:()=>hide()});
-  const {hide}=modal({ title:'Force sync all', icon:'bolt', body, foot:[closeBtn] });
+  const {hide}=modal({ title:'Force sync all', icon:icon('bolt'), body, foot:[closeBtn] });
 
   let added=0, updated=0, removed=0, ok=0, failed=0;
   for(const p of targets){

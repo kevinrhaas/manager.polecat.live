@@ -92,11 +92,11 @@ function inviteRow(inv, root, ctx){
   btns.append(el('button',{class:'btn sm', html:`${icon('copy')} Copy link`, onclick:()=>navigator.clipboard?.writeText(inv.link).then(()=>toast('Invite link copied',{kind:'ok'}))}));
   if(inv.jti && !revoked){
     btns.append(el('button',{class:'btn sm danger', html:`${icon('shield')} Revoke`, onclick:async()=>{
-      if(await confirmDialog('Revoke invite','Blocks this invite instantly on this device. To block it everywhere, copy the blocklist into js/revoked.js and redeploy.',{danger:true,okLabel:'Revoke'})){
+      if(await confirmDialog({ title:'Revoke invite', message:'Blocks this invite instantly on this device. To block it everywhere, copy the blocklist into js/revoked.js and redeploy.', danger:true,okText:'Revoke' })){
         Access.revoke(inv.jti); toast('Invite revoked',{kind:'ok'}); renderAdmin(root,ctx); } }}));
   }
   btns.append(el('button',{class:'btn ghost icon sm', html:icon('trash'), title:'Remove from list', 'aria-label':'Remove from list', onclick:async()=>{
-    if(await confirmDialog('Remove invite','This only removes it from your local list; the link keeps working unless revoked or expired.',{danger:true,okLabel:'Remove'})){
+    if(await confirmDialog({ title:'Remove invite', message:'This only removes it from your local list; the link keeps working unless revoked or expired.', danger:true,okText:'Remove' })){
       Access.forget(inv.iat); renderAdmin(root,ctx); } }}));
   c.append(btns);
   return c;

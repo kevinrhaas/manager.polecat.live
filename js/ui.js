@@ -1,17 +1,15 @@
-// Stateless DOM + UX helpers (toasts, modals, formatting).
+// Stateless DOM + UX helpers.
 //
-// Migrated onto the vendored Polecat Shell: the primitives that are
-// behavior-identical ($, el, escapeHtml, uuid) re-export from
-// vendor/polecat-shell/ui.js — one fleet implementation, not eight. What
-// stays app-local is Manager-specific: helpers the shell doesn't ship
-// (trapFocus, mdToHtml, sparkline, drag-reorder…), Manager's brand-arc
-// avatarColor, debounce with the autosave-tuned 700ms default, and the
-// toast/modal/confirmDialog trio, which every view calls with Manager's
-// historical signatures (candidates for shell v2 adoption).
-import { icon } from './icons.js';
-
+// Migrated onto the vendored Polecat Shell: the DOM primitives ($, el,
+// escapeHtml, uuid) AND — since shell v0.3.0 — the whole dialog trio
+// (toast/modal/confirmDialog, plus sheet/promptDialog) re-export from
+// vendor/polecat-shell/ui.js: one fleet implementation, not eight. What
+// stays app-local is genuinely Manager-specific: helpers the shell doesn't
+// ship (trapFocus for the palette/popovers, mdToHtml, sparkline,
+// drag-reorder…), Manager's brand-arc avatarColor, and debounce with the
+// autosave-tuned 700ms default.
 export { $, el, escapeHtml, uuid } from '../vendor/polecat-shell/ui.js';
-import { $, el, escapeHtml, uuid } from '../vendor/polecat-shell/ui.js';
+import { escapeHtml } from '../vendor/polecat-shell/ui.js';
 
 // A non-button element (card, tile, table row) that acts like a button —
 // wires it up for keyboard users: focusable, announced as a button, and
@@ -157,56 +155,15 @@ export function mdToHtml(src){
   return out.join('\n');
 }
 
-// ---- toasts ------------------------------------------------------------
-export function toast(title, {body='', kind='info', ms=3800, action}={}){
-  const host = $('#toasts') || document.body.appendChild(el('div',{id:'toasts'}));
-  const ic = {ok:'check',err:'x',info:'info',warn:'info'}[kind]||'info';
-  const t = el('div',{class:`toast ${kind}`, html:
-    `<span class="ic">${icon(ic)}</span><div style="flex:1"><b>${escapeHtml(title)}</b>${body?`<p>${escapeHtml(body)}</p>`:''}</div>`});
-  const kill=()=>{clearTimeout(to);t.classList.remove('show');setTimeout(()=>t.remove(),320)};
-  if(action){
-    const a=el('div',{class:'undo', text:action.label||'Undo', onclick:(e)=>{ e.stopPropagation(); action.fn(); kill(); }});
-    t.querySelector('div').append(a);
-  }
-  host.append(t);
-  requestAnimationFrame(()=>t.classList.add('show'));
-  const to=setTimeout(kill,ms);
-  t.addEventListener('click',kill);
-  return kill;
-}
-
-// ---- modal -------------------------------------------------------------
-export function modal({title='', body, foot, wide=false, icon:ic}={}){
-  const overlay = el('div',{class:'overlay'});
-  const titleId = 'modal-title-'+uuid();
-  const m = el('div',{class:'modal'+(wide?' wide':''), role:'dialog', 'aria-modal':'true', 'aria-labelledby':titleId});
-  const head = el('div',{class:'modal-head', html:
-    `${ic?`<span style="color:var(--brand-b)">${icon(ic)}</span>`:''}<h3 id="${titleId}">${escapeHtml(title)}</h3>`});
-  const close = el('button',{class:'btn ghost icon', title:'Close', 'aria-label':'Close', html:icon('x'), onclick:()=>hide()});
-  head.append(close);
-  const bodyEl = el('div',{class:'modal-body'});
-  if(typeof body==='string') bodyEl.innerHTML=body; else if(body) bodyEl.append(body);
-  m.append(head, bodyEl);
-  if(foot){ const f=el('div',{class:'modal-foot'}); (Array.isArray(foot)?foot:[foot]).forEach(b=>b&&f.append(b)); m.append(f); }
-  overlay.append(m);
-  overlay.addEventListener('mousedown',e=>{if(e.target===overlay) hide()});
-  document.body.append(overlay);
-  requestAnimationFrame(()=>overlay.classList.add('show'));
-  const releaseFocus = trapFocus(m, { skip:close });
-  function hide(){overlay.classList.remove('show');setTimeout(()=>overlay.remove(),220);document.removeEventListener('keydown',esc);releaseFocus()}
-  function esc(e){if(e.key==='Escape') hide()}
-  document.addEventListener('keydown',esc);
-  return {overlay, body:bodyEl, hide};
-}
-
-export function confirmDialog(title, message, {danger=false, okLabel='Confirm'}={}){
-  return new Promise(res=>{
-    const ok = el('button',{class:'btn '+(danger?'danger':'primary'), text:okLabel});
-    const cancel = el('button',{class:'btn', text:'Cancel'});
-    const {hide} = modal({title, body:`<p class="muted">${escapeHtml(message)}</p>`, foot:[cancel, ok]});
-    ok.onclick=()=>{hide();res(true)}; cancel.onclick=()=>{hide();res(false)};
-  });
-}
+// ---- toasts / modal / confirm — the vendored shell's dialog trio ----------
+// As of shell v0.3.0 the shared implementations are a superset of Manager's
+// old local trio (toast action button, HTML-string bodies, focus trap +
+// stacked-Escape + focus restore), so Manager re-exports them instead of
+// keeping copies. Signatures are the shell's:
+//   toast(title, { body, kind, ms, action:{label,fn} })
+//   modal({ title, icon:<html>, body, foot, wide, onClose }) -> { root, back, body, hide }
+//   confirmDialog({ title, message, okText, danger }) -> Promise<boolean>
+export { toast, modal, sheet, confirmDialog, promptDialog } from '../vendor/polecat-shell/ui.js';
 
 // ---- reorderable-list helpers -------------------------------------------
 // Shared by every "drag a grip, or use the up/down arrows" reorder UI

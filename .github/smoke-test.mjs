@@ -332,7 +332,7 @@ try {
     await page.$eval('.qa', (c) => c.focus());
     await page.keyboard.press('Enter');
     await page.waitForTimeout(300);
-    const overlayOpen = !!(await page.$('.overlay.show'));
+    const overlayOpen = !!(await page.$('.modal-back.in'));
     if (overlayOpen) { await page.keyboard.press('Escape'); await page.waitForTimeout(250); }
     return overlayOpen;
   });
@@ -1175,7 +1175,7 @@ try {
     const panelRowsAfterDismiss = await count('.attn-panel .attn-row');
     const badgeAfterDismiss = await page.$eval('.notif-btn .badge', (e) => (e.hidden ? 0 : parseInt(e.textContent, 10))).catch(() => 0);
 
-    await page.click('.toast .undo'); // undo the dismiss
+    await page.click('.toast .toast-action'); // undo the dismiss
     await page.waitForTimeout(400);
     const activeAfterUndo = await store(`(S)=>S.needsAttentionActive().length`);
 
@@ -1456,7 +1456,7 @@ try {
     await page.click('.modal .notes-hist-row:has-text("Smoke Recently Deleted 2") button:has-text("Restore")');
     await page.waitForTimeout(300);
     const partialRestore = await store(`(S)=>!!S.project('smoke-recently-deleted-2') && !S.project('smoke-recently-deleted-3')`);
-    const modalStillOpen = !!(await $('.overlay.show'));
+    const modalStillOpen = !!(await $('.modal-back.in'));
     // restore the singly-deleted project — its cascaded release should come back with it
     await page.click('.modal .notes-hist-row:has-text("Smoke Recently Deleted 1") button:has-text("Restore")');
     await page.waitForTimeout(300);
@@ -1465,7 +1465,7 @@ try {
     await page.click('.modal .notes-hist-row:has-text("Smoke Recently Deleted 3") button:has-text("Restore")');
     await page.waitForTimeout(400);
     const allBack = await store(`(S)=>['smoke-recently-deleted-1','smoke-recently-deleted-2','smoke-recently-deleted-3'].every(id=>!!S.project(id))`);
-    const modalClosed = !(await $('.overlay.show'));
+    const modalClosed = !(await $('.modal-back.in'));
     await store(`(S)=>{ ['smoke-recently-deleted-1','smoke-recently-deleted-2','smoke-recently-deleted-3'].forEach(id=>S.remove('projects', id, {silent:true})); }`);
     return sawAllThree && releaseNoted && partialRestore && modalStillOpen && releaseRestored && allBack && modalClosed;
   });
@@ -1784,7 +1784,7 @@ try {
     const promoteBtn = await page.$('.modal button[title="Promote to field"]');
     if (!promoteBtn) return false;
     await promoteBtn.click(); await page.waitForTimeout(300);
-    const overlays = await page.$$('.overlay.show');
+    const overlays = await page.$$('.modal-back.in');
     const promoteModal = overlays[overlays.length - 1];
     if (!promoteModal) return false;
     const prefilledLabel = await promoteModal.$eval('input.input', (i) => i.value).catch(() => '');
@@ -1933,11 +1933,11 @@ try {
     await openSec('home');
     const btn = await page.$('.ps-topbar .btn.primary');
     await btn.click(); await page.waitForTimeout(300);
-    const focusedInModal = await page.evaluate(() => !!document.querySelector('.overlay.show .modal')?.contains(document.activeElement));
+    const focusedInModal = await page.evaluate(() => !!document.querySelector('.modal-back.in .modal')?.contains(document.activeElement));
     let staysTrapped = true;
     for (let i = 0; i < 15; i++) {
       await page.keyboard.press('Tab');
-      const ok = await page.evaluate(() => !!document.querySelector('.overlay.show .modal')?.contains(document.activeElement));
+      const ok = await page.evaluate(() => !!document.querySelector('.modal-back.in .modal')?.contains(document.activeElement));
       if (!ok) staysTrapped = false;
     }
     await page.keyboard.press('Escape'); await page.waitForTimeout(300);

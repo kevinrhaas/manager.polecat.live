@@ -67,7 +67,7 @@ function logRun(ctx){
   const body=el('div');
   const f=(l,n)=>{ const w=el('div',{class:'field'}); w.append(el('label',{text:l}), n); return w; };
   body.append(f('Mode', mode), f('Project', proj), f('Note', note));
-  const {hide}=modal({ title:'Log a run', icon:'activity', body, foot:[
+  const {hide}=modal({ title:'Log a run', icon:icon('activity'), body, foot:[
     el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}),
     el('button',{class:'btn primary', text:'Log run', onclick:()=>{
       Store.logRun({ mode:mode.value, projectId:proj.value, note:note.value.trim() });

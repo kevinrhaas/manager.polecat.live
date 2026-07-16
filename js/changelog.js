@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 66,
+    title: 'One dialog system for the whole fleet',
+    kind: 'polish',
+    ts: '2026-07-16T03:04:06.138Z',
+    items: [
+      'Manager’s dialogs, confirms, and toasts now come from the shared Polecat Shell (v0.3.0) instead of app-local code — the same implementations every fleet app will use, with the same keyboard behavior everywhere: focus trapped while open, Escape closes only the topmost layer, and focus returns to whatever opened it.',
+      'The shell versions picked up Manager’s best bits first: the inline “Undo” button on toasts and HTML-friendly dialog bodies are now fleet features, not Manager patches.',
+      'On phones, dialogs now use the fleet’s full-screen pattern instead of a floating card — bigger targets, nothing clipped.',
+      'Under the hood this deletes Manager’s entire local modal/confirm/toast implementation; the visual style is unchanged (Manager skins the shared dialogs the same way it skins the rail).',
+    ],
+  },
+  {
     v: 65,
     title: 'The docs catch up with the platform era',
     kind: 'polish',
