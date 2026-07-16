@@ -88,6 +88,13 @@ function laneNextLabel(a){
   if(!n) return a.until && new Date(a.until) <= new Date() ? 'ended' : 'never';
   return `next ${fmtCT(n.getTime())}`;
 }
+// Platform-level jobs (focus.json `jobs`) — same lane schema, friendlier names.
+const JOB_META = {
+  'fleet-improve': { label: 'Fleet improve', hint: 'steward picks the app that most needs work' },
+  'sweep-ux':      { label: 'UX sweep',      hint: 'files findings issues per app' },
+  'sweep-tech':    { label: 'Tech sweep',    hint: 'audits contracts, drift, CI health' },
+  'janitor':       { label: 'Janitor',       hint: 'merges green steward PRs' },
+};
 function rosterCard(){
   const card = el('div', { class: 'card fo-roster' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Focus roster</h2>
@@ -163,48 +170,63 @@ function rosterCard(){
     return ed;
   };
 
+  const laneRow = (key, a, display, hint, mono=true) => {
+    const r = el('div', { class: 'fo-app-row' });
+    const nextEl = el('span', { class: 'tiny muted fo-next', text: laneNextLabel(a) });
+    const refreshRow = () => { nextEl.textContent = laneNextLabel(a); };
+    const tog = el('button', {
+      class: 'fo-toggle' + (a.enabled ? ' on' : ''), role: 'switch', 'aria-checked': String(!!a.enabled),
+      'aria-label': `Lane for ${display}`,
+      onclick: () => { a.enabled = !a.enabled; touch(); render(); },
+    }, el('span', { class: 'fo-knob' }));
+    const cad = el('select', { class: 'input fo-cad', 'aria-label': `Cadence for ${display}` });
+    [[1, 'hourly'], [2, 'every 2h'], [3, 'every 3h'], [6, 'every 6h'], [12, 'every 12h'], [24, 'daily']]
+      .forEach(([h, t]) => cad.append(el('option', { value: h, text: t, selected: (a.everyHours || 1) === h })));
+    cad.addEventListener('change', () => {
+      a.everyHours = parseInt(cad.value, 10);
+      if(a.offset != null) a.offset = a.offset % Math.max(1, a.everyHours);
+      touch(); render();   // re-render: the align options depend on cadence
+    });
+    const gear = el('button', { class: 'btn ghost icon sm fo-gear' + (openEditors.has(key) ? ' on' : ''),
+      title: 'Schedule details', 'aria-label': `Schedule details for ${display}`, 'aria-expanded': String(openEditors.has(key)),
+      html: icon('sliders'),
+      onclick: () => { openEditors.has(key) ? openEditors.delete(key) : openEditors.add(key); render(); } });
+    const name = el('span', { class: 'fo-app-name' + (mono ? ' mono' : ''), text: display });
+    if(hint) name.title = hint;
+    r.append(tog, name, nextEl, el('span', { class: 'sp' }), cad, gear);
+    body.append(r);
+    if(openEditors.has(key)) body.append(laneEditor(display, a, refreshRow));
+  };
+
   const render = () => {
     body.innerHTML = '';
     const apps = state.roster.apps || {};
-    Object.keys(apps).forEach(name => {
-      const a = apps[name];
-      const r = el('div', { class: 'fo-app-row' });
-      const nextEl = el('span', { class: 'tiny muted fo-next', text: laneNextLabel(a) });
-      const refreshRow = () => { nextEl.textContent = laneNextLabel(a); };
-      const tog = el('button', {
-        class: 'fo-toggle' + (a.enabled ? ' on' : ''), role: 'switch', 'aria-checked': String(!!a.enabled),
-        'aria-label': `Focus lane for ${name}`,
-        onclick: () => { a.enabled = !a.enabled; touch(); render(); },
-      }, el('span', { class: 'fo-knob' }));
-      const cad = el('select', { class: 'input fo-cad', 'aria-label': `Cadence for ${name}` });
-      [[1, 'hourly'], [2, 'every 2h'], [3, 'every 3h'], [6, 'every 6h'], [12, 'every 12h'], [24, 'daily']]
-        .forEach(([h, t]) => cad.append(el('option', { value: h, text: t, selected: (a.everyHours || 1) === h })));
-      cad.addEventListener('change', () => {
-        a.everyHours = parseInt(cad.value, 10);
-        if(a.offset != null) a.offset = a.offset % Math.max(1, a.everyHours);
-        touch(); render();   // re-render: the align options depend on cadence
+    Object.keys(apps).forEach(name => laneRow(name, apps[name], name, ''));
+    const jobs = state.roster.jobs || {};
+    if(Object.keys(jobs).length){
+      body.append(el('div', { class: 'fo-repo-name tiny', style: 'margin-top:8px',
+        text: 'Platform jobs — sweeps, janitor, fleet improve' }));
+      Object.keys(jobs).forEach(job => {
+        const meta = JOB_META[job] || { label: job, hint: '' };
+        laneRow('job:' + job, jobs[job], meta.label, meta.hint, false);
       });
-      const gear = el('button', { class: 'btn ghost icon sm fo-gear' + (openEditors.has(name) ? ' on' : ''),
-        title: 'Schedule details', 'aria-label': `Schedule details for ${name}`, 'aria-expanded': String(openEditors.has(name)),
-        html: icon('sliders'),
-        onclick: () => { openEditors.has(name) ? openEditors.delete(name) : openEditors.add(name); render(); } });
-      r.append(tog, el('span', { class: 'fo-app-name mono', text: name }), nextEl, el('span', { class: 'sp' }), cad, gear);
-      body.append(r);
-      if(openEditors.has(name)) body.append(laneEditor(name, a, refreshRow));
-    });
+    }
     body.append(saveRow);
     save.disabled = !dirty;
   };
 
   const save = el('button', { class: 'btn sm primary', html: `${icon('check')} Commit roster`, disabled: true, onclick: async () => {
     if(!ghToken()){ toast('Connect a GitHub token first', { kind: 'warn', body: 'Roster writes need a PAT from the vault.' }); return; }
-    const on = Object.entries(state.roster.apps).filter(([, a]) => a.enabled).map(([n]) => n);
+    const on = [
+      ...Object.entries(state.roster.apps || {}).filter(([, a]) => a.enabled).map(([n]) => n),
+      ...Object.entries(state.roster.jobs || {}).filter(([, a]) => a.enabled).map(([n]) => JOB_META[n]?.label || n),
+    ];
     const ok = await confirmDialog({ title:'Commit the focus roster?', message:on.length ? `Scheduled improve lanes will run for: ${on.join(', ')}. This spends tokens on the platform's Claude credentials.` :
       'All lanes will be paused.', okText: 'Commit to main' });
     if(!ok) return;
     save.disabled = true;
     // keep the roster file tidy: drop schedule fields at their defaults
-    Object.values(state.roster.apps || {}).forEach(a => {
+    [...Object.values(state.roster.apps || {}), ...Object.values(state.roster.jobs || {})].forEach(a => {
       if(!a.offset) delete a.offset;
       if(!a.startAt) delete a.startAt;
       if(!a.until) delete a.until;
