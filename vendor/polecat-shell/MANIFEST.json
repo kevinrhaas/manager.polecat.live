@@ -1,7 +1,7 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "files": {
-    "VERSION": "1f930dd1f133c1f97a94fe3acb8db34372cf4c01ffdb2b3ff4ca72f9494121e9",
+    "VERSION": "d915cc95d6ca8f47ae297713ed46d4e5c5d99ddd29fc3c61e263bdf305f2b5b0",
     "access.js": "532ce507b67afd4c87e87ec0abc0793319e4fa8a04f0a5ce0d67ce0b7c0a703b",
     "auth/null.js": "639217faef1c10efc8c1148fc33241900b7257a0d401fd09e62f05f64aab42d3",
     "auth/schema.js": "48379b720041131223f15735855057cd7e343392f6a8ff1ef99942b467ca2878",
@@ -10,15 +10,15 @@
     "icons.js": "7c68dcd4d0fc0231e775250d41f7d11347ee65a6b99e34cddf5422bef02f30e6",
     "notifications.js": "3d988b693bca4786ac059a2a1759c5cd14449b9e3d4ea4fd6302dd68bd287ce6",
     "settings.js": "18181e8e08153586405fea9d844980df95943351a7e09fd6fe6f7f788e286873",
-    "shell.css": "224f7e93c6f1789b42028ad643bf27b8e6f2459fa4d933d649ac37b96e2ab325",
-    "shell.js": "6da910454d1f6052a8f0403e160b9c718b0de045502d5175958eec66b334f905",
+    "shell.css": "0dabf151a25236acababdb2a3a1a116c57bb7d8da42b2bfb7fbc773c305d8c85",
+    "shell.js": "6099a5103be7e0a62ff3a10730a4729dfc4283b849c7f3e08a142c48925f767a",
     "shortcuts.js": "d4841184ded6274f98355f9b3d764e982aa2f6e4c064e9e2ed4f7cf410cb2bd2",
     "store.js": "aa3a1cb89ff59d5fa8446cc6b404f556c0eb09b47a5bb91cc9ac4d70543b396f",
     "sw-template.js": "f6137168fa3a9c4a51adb4130f4c8d42d16de1b47f106ac73b65a7418172d682",
     "theme.js": "90fb0d150e30bd5949ac085d9e85addd582a61d4ae00ea848f7265be00b8841e",
     "tokens.css": "714742206c7f8c84f7ee2c2a741fea4a21dd580d9ba51c86ba85baa769aaffe2",
     "tour.js": "f77d13a50e829894da5fa0d47efb15751c710ecf883f230841823f2b531f8dd8",
-    "ui.js": "7807801d8aaf9ceeebccdfae1838bbe0b425cdfe7dab8ac50ac53a5b4039e2b4",
+    "ui.js": "29f074d443b4c9d4a5ae9fa9f7810dfc85195c029fe5e58b14b10f888e2d357f",
     "views.js": "74ff4597b0cc641a316949db33c776ebcbb2442175f3db20af01d93be0776902",
     "whatsnew.js": "fc6d1eb28c257bf5fdfed198695b49bcf9188091260425e76b278c9ceb681284"
   }

@@ -90,9 +90,9 @@ function editCred(id, ctx){
   }});
   const foot=[ el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}) ];
   if(!isNew) foot.unshift(el('button',{class:'btn danger', html:`${icon('trash')} Delete`, onclick:async()=>{
-    if(await confirmDialog('Delete credential', `Remove "${c.name}"?`, {danger:true, okLabel:'Delete'})){ Store.remove('credentials',id); hide(); toast('Deleted',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); ctx.go('credentials'); }
+    if(await confirmDialog({ title:'Delete credential', message:`Remove "${c.name}"?`, danger:true, okText:'Delete' })){ Store.remove('credentials',id); hide(); toast('Deleted',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); ctx.go('credentials'); }
   }}));
   foot.push(save);
-  const {hide}=modal({ title:isNew?'Add credential':'Edit credential', icon:'key', body, foot });
+  const {hide}=modal({ title:isNew?'Add credential':'Edit credential', icon:icon('key'), body, foot });
   setTimeout(()=>name.focus(),50);
 }

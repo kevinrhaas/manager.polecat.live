@@ -57,7 +57,7 @@ export function renderDataSourceCard(host, ctx){
       actions.append(el('button',{class:'btn sm', html:`${icon('edit')} Edit`,
         title:'Update this connection’s credentials', onclick:()=>openConnectFlow(ctx, { editSource:src, editCfg:currentConfig() })}));
       actions.append(el('button',{class:'btn sm', html:`${icon('x')} Disconnect`, onclick:async()=>{
-        if(await confirmDialog('Disconnect data source', `Stop mirroring to ${src.label} and go back to local-only? Your current data stays in this browser; the remote copy is left untouched.`, { okLabel:'Disconnect' })){
+        if(await confirmDialog({ title:'Disconnect data source', message:`Stop mirroring to ${src.label} and go back to local-only? Your current data stays in this browser; the remote copy is left untouched.`, okText:'Disconnect' })){
           disconnect(); toast('Back to local',{kind:'ok'}); ctx?.refresh?.();
         }
       }}));
@@ -107,7 +107,7 @@ function secretsRow(src, ctx){
       onSubmit:async(p)=>{ await unlockSecrets(p); toast('Secrets unlocked',{kind:'ok'}); ctx?.refresh?.(); } })}));
   }else{
     act.append(el('button',{class:'btn sm', html:`${icon('x')} Turn off`, onclick:async()=>{
-      if(await confirmDialog('Turn off encryption', `Store credential values on ${src.label} as plaintext again? They’ll be re-uploaded unencrypted.`, { danger:true, okLabel:'Turn off' })){
+      if(await confirmDialog({ title:'Turn off encryption', message:`Store credential values on ${src.label} as plaintext again? They’ll be re-uploaded unencrypted.`, danger:true, okText:'Turn off' })){
         await disableSecrets(); toast('Encryption off',{kind:'ok'}); ctx?.refresh?.();
       }
     }}));
@@ -133,7 +133,7 @@ function passphrasePrompt({ title, label, note, cta, confirm=false, onSubmit }){
     try{ await onSubmit(v); hide(); }
     catch(e){ go.disabled=false; status.innerHTML=`<span class="sync-err">${escapeHtml(e.message||'Failed')}</span>`; }
   }});
-  const { hide } = modal({ title, icon:'lock', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), go] });
+  const { hide } = modal({ title, icon:icon('lock'), body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), go] });
   setTimeout(()=>p1.focus(), 40);
 }
 
@@ -141,7 +141,7 @@ function passphrasePrompt({ title, label, note, cta, confirm=false, onSubmit }){
 export function openConnectFlow(ctx, opts={}){
   const editing = !!opts.editSource;
   const body = el('div',{class:'ds-flow'});
-  const { hide } = modal({ title:editing?'Edit data source':'Connect a data source', icon:'db', body, wide:true });
+  const { hide } = modal({ title:editing?'Edit data source':'Connect a data source', icon:icon('db'), body, wide:true });
   // edit mode jumps straight to the chosen source's form, pre-filled
   if(editing) formStep(opts.editSource, opts.editCfg||{}); else pickStep();
 
@@ -231,7 +231,7 @@ export function openConnectFlow(ctx, opts={}){
         catch(e){ fail(e.message||'Could not load'); }
       }});
       const reset = el('button',{class:'btn sm danger', style:'margin-left:8px', html:`${icon('trash')} Reset &amp; overwrite`, onclick:async()=>{
-        if(!await confirmDialog('Overwrite remote workspace', `Destroy everything in this ${src.label} database and replace it with your current local workspace? This cannot be undone.`, { danger:true, okLabel:'Overwrite' })) return;
+        if(!await confirmDialog({ title:'Overwrite remote workspace', message:`Destroy everything in this ${src.label} database and replace it with your current local workspace? This cannot be undone.`, danger:true, okText:'Overwrite' })) return;
         busy('Dropping and recreating…');
         try{ await resetAndPush(src, cfg); done(`Set up fresh on ${src.label}`); }
         catch(e){ fail(e.message||'Could not reset'); }
@@ -246,7 +246,7 @@ export function openConnectFlow(ctx, opts={}){
       box.innerHTML=`<div class="ds-res-h">${icon('warning')} This database isn’t empty</div>
         <p class="muted tiny">It already has objects that aren’t Manager’s: <b>${escapeHtml((probe.tables||[]).map(t=>t.name).join(', ')||'unknown tables')}</b>. Manager won’t touch a database it doesn’t recognise. Use an empty database, or drop everything here first.</p>`;
       const drop = el('button',{class:'btn danger', style:'margin-top:12px', html:`${icon('trash')} Drop everything &amp; set up here`, onclick:async()=>{
-        if(!await confirmDialog('Destroy existing data', `This permanently drops ALL existing objects in this ${src.label} database, then creates Manager’s. Everything currently there is lost. Continue?`, { danger:true, okLabel:'Drop everything' })) return;
+        if(!await confirmDialog({ title:'Destroy existing data', message:`This permanently drops ALL existing objects in this ${src.label} database, then creates Manager’s. Everything currently there is lost. Continue?`, danger:true, okText:'Drop everything' })) return;
         busy('Dropping existing objects…');
         try{ await resetAndPush(src, cfg); done(`Set up on ${src.label}`); }
         catch(e){ fail(e.message||'Could not set up'); }

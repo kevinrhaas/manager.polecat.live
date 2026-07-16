@@ -162,6 +162,9 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
 .toast.ok{border-left-color:var(--success)} .toast.err{border-left-color:var(--danger)} .toast.info{border-left-color:var(--info)}
 .toast-title{font-weight:700;font-size:13.5px}
 .toast-body{font-size:12.5px;color:var(--text-2);margin-top:3px}
+.toast-action{margin-top:6px;padding:0;border:none;background:none;color:var(--brand-2);cursor:pointer;font-weight:600;font-size:12px;display:block}
+.toast-action:hover{text-decoration:underline}
+.toast-action:focus-visible{outline:none;box-shadow:var(--ring);border-radius:4px}
 
 /* ---- modal (ui.js contract — selectors verbatim from JobTracker) ---------- */
 .modal-back{position:fixed;inset:0;background:rgba(6,4,20,.6);backdrop-filter:blur(4px);z-index:100;display:grid;place-items:center;padding:20px;opacity:0;transition:opacity .2s}

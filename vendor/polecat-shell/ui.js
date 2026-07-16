@@ -53,7 +53,10 @@ export function uuid(){
 }
 
 // ---- toasts -------------------------------------------------------------
-export function toast(title, {body='', kind='info', ms=3200}={}){
+// action (v0.3.0, optional): { label, fn } renders an inline action button —
+// the fleet's "Undone in one click" toast pattern (from Manager). Clicking it
+// runs fn and dismisses the toast without the toast's own click-dismiss.
+export function toast(title, {body='', kind='info', ms=3200, action}={}){
   const root = $('#toasts') || document.body;
   const t = el('div',{class:`toast ${kind}`, role:'status', 'aria-live':'polite'});
   t.append(el('div',{class:'toast-title', text:title}));
@@ -61,9 +64,23 @@ export function toast(title, {body='', kind='info', ms=3200}={}){
   root.append(t);
   requestAnimationFrame(()=>t.classList.add('in'));
   const kill = ()=>{ t.classList.remove('in'); setTimeout(()=>t.remove(), 260); };
+  if(action && typeof action.fn==='function'){
+    t.append(el('button',{class:'toast-action', text:action.label||'Undo',
+      onclick:(e)=>{ e.stopPropagation(); action.fn(); kill(); }}));
+  }
   t.addEventListener('click', kill);
   if(ms) setTimeout(kill, ms);
   return kill;
+}
+
+// Dialog body/foot filler: DOM nodes, arrays, or (v0.3.0) HTML strings — the
+// fleet's `el({html})` idiom made first-class so apps can pass markup direct.
+function fillContent(parent, content){
+  (Array.isArray(content)?content:[content]).forEach(c=>{
+    if(c==null) return;
+    if(typeof c==='string') parent.insertAdjacentHTML('beforeend', c);
+    else parent.append(c);
+  });
 }
 
 // Selector for elements a keyboard user can land on, used by the dialog
@@ -88,9 +105,9 @@ export function modal({ title, icon:iconHtml='', body, foot, wide=false, onClose
   const x = el('button',{class:'btn icon ghost', 'aria-label':'Close', html:'&times;', onclick:()=>hide()});
   head.append(x);
   const content = el('div',{class:'modal-body'});
-  if(body) (Array.isArray(body)?body:[body]).forEach(b=>content.append(b));
+  if(body) fillContent(content, body);
   box.append(head, content);
-  if(foot){ const f=el('div',{class:'modal-foot'}); (Array.isArray(foot)?foot:[foot]).forEach(b=>f.append(b)); box.append(f); }
+  if(foot){ const f=el('div',{class:'modal-foot'}); fillContent(f, foot); box.append(f); }
   back.append(box);
   (document.body).append(back);
   requestAnimationFrame(()=>{
@@ -124,7 +141,7 @@ export function modal({ title, icon:iconHtml='', body, foot, wide=false, onClose
   }
   document.addEventListener('keydown', onKey);
   back.addEventListener('mousedown', e=>{ if(e.target===back) hide(); });
-  return { root:box, back, hide };
+  return { root:box, back, body:content, hide };
 }
 
 // ---- sheet ----------------------------------------------------------------
@@ -145,9 +162,9 @@ export function sheet({ title, icon:iconHtml='', body, foot, side='right', onClo
   head.append(el('div',{class:'sheet-title', html:`${iconHtml||''}<span>${escapeHtml(title||'')}</span>`}));
   head.append(el('button',{class:'btn icon ghost', 'aria-label':'Close', html:'&times;', onclick:()=>hide()}));
   const content = el('div',{class:'sheet-body'});
-  if(body) (Array.isArray(body)?body:[body]).forEach(b=>content.append(b));
+  if(body) fillContent(content, body);
   box.append(head, content);
-  if(foot){ const f=el('div',{class:'sheet-foot'}); (Array.isArray(foot)?foot:[foot]).forEach(b=>f.append(b)); box.append(f); }
+  if(foot){ const f=el('div',{class:'sheet-foot'}); fillContent(f, foot); box.append(f); }
   back.append(box);
   document.body.append(back);
   requestAnimationFrame(()=>{

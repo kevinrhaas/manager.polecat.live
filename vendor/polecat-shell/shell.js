@@ -82,6 +82,14 @@ export function initShell({
     rail.querySelector('.ps-rail-toggle')?.setAttribute('aria-expanded', String(v));
     if(persist) localStorage.setItem(K+'.open', v?'1':'0');
   }
+  // The boot rule must also hold mid-session: when the viewport crosses INTO
+  // drawer range (window shrink / phone rotation), a desktop "open" rail
+  // would otherwise pop the drawer over the content. Close it without
+  // persisting, so the desktop preference survives the round trip.
+  // (Found by relay's shell migration — its smoke suite shrinks to 390px.)
+  window.matchMedia(MOBILE).addEventListener?.('change', (e)=>{
+    if(e.matches && rail.classList.contains('open')) setOpen(false, false);
+  });
   // Navigating from the mobile drawer closes it — without persisting, so the
   // desktop rail state survives a phone session.
   function nav(key){

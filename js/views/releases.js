@@ -188,7 +188,7 @@ function openExportModal(currentRows, groupMode, recentRows){
   expWrap.append(btnRow);
 
   body.append(mdWrap, el('div',{class:'divider'}), expWrap);
-  modal({ title:'Copy & export releases', icon:'copy', body });
+  modal({ title:'Copy & export releases', icon:icon('copy'), body });
 }
 
 export function renderReleases(root, ctx){

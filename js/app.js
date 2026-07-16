@@ -79,7 +79,7 @@ async function boot(){
   // and re-render the current view once a remote load swaps the workspace.
   onSync((st)=>{ window.__rail?.setSource?.(st); });
   window.__rail?.setSource?.(syncState());
-  Store.on('replaced', ()=>{ if(!document.querySelector('.overlay.show, .cmdk.show, .ps-rpanel.in, .tour-pop.show')) render(); });
+  Store.on('replaced', ()=>{ if(!document.querySelector('.modal-back.in, .cmdk.show, .ps-rpanel.in, .tour-pop.show')) render(); });
   initSync().then(st=>{ window.__rail?.setSource?.(st); });
   // steward state (red PRs / sweep findings) → the Needs-attention pipeline
   startStewardSignals();
@@ -128,7 +128,7 @@ function tickAutoSync(){
     if(!res || (!res.added && !res.updated)) return;
     toast('Auto-synced the fleet', { kind:'ok', body:`${res.added} new, ${res.updated} updated across ${res.ok} project${res.ok===1?'':'s'}.` });
     // refresh the current view, but never yank the ground out from under an open dialog
-    if(!document.querySelector('.overlay.show, .cmdk.show, .ps-rpanel.in, .tour-pop.show')) render();
+    if(!document.querySelector('.modal-back.in, .cmdk.show, .ps-rpanel.in, .tour-pop.show')) render();
   }).catch(()=>{});
 }
 

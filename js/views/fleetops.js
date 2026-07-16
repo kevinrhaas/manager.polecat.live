@@ -112,9 +112,8 @@ function rosterCard(){
   const save = el('button', { class: 'btn sm primary', html: `${icon('check')} Commit roster`, disabled: true, onclick: async () => {
     if(!ghToken()){ toast('Connect a GitHub token first', { kind: 'warn', body: 'Roster writes need a PAT from the vault.' }); return; }
     const on = Object.entries(state.roster.apps).filter(([, a]) => a.enabled).map(([n]) => n);
-    const ok = await confirmDialog('Commit the focus roster?',
-      on.length ? `Scheduled improve lanes will run for: ${on.join(', ')}. This spends tokens on the platform's Claude credentials.` :
-      'All lanes will be paused.', { okLabel: 'Commit to main' });
+    const ok = await confirmDialog({ title:'Commit the focus roster?', message:on.length ? `Scheduled improve lanes will run for: ${on.join(', ')}. This spends tokens on the platform's Claude credentials.` :
+      'All lanes will be paused.', okText: 'Commit to main' });
     if(!ok) return;
     save.disabled = true;
     try{

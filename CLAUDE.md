@@ -29,10 +29,10 @@ Manager-side conventions on top of the shell:
 - `js/app.js` owns the shell wiring (SECTIONS, topbar slots, theme configure)
   and pins Manager's own rail furniture (the `.rail-source` data-source
   indicator) into the shell rail.
-- `js/ui.js` re-exports the shell primitives that are drop-in identical
-  ($, el, escapeHtml, uuid) and keeps Manager-specific helpers + the
-  toast/modal/confirmDialog trio with Manager's historical signatures
-  (candidates for shell v2 adoption).
+- `js/ui.js` re-exports the shell primitives ($, el, escapeHtml, uuid) AND
+  the shell dialog trio (toast/modal/sheet/confirmDialog/promptDialog, shell
+  signatures — since v0.3.0) and keeps only Manager-specific helpers
+  (trapFocus, mdToHtml, sparkline, drag-reorder, avatarColor, fmtCT…).
 - `js/icons.js` re-exports the shell icon set and registers Manager-only
   glyphs via `registerIcons`.
 - Storage keys are historical and must not change: `manager.theme`,

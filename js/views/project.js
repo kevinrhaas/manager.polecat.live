@@ -200,7 +200,7 @@ function openNotesHistory(p, ctx){
     });
     body.append(list);
   }
-  const {hide}=modal({ title:`Notes history — ${p.name}`, icon:'clock', body });
+  const {hide}=modal({ title:`Notes history — ${p.name}`, icon:icon('clock'), body });
 }
 
 // Status source + a Lock toggle. Sync derives status from release activity;
@@ -301,7 +301,7 @@ function openOverrideModal(p, ctx, cfg){
   }});
   body.append(resetBtn);
 
-  const {hide}=modal({ title:`${cfg.modalTitle} — ${p.name}`, icon:cfg.modalIcon, body, foot:[el('button',{class:'btn primary', text:'Done', onclick:()=>{ hide(); ctx.go('project',{id:p.id}); }})] });
+  const {hide}=modal({ title:`${cfg.modalTitle} — ${p.name}`, icon:icon(cfg.modalIcon), body, foot:[el('button',{class:'btn primary', text:'Done', onclick:()=>{ hide(); ctx.go('project',{id:p.id}); }})] });
 }
 
 const HEALTH_WEIGHTING_OVERRIDE={
@@ -399,7 +399,7 @@ function autoSyncRow(p, ctx){
 async function runForceSync(p, ctx){
   const url = p.changelogUrl || guessChangelogUrl(p.site);
   if(!url){ toast('Nothing to sync from', { kind:'warn', body:'Add a site or changelog URL from Edit first.' }); return; }
-  const proceed = await confirmDialog('Force sync', `This fully reconciles ${p.name}’s releases to ${url} — any local edits to a matching version are overwritten, and previously-synced releases no longer published there are removed. Releases you added by hand are left alone.`, { danger:true, okLabel:'Force sync' });
+  const proceed = await confirmDialog({ title:'Force sync', message:`This fully reconciles ${p.name}’s releases to ${url} — any local edits to a matching version are overwritten, and previously-synced releases no longer published there are removed. Releases you added by hand are left alone.`, danger:true, okText:'Force sync' });
   if(!proceed) return;
   const res = await forceSyncProject(p);
   if(res.status==='ok'){
@@ -448,7 +448,7 @@ function explainRecommendation(rec){
     <div class="rec-detail"><b>v${r.v} · ${escapeHtml(r.title||'')}</b> scored <b>${rec.score.toFixed(1)}/10</b> because:</div>
     <ul>${rec.reasons.map(x=>`<li>${escapeHtml(x)}</li>`).join('')||'<li>it stands out against the surrounding releases</li>'}</ul>
     <p class="tiny muted">Signals weighed: a run of shipped features, a stabilizing tail of polish/fix releases after them, a quiet gap before the next change, round version numbers, and how recent it is. This is a suggestion — mark whichever release feels complete to you.</p>`;
-  const {hide}=modal({ title:'Why this release point', icon:'trophy', body, foot:[el('button',{class:'btn primary', text:'Got it', onclick:()=>hide()})] });
+  const {hide}=modal({ title:'Why this release point', icon:icon('trophy'), body, foot:[el('button',{class:'btn primary', text:'Got it', onclick:()=>hide()})] });
 }
 
 function toggleMilestone(r, ctx){
@@ -465,7 +465,7 @@ function toggleMilestone(r, ctx){
     Store.setMilestone(r.id, true, label.value.trim()); hide();
     toast(`v${r.v} marked as a milestone`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); ctx.go('project',{id:r.projectId});
   }});
-  const {hide}=modal({ title:'Mark milestone', icon:'flag', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
+  const {hide}=modal({ title:'Mark milestone', icon:icon('flag'), body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), save] });
   setTimeout(()=>label.focus(),50);
 }
 
@@ -548,12 +548,12 @@ function addRelease(projectId, ctx, existing){
   }});
   const foot=[ el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}) ];
   if(!isNew) foot.unshift(el('button',{class:'btn danger', html:`${icon('trash')} Delete`, onclick:async()=>{
-    if(await confirmDialog('Delete release', `Remove v${existing.v} "${existing.title}"?`, {danger:true, okLabel:'Delete'})){
+    if(await confirmDialog({ title:'Delete release', message:`Remove v${existing.v} "${existing.title}"?`, danger:true, okText:'Delete' })){
       Store.remove('releases', existing.id); hide(); toast('Release deleted',{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); ctx.go('project',{id:projectId});
     }
   }}));
   foot.push(save);
-  const {hide}=modal({ title:isNew?'Add release':'Edit release', icon:'sparkle', body, foot });
+  const {hide}=modal({ title:isNew?'Add release':'Edit release', icon:icon('sparkle'), body, foot });
   setTimeout(()=>title.focus(),50);
 }
 
@@ -624,6 +624,6 @@ function openSync(p, ctx){
     el('div',{style:'display:flex;gap:8px'},[fetchBtn]),
     status, results, pasteWrap,
   );
-  const {hide}=modal({ title:'Sync changelog', icon:'refresh', body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), importBtn] });
+  const {hide}=modal({ title:'Sync changelog', icon:icon('refresh'), body, foot:[el('button',{class:'btn', text:'Cancel', onclick:()=>hide()}), importBtn] });
   setTimeout(()=>{ urlInput.focus(); urlInput.select(); }, 60);
 }
