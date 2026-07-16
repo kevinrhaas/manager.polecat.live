@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 65,
+    title: 'The docs catch up with the platform era',
+    kind: 'polish',
+    ts: '2026-07-16T02:48:59.362Z',
+    items: [
+      'A new “Fleet Ops & the steward” documentation section explains how the fleet ships itself now — the platform steward’s branch → test → PR → merge-when-green flow, the janitor safety net, the focus roster, one-off dispatches, and how to connect a GitHub token from the vault.',
+      'Swept the older sections for drift: Getting started and Activity now describe the centralized steward instead of the retired per-app hourly loop, Credentials explains the vault’s role for Fleet Ops and its at-rest encryption, the what’s-new blurb matches the slide-in panel, and Needs attention documents the new steward signals.',
+    ],
+  },
+  {
     v: 64,
     title: 'Polecat Shell v0.2.0 — Manager’s patches graduate into the shared library',
     kind: 'polish',
