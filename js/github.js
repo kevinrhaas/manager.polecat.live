@@ -35,28 +35,60 @@ export function ghToken(){
   return String(c.value).trim();
 }
 
-export async function gh(path, { method = 'GET', body } = {}){
+// ---- GET cache --------------------------------------------------------------
+// Unauthenticated GitHub allows ~60 requests/hour PER IP, and a Fleet Ops
+// visit fans out across every fleet repo — so successful GETs are cached in
+// sessionStorage: 10 minutes without a token (frugal read-only browsing),
+// 25 seconds with one (keeps the 30s live-follow fresh). Any write clears
+// the cache, as does a 409 reload (a stale sha must never be retried).
+const CACHE_PREFIX = 'fo.gh.';
+function cacheGet(path, ttl){
+  try{
+    const raw = sessionStorage.getItem(CACHE_PREFIX + path);
+    if(!raw) return undefined;
+    const { t, d } = JSON.parse(raw);
+    if(Date.now() - t < ttl) return d;
+  }catch{}
+  return undefined;
+}
+function cachePut(path, d){
+  try{ sessionStorage.setItem(CACHE_PREFIX + path, JSON.stringify({ t: Date.now(), d })); }catch{}
+}
+export function clearGhCache(){
+  try{
+    Object.keys(sessionStorage).filter(k => k.startsWith(CACHE_PREFIX))
+      .forEach(k => sessionStorage.removeItem(k));
+  }catch{}
+}
+
+export async function gh(path, { method = 'GET', body, fresh = false } = {}){
   const headers = { 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
   const token = ghToken();
   if(token) headers.Authorization = `Bearer ${token}`;
+  const isGet = method === 'GET';
+  if(isGet && !fresh){
+    const hit = cacheGet(path, token ? 25000 : 600000);
+    if(hit !== undefined) return hit;
+  }
   let res;
   try{
     res = await fetch(API + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined });
   }catch{
     throw new Error('GitHub unreachable — check your connection');
   }
-  if(res.status === 204) return null;
+  if(res.status === 204){ clearGhCache(); return null; }
   let json = null;
   try{ json = await res.json(); }catch{ /* some endpoints return no body */ }
   if(!res.ok){
     const hint = res.status === 401 ? 'token rejected'
-      : res.status === 403 ? (json?.message?.includes('rate limit') ? 'rate limit — connect a token' : 'forbidden — token lacks scope')
+      : res.status === 403 ? (json?.message?.includes('rate limit') ? 'rate-limited — resets within the hour; connect a vault token to raise limits' : 'forbidden — token lacks scope')
       : res.status === 404 ? 'not found (private repo needs a token)'
       : (json?.message || 'request failed');
     const err = new Error(`GitHub ${res.status}: ${hint}`);
     err.status = res.status;
     throw err;
   }
+  if(isGet) cachePut(path, json); else clearGhCache();
   return json;
 }
 
@@ -90,8 +122,8 @@ export function dispatchWorkflow(file, inputs){
   });
 }
 
-export async function stewardRuns(limit = 30){
-  const j = await gh(`/repos/${PLATFORM_REPO}/actions/runs?per_page=${limit}`);
+export async function stewardRuns(limit = 30, fresh = false){
+  const j = await gh(`/repos/${PLATFORM_REPO}/actions/runs?per_page=${limit}`, { fresh });
   return (j.workflow_runs || []).filter(r => /steward/i.test(r.name || ''));
 }
 

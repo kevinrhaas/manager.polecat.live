@@ -16,10 +16,14 @@ import { fmtCT } from '../ui.js';
 import { nextRunAt, isoToLocalInput, localInputToIso, utcHourLabel } from '../schedule.js';
 import { icon } from '../icons.js';
 import {
-  whoami, ghCred, ghToken, fleetOpsCfg, setFleetOpsCfg,
+  whoami, ghCred, ghToken, fleetOpsCfg, setFleetOpsCfg, clearGhCache,
   getRoster, putRoster, dispatchWorkflow, stewardRuns, stewardPRs, sweepIssues,
   checkState, fleetRepos, IMPROVE_WORKFLOW, SWEEP_WORKFLOWS,
 } from '../github.js';
+
+// Inline error note: a rate limit is a calm, self-healing condition (amber),
+// anything else is a real error (red).
+const errNote = (e) => `<span class="${/rate.?limit/i.test(e.message) ? 'fo-warn' : 'fo-err'} tiny">${icon('warning')} ${escapeHtml(e.message)}</span>`;
 
 export function renderFleetOps(root, ctx){
   root.innerHTML = '';
@@ -238,7 +242,7 @@ function rosterCard(){
       dirty = false;
       toast('Roster committed', { kind: 'ok', body: 'Takes effect on the next hourly tick.' });
     }catch(e){
-      if(e.status === 409){ toast('Roster changed upstream', { kind: 'warn', body: 'Reloaded the latest — re-apply your flips.' }); load(); }
+      if(e.status === 409){ toast('Roster changed upstream', { kind: 'warn', body: 'Reloaded the latest — re-apply your flips.' }); clearGhCache(); load(); }
       else { toast('Commit failed', { kind: 'err', body: e.message }); save.disabled = false; }
     }
   } });
@@ -246,7 +250,7 @@ function rosterCard(){
 
   const load = async () => {
     try{ state = await getRoster(); dirty = false; render(); }
-    catch(e){ body.innerHTML = `<span class="fo-err tiny">${icon('warning')} ${escapeHtml(e.message)}</span>`; }
+    catch(e){ body.innerHTML = errNote(e); }
   };
   load();
   return card;
@@ -314,7 +318,7 @@ function healthCard(){
           ${last ? `<span class="tiny muted fo-when">${escapeHtml(ago(new Date(last.created_at).getTime()))}</span>` : ''}`;
         body.append(row);
       });
-    }catch(e){ body.innerHTML = `<span class="fo-err tiny">${icon('warning')} ${escapeHtml(e.message)}</span>`; }
+    }catch(e){ body.innerHTML = errNote(e); }
   })();
   return card;
 }
@@ -328,14 +332,14 @@ function runsCard(){
   head.innerHTML = `<h2 style="font-size:13px">Recent steward runs</h2>`;
   const live = el('span', { class: 'tiny muted fo-live', hidden: true, html: `<span class="fo-dot live"></span> live` });
   head.append(live, el('span', { class: 'sp' }));
-  const refresh = el('button', { class: 'btn ghost icon sm', title: 'Refresh runs', 'aria-label': 'Refresh runs', html: icon('refresh'), onclick: () => load() });
+  const refresh = el('button', { class: 'btn ghost icon sm', title: 'Refresh runs', 'aria-label': 'Refresh runs', html: icon('refresh'), onclick: () => load(true) });
   head.append(refresh);
   const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loading runs…</span>` });
   card.append(head, body);
 
-  const load = async () => {
+  const load = async (fresh = false) => {
     try{
-      const runs = await stewardRuns(30);
+      const runs = await stewardRuns(30, fresh);
       body.innerHTML = '';
       if(!runs.length){ body.append(el('div', { class: 'tiny muted', text: 'No steward runs yet.' })); return; }
       runs.slice(0, 12).forEach(r => {
@@ -354,7 +358,7 @@ function runsCard(){
           <span class="tiny muted fo-when">${escapeHtml(ago(new Date(r.created_at).getTime()))}</span>`;
         body.append(row);
       });
-    }catch(e){ body.innerHTML = `<span class="fo-err tiny">${icon('warning')} ${escapeHtml(e.message)}</span>`; }
+    }catch(e){ body.innerHTML = errNote(e); }
   };
   load();
 
@@ -397,10 +401,11 @@ function workCard(ctx){
       prs.forEach(p => {
         const row = workRow('branch', `PR #${p.number} · ${p.title}`, p.html_url);
         // live check dot: green = the janitor will merge it on its next pass,
-        // red = it commented and parked it, hollow = checks still running
-        const dot = el('span', { class: 'fo-dot muted', title: 'Checks: loading…' });
+        // red = it commented and parked it, hollow = checks still running.
+        // One API call per PR — skipped without a token (anon budget is tiny).
+        const dot = el('span', { class: 'fo-dot muted', title: ghToken() ? 'Checks: loading…' : 'Checks: connect a token' });
         row.prepend(dot);
-        if(p.head?.sha) checkState(repo, p.head.sha).then(s => {
+        if(p.head?.sha && ghToken()) checkState(repo, p.head.sha).then(s => {
           dot.className = 'fo-dot ' + (s === 'success' ? 'ok' : s === 'failure' ? 'err' : s === 'pending' ? 'live' : 'muted');
           dot.title = 'Checks: ' + s;
         }).catch(() => { dot.title = 'Checks: unknown'; });

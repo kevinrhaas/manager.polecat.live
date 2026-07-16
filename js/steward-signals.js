@@ -5,11 +5,12 @@
 // so the bell / rail badge / dashboard callout surface them like any other
 // attention reason (with the same signature-scoped dismissals).
 //
-// Fetch policy: one sweep at boot (works unauthenticated on public repos),
-// then a 5-minute refresh ONLY while a vault token is connected (the
-// unauthenticated rate limit is far too small to poll) and the tab is
-// visible. Everything is caught — a rate-limited or offline session simply
-// keeps the store-derived reasons and shows no steward ones.
+// Fetch policy: TOKEN-GATED end to end — the sweep costs ~2 calls per fleet
+// repo plus per-PR check lookups, and the unauthenticated GitHub budget is
+// only ~60/hour per IP (a few token-less app opens used to drain it and
+// 403 every panel). With a vault token connected: one sweep at boot, then a
+// 5-minute refresh while the tab is visible. Everything is caught — a
+// rate-limited or offline session simply keeps the store-derived reasons.
 import { Store } from './store.js';
 import { stewardPRs, sweepIssues, checkState, ghToken } from './github.js';
 
@@ -33,7 +34,7 @@ export async function refreshStewardSignals(){
 
 let timer = null;
 export function startStewardSignals(){
-  refreshStewardSignals().catch(() => {});
+  if(ghToken()) refreshStewardSignals().catch(() => {});
   if(timer) clearInterval(timer);
   timer = setInterval(() => {
     if(ghToken() && !document.hidden) refreshStewardSignals().catch(() => {});
