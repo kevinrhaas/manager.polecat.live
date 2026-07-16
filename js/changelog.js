@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 68,
+    title: 'The whole platform schedule in one place — sweeps, janitor, and fleet improve join the roster',
+    kind: 'feature',
+    ts: '2026-07-16T21:38:41.420Z',
+    items: [
+      'The Focus roster now schedules everything the platform runs on a clock, not just per-app lanes: the daily UX and Tech sweeps, the janitor, and a new fleet-improve lane (the steward’s suite-wide pick) appear as a “Platform jobs” group with the exact same controls — cadence, run-at alignment, daily window, start, and expiry — plus next-run times.',
+      'So “analytics every hour, fleet improvement every 2 hours” is now two toggles and a commit. The platform side retired the sweeps’ and janitor’s standalone crons: the roster file is the single scheduler, and the seeded defaults match the old crons exactly (sweeps daily at 6 and 9 UTC, janitor every 2 hours).',
+    ],
+  },
+  {
     v: 67,
     title: 'Full schedule control for every improve lane, right from Fleet Ops',
     kind: 'feature',
