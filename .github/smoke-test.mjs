@@ -1253,6 +1253,24 @@ try {
       return ok.every(Boolean);
     });
   });
+  await check('github GET cache: repeat reads are served from cache, writes and fresh:true bust it', async () => {
+    return await page.evaluate(async () => {
+      const g = await import('/js/github.js');
+      g.clearGhCache();
+      let calls = 0;
+      const realFetch = window.fetch;
+      window.fetch = async () => { calls++; return new Response(JSON.stringify({ n: calls }), { status: 200, headers: { 'content-type': 'application/json' } }); };
+      try{
+        const a = await g.gh('/cache-probe'); const b = await g.gh('/cache-probe');
+        const cachedOnce = calls === 1 && a.n === 1 && b.n === 1;
+        await g.gh('/cache-probe', { method: 'POST', body: {} });   // write → cache busted
+        await g.gh('/cache-probe');
+        const refetchedAfterWrite = calls === 3;
+        await g.gh('/cache-probe', { fresh: true });
+        return cachedOnce && refetchedAfterWrite && calls === 4;
+      }finally{ window.fetch = realFetch; g.clearGhCache(); }
+    });
+  });
   await check('fleet ops dispatch + roster writes are gated behind a vault token (no silent unauthenticated writes)', async () => {
     // with no credential selected, the Improve run button must toast a warning, not POST
     await page.click('#view .btn.primary:has-text("Improve run")'); await page.waitForTimeout(300);

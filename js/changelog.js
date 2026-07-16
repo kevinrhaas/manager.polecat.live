@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 69,
+    title: 'Fleet Ops stops burning the anonymous GitHub budget',
+    kind: 'fix',
+    ts: '2026-07-16T22:15:41.782Z',
+    items: [
+      'Without a vault token, GitHub allows only ~60 API requests per hour per network — and Fleet Ops had grown hungry enough that a few page opens could drain it and 403 every card. Reads are now cached for 10 minutes when unauthenticated (25 seconds with a token, so live-follow stays live), and any write or manual refresh busts the cache.',
+      'The expensive extras are token-gated: per-PR check dots and the background steward-signals sweep only run with a token connected, since they fan out across every repo.',
+      'A rate limit now reads as what it is — an amber “resets within the hour; connect a vault token to raise limits” note instead of a red error. Nothing needs re-setup; anonymous mode heals on its own.',
+    ],
+  },
+  {
     v: 68,
     title: 'The whole platform schedule in one place — sweeps, janitor, and fleet improve join the roster',
     kind: 'feature',
