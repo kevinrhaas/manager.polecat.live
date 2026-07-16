@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 67,
+    title: 'Full schedule control for every improve lane, right from Fleet Ops',
+    kind: 'feature',
+    ts: '2026-07-16T21:22:50.017Z',
+    items: [
+      'The Focus roster is now a real scheduler, not just on/off: each app’s lane shows its next run time and opens into a schedule editor — pick the cadence, align which hours it lands on (“the next hourly starts at 9 PM”), fence it to a daily time window, set a future start, or give it an expiry so it runs every X until Y and then stops on its own.',
+      'The platform’s hourly scheduler enforces exactly the same rules (one canonical evaluator, mirrored for the in-app previews), so what the panel predicts is what the steward does. Times are shown in Central; the tick is hourly at :03 UTC — that’s the scheduling granularity.',
+      'Committing still takes one click and lands on the next tick; lanes left at their defaults keep the roster file as tidy as before.',
+    ],
+  },
+  {
     v: 66,
     title: 'One dialog system for the whole fleet',
     kind: 'polish',

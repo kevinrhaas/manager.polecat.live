@@ -1236,6 +1236,23 @@ try {
       [...document.querySelectorAll('#view .fo-body')].some((b) => /Loading|Scanning/.test(b.textContent)));
     return !stillLoading;
   });
+  await check('lane schedule evaluator mirrors the platform semantics (cadence/offset/window/until/startAt, next-run on the :03 tick)', async () => {
+    return await page.evaluate(async () => {
+      const m = await import('/js/schedule.js');
+      const at = (h) => new Date(Date.UTC(2026, 6, 16, h, 3));
+      const ok = [];
+      ok.push(m.isDueAt({ enabled:true, everyHours:2, offset:1 }, at(21)) && !m.isDueAt({ enabled:true, everyHours:2, offset:1 }, at(20)));
+      ok.push(!m.isDueAt({ enabled:true, window:[9,17] }, at(18)) && m.isDueAt({ enabled:true, window:[9,17] }, at(9)));
+      ok.push(m.isDueAt({ enabled:true, window:[22,6] }, at(23)) && !m.isDueAt({ enabled:true, window:[22,6] }, at(12)));
+      ok.push(!m.isDueAt({ enabled:true, until:'2026-07-16T20:00:00Z' }, at(21)));
+      ok.push(!m.isDueAt({ enabled:true, startAt:'2026-07-17T00:00:00Z' }, at(21)));
+      const n = m.nextRunAt({ enabled:true, everyHours:2, offset:1 }, new Date(Date.UTC(2026,6,16,20,30)));
+      ok.push(!!n && n.toISOString() === '2026-07-16T21:03:00.000Z');
+      ok.push(m.nextRunAt({ enabled:true, until:'2026-07-16T21:00:00Z' }, new Date(Date.UTC(2026,6,16,20,30))) === null);
+      ok.push(m.localInputToIso(m.isoToLocalInput('2026-07-16T21:03:00.000Z')) === '2026-07-16T21:03:00.000Z');
+      return ok.every(Boolean);
+    });
+  });
   await check('fleet ops dispatch + roster writes are gated behind a vault token (no silent unauthenticated writes)', async () => {
     // with no credential selected, the Improve run button must toast a warning, not POST
     await page.click('#view .btn.primary:has-text("Improve run")'); await page.waitForTimeout(300);
