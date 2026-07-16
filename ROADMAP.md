@@ -64,6 +64,11 @@ with new, ambitious, fun ideas.
       adapter contract is proven (Neon, PlanetScale, Cloudflare D1, Postgres-
       over-HTTP). Hold (b)-(e) until the adapters are validated against real
       databases — don't build merge/migration machinery on unproven transport.
+- [x] Docs sweep for the platform era (shipped 2026-07-15) — new "Fleet Ops &
+      the steward" section (roster, janitor, dispatches, vault token, steward
+      attention signals) + drift fixes across Getting started / Activity /
+      Credentials / Releases / Health for the centralized-steward model.
+
 - [ ] The new "Health, weighting & notifications" docs section (see Done,
       2026-07-04) was written by reading the real code (`store.js`'s
       `HEALTH_BANDS`, `settings.js`'s card labels, `project.js`'s override

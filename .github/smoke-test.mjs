@@ -158,6 +158,11 @@ try {
   for (const s of ['home', 'projects', 'releases', 'activity', 'credentials', 'docs', 'settings']) {
     await check(`section "${s}" opens`, async () => { if (!(await openSec(s))) return false; return (await count('#view *')) > 0; });
   }
+  await check('docs: "Fleet Ops & the steward" section documents the platform era (roster, janitor, token, attention signals)', async () => {
+    await openSec('docs');
+    const bodyText = await page.$eval('#doc-fleetops', (n) => n.textContent).catch(() => '');
+    return ['roster', 'janitor', 'sweep', 'vault', 'Needs attention'].every((w) => bodyText.toLowerCase().includes(w.toLowerCase()));
+  });
   await check('docs: "Health, weighting & notifications" section covers the health/attention system and its TOC link scrolls to it', async () => {
     await openSec('docs');
     const bodyText = await page.$eval('#doc-health', (n) => n.textContent).catch(() => '');
