@@ -795,7 +795,8 @@ a.link:hover{text-decoration:underline}
 .rec-detail{margin:10px 0 4px}
 
 /* ---- fleet ops (steward console) ---------------------------------------- */
-.fo-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.fo-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start}
+.fo-col{display:flex;flex-direction:column;gap:16px;min-width:0}
 .fo-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
 .fo-status{display:flex;align-items:center;gap:6px;margin-top:10px;min-height:18px}
 .fo-status svg{width:14px;height:14px}

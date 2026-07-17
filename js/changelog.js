@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 73,
+    title: 'Fleet Ops splits in two: the control room and the Steward log',
+    kind: 'polish',
+    ts: '2026-07-17T23:07:21.751Z',
+    items: [
+      'Fleet Ops was doing two jobs on one page. Now the rail has both: Fleet Ops is the control room — GitHub access, the schedule roster, and one-off runs — and a new Steward log section holds what has happened: the safety nets, expandable run reviews, and open steward work across the fleet. Each links to the other from its header.',
+      'The dead space next to the roster became a “Coming up” card: the next ten scheduled runs across every lane and platform job, computed from the roster exactly as shown — including edits you haven’t committed yet, so you can preview a schedule change before committing it.',
+    ],
+  },
+  {
     v: 72,
     title: 'Run reviews now tell you what happened, in the steward’s own words',
     kind: 'feature',

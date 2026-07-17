@@ -26,25 +26,86 @@ import {
 // anything else is a real error (red).
 const errNote = (e) => `<span class="${/rate.?limit/i.test(e.message) ? 'fo-warn' : 'fo-err'} tiny">${icon('warning')} ${escapeHtml(e.message)}</span>`;
 
+// Fleet Ops is split across two rail sections:
+//   Fleet Ops    — the control room: token, schedules (roster), run-now,
+//                  and a computed "Coming up" timeline.
+//   Steward log  — what has happened: safety nets, run reviews, open work.
 export function renderFleetOps(root, ctx){
   root.innerHTML = '';
   const wrap = el('div', { class: 'wrap view-in' });
 
   const title = el('div', { class: 'section-title', style: 'margin-top:0' });
   title.innerHTML = `<span style="color:var(--brand-b);display:inline-flex">${icon('rocket')}</span><h2>Fleet Ops</h2>
-    <span class="muted tiny">the platform steward, driven from Manager</span>`;
+    <span class="muted tiny">schedule and run the platform steward</span>`;
+  title.append(el('span', { class: 'sp' }),
+    el('button', { class: 'btn ghost sm', html: `${icon('clock')} Steward log`,
+      title: 'What the steward has been doing', onclick: () => ctx.go('stewardlog') }));
   wrap.append(title);
 
   wrap.append(connectCard(ctx));
 
   const grid = el('div', { class: 'fo-grid' });
-  grid.append(rosterCard(), dispatchCard());
+  const upcoming = upcomingCard();
+  const right = el('div', { class: 'fo-col' });
+  right.append(dispatchCard(), upcoming.card);
+  grid.append(rosterCard(upcoming.update), right);
   wrap.append(grid);
+
+  root.append(wrap);
+}
+
+export function renderStewardLog(root, ctx){
+  root.innerHTML = '';
+  const wrap = el('div', { class: 'wrap view-in' });
+
+  const title = el('div', { class: 'section-title', style: 'margin-top:0' });
+  title.innerHTML = `<span style="color:var(--brand-b);display:inline-flex">${icon('clock')}</span><h2>Steward log</h2>
+    <span class="muted tiny">what the steward has been doing across the fleet</span>`;
+  title.append(el('span', { class: 'sp' }),
+    el('button', { class: 'btn ghost sm', html: `${icon('rocket')} Fleet Ops`,
+      title: 'Adjust schedules or dispatch a run', onclick: () => ctx.go('fleetops') }));
+  wrap.append(title);
+
   wrap.append(healthCard());
   wrap.append(runsCard());
   wrap.append(workCard(ctx));
 
   root.append(wrap);
+}
+
+// ---- coming up: the computed next-runs timeline ------------------------------
+// Derived entirely from the roster via the schedule evaluator — zero extra
+// API calls — and re-computed live as lanes are edited, so it previews the
+// schedule AS SHOWN including uncommitted flips.
+function upcomingCard(){
+  const card = el('div', { class: 'card' });
+  card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Coming up</h2></div>
+    <p class="tiny muted" style="margin:0 0 10px">The next scheduled runs, from the roster as shown — including edits you haven’t committed yet.</p>`;
+  const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loads with the roster…</span>` });
+  card.append(body);
+  const update = (roster) => {
+    body.innerHTML = '';
+    if(!roster){ body.append(el('div', { class: 'tiny muted', text: 'Roster unavailable.' })); return; }
+    const entries = [];
+    for(const [name, lane] of Object.entries(roster.apps || {})){
+      const n = nextRunAt(lane); if(n) entries.push({ label: name, mono: true, at: n });
+    }
+    for(const [job, lane] of Object.entries(roster.jobs || {})){
+      const n = nextRunAt(lane); if(n) entries.push({ label: JOB_META[job]?.label || job, mono: false, at: n });
+    }
+    entries.sort((a, b) => a.at - b.at);
+    if(!entries.length){ body.append(el('div', { class: 'tiny muted', text: 'Nothing scheduled — every lane is off. Flip one on in the roster, or dispatch a one-off above.' })); return; }
+    entries.slice(0, 10).forEach(e => {
+      const row = el('div', { class: 'fo-app-row', style: 'padding:3px 0' });
+      row.append(
+        el('span', { class: 'fo-dot live' }),
+        el('span', { class: 'fo-app-name' + (e.mono ? ' mono' : ''), text: e.label }),
+        el('span', { class: 'sp' }),
+        el('span', { class: 'tiny muted fo-when', text: fmtCT(e.at.getTime()) }));
+      body.append(row);
+    });
+  };
+  return { card, update };
 }
 
 // ---- connect: pick the vault credential that holds a GitHub PAT ------------
@@ -100,7 +161,7 @@ const JOB_META = {
   'sweep-tech':    { label: 'Tech sweep',    hint: 'audits contracts, drift, CI health' },
   'janitor':       { label: 'Janitor',       hint: 'merges green steward PRs' },
 };
-function rosterCard(){
+function rosterCard(onChange){
   const card = el('div', { class: 'card fo-roster' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Focus roster</h2>
     <span class="sp"></span></div>
@@ -112,7 +173,7 @@ function rosterCard(){
   let dirty = false;
   const openEditors = new Set();
 
-  const touch = () => { dirty = true; save.disabled = false; };
+  const touch = () => { dirty = true; save.disabled = false; onChange?.(state?.roster); };
 
   const laneEditor = (name, a, refreshRow) => {
     const ed = el('div', { class: 'fo-lane-editor' });
@@ -250,8 +311,8 @@ function rosterCard(){
   const saveRow = el('div', { class: 'fo-row', style: 'margin-top:10px' }, [save]);
 
   const load = async () => {
-    try{ state = await getRoster(); dirty = false; render(); }
-    catch(e){ body.innerHTML = errNote(e); }
+    try{ state = await getRoster(); dirty = false; render(); onChange?.(state.roster); }
+    catch(e){ body.innerHTML = errNote(e); onChange?.(null); }
   };
   load();
   return card;
