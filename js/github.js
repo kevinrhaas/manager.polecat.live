@@ -130,6 +130,24 @@ export async function stewardRuns(limit = 30, fresh = false){
   return (j.workflow_runs || []).filter(r => /steward/i.test(r.name || ''));
 }
 
+// The platform's Steward journal: every run posts its own summary as a
+// comment on the always-open `steward-journal` issue (see polecat-platform
+// .github/steward/journal.sh), tagged `<!-- steward-run:ID -->`. Find this
+// run's entry, newest comments first.
+export async function journalFor(runId){
+  const issues = await gh(`/repos/${PLATFORM_REPO}/issues?labels=steward-journal&state=all&per_page=1`);
+  const issue = issues?.[0];
+  if(!issue) return null;
+  const perPage = 100;
+  const lastPage = Math.max(1, Math.ceil((issue.comments || 0) / perPage));
+  for(let p = lastPage; p >= Math.max(1, lastPage - 2); p--){
+    const cs = await gh(`/repos/${PLATFORM_REPO}/issues/${issue.number}/comments?per_page=${perPage}&page=${p}`);
+    const hit = [...(cs || [])].reverse().find(c => (c.body || '').includes(`steward-run:${runId}`));
+    if(hit) return hit;
+  }
+  return null;
+}
+
 // Per-run job + step breakdown (the in-panel "run log" skeleton).
 export async function runJobs(runId){
   const j = await gh(`/repos/${PLATFORM_REPO}/actions/runs/${runId}/jobs?per_page=30`);

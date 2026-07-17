@@ -12,14 +12,14 @@
 // error/empty states — no call here may crash the view or log to console.
 import { Store } from '../store.js';
 import { el, escapeHtml, toast, ago, confirmDialog } from '../ui.js';
-import { fmtCT } from '../ui.js';
+import { fmtCT, mdToHtml } from '../ui.js';
 import { nextRunAt, isoToLocalInput, localInputToIso, utcHourLabel } from '../schedule.js';
 import { icon } from '../icons.js';
 import {
   whoami, ghCred, ghToken, fleetOpsCfg, setFleetOpsCfg, clearGhCache,
   getRoster, putRoster, dispatchWorkflow, stewardRuns, stewardPRs, sweepIssues,
   checkState, fleetRepos, IMPROVE_WORKFLOW, SWEEP_WORKFLOWS,
-  runJobs, issuesCreatedBetween, prsCreatedBetween, prsMergedBetween,
+  runJobs, journalFor, issuesCreatedBetween, prsCreatedBetween, prsMergedBetween,
 } from '../github.js';
 
 // Inline error note: a rate limit is a calm, self-healing condition (amber),
@@ -341,7 +341,8 @@ function runDetail(r){
       const done = r.status === 'completed';
       const end = new Date((done ? new Date(r.updated_at).getTime() : Date.now()) + 120000).toISOString();
       const isJanitor = /janitor/i.test(r.name || '');
-      const [jobs, issues, prs, merged] = await Promise.all([
+      const [journal, jobs, issues, prs, merged] = await Promise.all([
+        journalFor(r.id).catch(() => null),
         runJobs(r.id).catch(() => []),
         issuesCreatedBetween(start, end).catch(() => []),
         prsCreatedBetween(start, end).catch(() => []),
@@ -349,14 +350,23 @@ function runDetail(r){
       ]);
       d.innerHTML = '';
 
-      // job/step log skeleton
+      // Lead with the run's OWN account of what it did (the Steward journal —
+      // every run posts its summary there). This is the review Kevin reads;
+      // the CI step breakdown below is demoted to failures only.
+      if(journal){
+        const md = String(journal.body || '').replace(/<!--[\s\S]*?-->/g, '').trim();
+        d.append(el('div', { class: 'fo-journal', html: mdToHtml(md) }));
+      }else if(done){
+        d.append(el('div', { class: 'tiny muted', text: 'No journal entry for this run (runs journal what they did starting 2026-07-17).' }));
+      }
+
+      // job one-liners; individual steps only when something failed
       jobs.forEach(j => {
         const wrap = el('div', { class: 'fo-steps' });
         const mins = j.started_at && j.completed_at ? Math.max(1, Math.round((new Date(j.completed_at) - new Date(j.started_at)) / 60000)) + ' min' : '';
         wrap.append(el('div', { class: 'tiny', html: `<b>${escapeHtml(j.name)}</b> <span class="muted">· ${escapeHtml(j.conclusion || j.status)}${mins ? ' · ' + mins : ''}</span>` }));
-        (j.steps || []).filter(s => s.conclusion !== 'skipped').forEach(s => {
-          const dot = s.conclusion === 'success' ? 'ok' : s.conclusion === 'failure' ? 'err' : s.status !== 'completed' ? 'live' : 'muted';
-          wrap.append(el('div', { class: 'fo-step tiny', html: `<span class="fo-dot ${dot}"></span><span class="fo-step-name">${escapeHtml(s.name)}</span>` }));
+        (j.steps || []).filter(s => ['failure', 'timed_out', 'cancelled'].includes(s.conclusion)).forEach(s => {
+          wrap.append(el('div', { class: 'fo-step tiny', html: `<span class="fo-dot err"></span><span class="fo-step-name">${escapeHtml(s.name)}</span>` }));
         });
         d.append(wrap);
       });
@@ -408,20 +418,25 @@ function runsCard(){
         // — manager.polecat.live" — fall back to the workflow name for runs
         // from before the platform annotated them.
         const title = r.display_title && r.display_title !== r.name ? r.display_title : r.name;
+        // Mobile-first row: the title line owns the width (tapping it toggles
+        // the detail too — the chevron alone is a thin target on a phone);
+        // the metadata wraps to its own line on narrow screens (see CSS) and
+        // the event label hides there entirely.
         const row = el('div', { class: 'fo-run-row fo-run-static' });
+        const toggle = () => { openRuns.has(r.id) ? openRuns.delete(r.id) : openRuns.add(r.id); load(); };
         const exp = el('button', { class: 'fo-expand' + (openRuns.has(r.id) ? ' on' : ''),
           title: 'What this run did', 'aria-label': `Details for ${title}`, 'aria-expanded': String(openRuns.has(r.id)),
-          html: icon('chevron'),
-          onclick: () => { openRuns.has(r.id) ? openRuns.delete(r.id) : openRuns.add(r.id); load(); } });
-        row.append(exp);
-        const mid = el('span', { class: 'fo-run-mid', html: `<span class="fo-dot ${dot}"></span>
-          <span class="fo-run-name">${escapeHtml(title)}</span>
-          <span class="tiny muted">${escapeHtml(r.event)}</span>` });
-        row.append(mid, el('span', { class: 'sp' }),
+          html: icon('chevron'), onclick: toggle });
+        const main = el('button', { class: 'fo-run-main', title: 'What this run did', onclick: toggle,
+          html: `<span class="fo-dot ${dot}"></span><span class="fo-run-name">${escapeHtml(title)}</span>` });
+        const meta = el('span', { class: 'fo-run-meta' });
+        meta.append(
+          el('span', { class: 'tiny muted fo-run-event', text: r.event }),
           el('span', { class: `tiny ${dot === 'err' ? 'fo-warn' : 'muted'}`, text: state }),
           el('span', { class: 'tiny muted fo-when', text: ago(new Date(r.created_at).getTime()) }),
-          el('a', { class: 'btn ghost icon sm', href: r.html_url, target: '_blank', rel: 'noopener',
+          el('a', { class: 'btn ghost icon sm fo-run-link', href: r.html_url, target: '_blank', rel: 'noopener',
             title: 'Open on GitHub', 'aria-label': `Open ${title} on GitHub`, html: icon('external') }));
+        row.append(exp, main, meta);
         body.append(row);
         if(openRuns.has(r.id)) body.append(runDetail(r));
       });

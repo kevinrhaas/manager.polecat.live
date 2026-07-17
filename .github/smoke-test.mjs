@@ -47,6 +47,11 @@ try {
     if (m.type() !== 'error') return;
     const t = m.text();
     if (/net::ERR_/.test(t) || /favicon/.test(t)) return;
+    // Live GitHub API calls (Fleet Ops / steward signals) hitting anonymous
+    // rate limits in CI log 403/429 resource errors — environmental, not app
+    // bugs; the app renders inline degraded states for them. Never fail
+    // smoke on them (they made the janitor park green PRs).
+    if (/api\.github\.com/.test(t) || /api\.github\.com/.test(m.location()?.url || '')) return;
     errors.push('console: ' + t);
   });
   const $ = (s) => page.$(s);

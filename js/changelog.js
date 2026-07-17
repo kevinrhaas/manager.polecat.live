@@ -9,6 +9,27 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 72,
+    title: 'Run reviews now tell you what happened, in the steward’s own words',
+    kind: 'feature',
+    ts: '2026-07-17T22:37:14.744Z',
+    items: [
+      'Expanding a steward run now leads with the run’s own summary — every steward job (improve runs, both sweeps, the janitor) now journals what it actually did when it finishes, and Manager shows that narrative first: which app it picked, what shipped, the PR it opened, the issues a sweep filed, what the janitor merged or parked.',
+      'The CI process noise is gone from the review: the step-by-step list (checkout, install, cache…) is demoted to a one-line job summary, with individual steps shown only when something failed.',
+      'Older runs from before the journal existed say so and keep the time-correlated view; “Full log on GitHub” remains for the raw console output.',
+    ],
+  },
+  {
+    v: 71,
+    title: 'Steward runs are readable and openable on a phone',
+    kind: 'fix',
+    ts: '2026-07-17T22:29:44.034Z',
+    items: [
+      'On mobile, the Recent steward runs list squashed each run’s name down to a few letters and the details were effectively impossible to open. Now the run name owns its full line, the status and time wrap onto a second line beneath it, and the event label (workflow_dispatch/schedule) — pure noise on a small screen — is hidden.',
+      'Tapping anywhere on a run’s name toggles its details too, not just the small chevron, and the chevron itself grew to a proper thumb-sized target. The safety-nets rows drop their descriptions on phones for the same breathing room.',
+    ],
+  },
+  {
     v: 70,
     title: 'Review what every steward run actually did, in place',
     kind: 'feature',
