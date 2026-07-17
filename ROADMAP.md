@@ -51,7 +51,10 @@ with new, ambitious, fun ideas.
       (c) DONE 2026-07-15 (shell v0.2.0 vendored): `:focus-visible` rings for
       `.ps-rail-brand`/`.ps-rail-toggle` and a badge `tone` option on
       `setBadge` — both upstreamed to the platform and Manager's local
-      compensations deleted.
+      compensations deleted; (d) DONE 2026-07-17: vendor copy caught up from
+      v0.3.0 to v0.4.0 (chrome/media icons promoted from Games, refreshed
+      Analytics tagline in the shared catalog) — no app code changed, only the
+      vendored copy.
 
 - [ ] Data sources (see Done, 2026-07-08) — the follow-on queue, roughly in
       value order: (a) **validate the live remote adapters** end to end against

@@ -27,7 +27,7 @@ export const FLEET = [
     changelogUrl: 'https://jobtracker.polecat.live/js/changelog.js' },
 
   { id: 'analytics',    name: 'Analytics',    url: 'https://analytics.polecat.live',
-    tagline: 'Dashboard Studio — connect a database, build, export.',
+    tagline: 'Connect your data, build dashboards, share anywhere.',
     icon: 'chart',      accent: '#b8632e', status: 'live', visibility: 'public',
     changelogUrl: 'https://analytics.polecat.live/js/changelog.js' },
 

@@ -7,8 +7,10 @@
 //
 // `icon(name, size)` returns an SVG string. The base set is the generic UI
 // family ported from JobTracker (nav, controls, status), extended with the
-// generically useful extras from Manager (gauge, trophy, lock, globe, …)
-// plus a `waffle` 3×3 grid authored for the app switcher. App-specific
+// generically useful extras from Manager (gauge, trophy, lock, globe, …),
+// the media/chrome controls promoted from Games (back, fullscreen, sound,
+// muted — v0.4.0), plus a `waffle` 3×3 grid authored for the app switcher.
+// App-specific
 // families (e.g. JobTracker's marketing-deliverable icons) stay in the app
 // and register themselves via registerIcons().
 // -----------------------------------------------------------------------
@@ -88,6 +90,11 @@ const P = {
   archive:'<path d="M3 4h18v5H3zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>',
   notes:'<path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM14 2v6h6M8 13h8M8 17h5"/>',
   eyeOff:'<path d="M17.9 17.9A9.96 9.96 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5-5.9M9.9 4.24A9.5 9.5 0 0 1 12 4c7 0 11 8 11 8a18.4 18.4 0 0 1-2.16 3.19M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22"/>',
+  // ---- chrome / media controls (promoted from Games' game-chrome) ----
+  back:'<path d="m15 6-6 6 6 6"/>',
+  fullscreen:'<path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/>',
+  sound:'<path d="M4 9v6h3l5 4V5L7 9H4z"/><path d="M16 8.5a4 4 0 0 1 0 7M18.7 6a7 7 0 0 1 0 12"/>',
+  muted:'<path d="M4 9v6h3l5 4V5L7 9H4z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/>',
   // ---- authored for the shell ----
   // 3×3 launcher grid for the fleet app switcher (single path, house stroke).
   waffle:'<path d="M4 4h3v3H4zM10.5 4h3v3h-3zM17 4h3v3h-3zM4 10.5h3v3H4zM10.5 10.5h3v3h-3zM17 10.5h3v3h-3zM4 17h3v3H4zM10.5 17h3v3h-3zM17 17h3v3h-3z"/>',

@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 70,
+    title: 'Shell caught up to v0.4.0',
+    kind: 'fix',
+    ts: '2026-07-17T07:01:20.130Z',
+    items: [
+      'Vendored Polecat Shell refreshed from v0.3.0 to v0.4.0 — the shared fleet app catalog now carries Analytics’s current tagline, and the icon set gained the chrome/media controls (back, fullscreen, sound, muted) promoted from Games.',
+    ],
+  },
+  {
     v: 69,
     title: 'Fleet Ops stops burning the anonymous GitHub budget',
     kind: 'fix',
