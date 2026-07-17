@@ -14,7 +14,7 @@ import { renderProjects, openProjectEditor, applyDefaultSavedView } from './view
 import { renderProject } from './views/project.js';
 import { renderReleases, unreadReleasesCount, markReleasesSeen } from './views/releases.js';
 import { renderActivity } from './views/activity.js';
-import { renderFleetOps } from './views/fleetops.js';
+import { renderFleetOps, renderStewardLog } from './views/fleetops.js';
 import { renderCredentials } from './views/credentials.js';
 import { renderDocs } from './views/docs.js';
 import { renderAdmin } from './views/admin.js';
@@ -28,9 +28,9 @@ import { initSync, onSync, syncState, pushNow } from './sync.js';
 import { startStewardSignals } from './steward-signals.js';
 
 const TITLES = { home:'Dashboard', projects:'Projects', project:'Project', releases:'Releases', activity:'Activity', fleetops:'Fleet Ops',
-  credentials:'Credentials', docs:'Docs', admin:'Admin', settings:'Settings' };
+  stewardlog:'Steward log', credentials:'Credentials', docs:'Docs', admin:'Admin', settings:'Settings' };
 const RENDERERS = { home:renderHome, projects:renderProjects, project:renderProject, releases:renderReleases, activity:renderActivity,
-  fleetops:renderFleetOps, credentials:renderCredentials, docs:renderDocs, admin:renderAdmin, settings:renderSettings };
+  fleetops:renderFleetOps, stewardlog:renderStewardLog, credentials:renderCredentials, docs:renderDocs, admin:renderAdmin, settings:renderSettings };
 
 // Rail sections (shell format): `minMode:'standard'` items hide in Simple
 // mode; `admin` items appear only when the Admin area is unlocked.
@@ -41,6 +41,7 @@ const SECTIONS = [
   { key:'releases',    label:'Releases',    icon:'sparkle' },
   { key:'activity',    label:'Activity',    icon:'activity', minMode:'standard' },
   { key:'fleetops',    label:'Fleet Ops',   icon:'rocket',   minMode:'standard' },
+  { key:'stewardlog',  label:'Steward log', icon:'clock',    minMode:'standard' },
   { group:'Setup' },
   { key:'credentials', label:'Credentials', icon:'key',      minMode:'standard' },
   { key:'docs',        label:'Docs',        icon:'book' },

@@ -1231,14 +1231,9 @@ try {
   // chrome and settle every async card into data OR an inline error state,
   // with zero pageerrors either way.
   console.log('Fleet Ops');
-  await check('fleet ops panel renders: connect card, roster/dispatch/runs/work cards all settle without errors', async () => {
-    if (!(await openSec('fleetops'))) return false;
-    if (!(await $('.fo-connect'))) return false;
-    if ((await count('#view .card')) < 5) return false;
-    if (!(await $('.fo-health'))) return false;
+  const foBodiesSettle = async () => {
     // async GitHub loads settle (data or an inline error note) — gh() carries
-    // an 8s fetch deadline, so poll a little past it: ~12s covers the worst
-    // case even when the sandbox hangs connections instead of refusing them
+    // an 8s fetch deadline, so poll a little past it
     for (let i = 0; i < 24; i++) {
       await page.waitForTimeout(500);
       const stillLoading = await page.evaluate(() =>
@@ -1246,6 +1241,18 @@ try {
       if (!stillLoading) return true;
     }
     return false;
+  };
+  await check('steward log renders: safety nets, runs, and open-work cards settle without errors', async () => {
+    if (!(await openSec('stewardlog'))) return false;
+    if (!(await $('.fo-health'))) return false;
+    if ((await count('#view .card')) < 3) return false;
+    return foBodiesSettle();
+  });
+  await check('fleet ops control room renders: connect, roster, dispatch, and coming-up cards settle without errors', async () => {
+    if (!(await openSec('fleetops'))) return false;
+    if (!(await $('.fo-connect'))) return false;
+    if ((await count('#view .card')) < 4) return false;
+    return foBodiesSettle();
   });
   await check('lane schedule evaluator mirrors the platform semantics (cadence/offset/window/until/startAt, next-run on the :03 tick)', async () => {
     return await page.evaluate(async () => {
