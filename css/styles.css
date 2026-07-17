@@ -843,6 +843,22 @@ a.link:hover{text-decoration:underline}
 .fo-work-ic{display:inline-flex;color:var(--text-3);flex:0 0 auto}
 .fo-work-ic svg{width:14px;height:14px}
 .fo-repo-group{padding:6px 0}
+/* expandable run rows + the in-panel run detail */
+.fo-run-static{cursor:default}
+.fo-run-mid{display:inline-flex;align-items:center;gap:9px;min-width:0}
+.fo-expand{border:none;background:none;color:var(--text-3);cursor:pointer;padding:2px;flex:0 0 auto;
+  display:inline-flex;border-radius:6px}
+.fo-expand svg{width:14px;height:14px;transition:transform .18s}
+.fo-expand.on{color:var(--brand-b)} .fo-expand.on svg{transform:rotate(90deg)}
+.fo-expand:focus-visible{outline:none;box-shadow:var(--ring)}
+.fo-run-detail{display:flex;flex-direction:column;gap:6px;margin:0 0 8px 30px;padding:10px 12px;
+  border:1px solid var(--border);border-left:2px solid color-mix(in srgb,var(--brand-b) 55%,var(--border));
+  border-radius:10px;background:var(--surface-2)}
+.fo-steps{display:flex;flex-direction:column;gap:3px}
+.fo-step{display:flex;align-items:center;gap:8px;min-width:0}
+.fo-step .fo-dot{width:7px;height:7px}
+.fo-step-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+@media (max-width:720px){ .fo-run-detail{margin-left:6px} }
 .fo-health .fo-run-name{flex:0 0 auto}
 .fo-health-sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .fo-repo-name{color:var(--text-3);margin-bottom:2px}

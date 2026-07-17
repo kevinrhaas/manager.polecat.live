@@ -1231,10 +1231,16 @@ try {
     if (!(await $('.fo-connect'))) return false;
     if ((await count('#view .card')) < 5) return false;
     if (!(await $('.fo-health'))) return false;
-    await page.waitForTimeout(2500);   // async GitHub loads settle (data or .fo-err)
-    const stillLoading = await page.evaluate(() =>
-      [...document.querySelectorAll('#view .fo-body')].some((b) => /Loading|Scanning/.test(b.textContent)));
-    return !stillLoading;
+    // async GitHub loads settle (data or an inline error note) — gh() carries
+    // an 8s fetch deadline, so poll a little past it: ~12s covers the worst
+    // case even when the sandbox hangs connections instead of refusing them
+    for (let i = 0; i < 24; i++) {
+      await page.waitForTimeout(500);
+      const stillLoading = await page.evaluate(() =>
+        [...document.querySelectorAll('#view .fo-body')].some((b) => /Loading|Scanning/.test(b.textContent)));
+      if (!stillLoading) return true;
+    }
+    return false;
   });
   await check('lane schedule evaluator mirrors the platform semantics (cadence/offset/window/until/startAt, next-run on the :03 tick)', async () => {
     return await page.evaluate(async () => {

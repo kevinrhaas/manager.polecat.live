@@ -72,7 +72,10 @@ export async function gh(path, { method = 'GET', body, fresh = false } = {}){
   }
   let res;
   try{
-    res = await fetch(API + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined });
+    // Hard 8s deadline: on some networks an unreachable host HANGS the fetch
+    // for a minute-plus instead of failing — cards must settle, not spin.
+    res = await fetch(API + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(8000) });
   }catch{
     throw new Error('GitHub unreachable — check your connection');
   }
@@ -126,6 +129,25 @@ export async function stewardRuns(limit = 30, fresh = false){
   const j = await gh(`/repos/${PLATFORM_REPO}/actions/runs?per_page=${limit}`, { fresh });
   return (j.workflow_runs || []).filter(r => /steward/i.test(r.name || ''));
 }
+
+// Per-run job + step breakdown (the in-panel "run log" skeleton).
+export async function runJobs(runId){
+  const j = await gh(`/repos/${PLATFORM_REPO}/actions/runs/${runId}/jobs?per_page=30`);
+  return j.jobs || [];
+}
+
+// What a run PRODUCED, by time correlation: issues and PRs created (or PRs
+// merged) across the owner's repos while the run executed. Approximate by
+// construction — anything created in the window shows up — so callers label
+// it honestly.
+const OWNER = PLATFORM_REPO.split('/')[0];
+async function searchWork(qualifiers){
+  const j = await gh(`/search/issues?q=${encodeURIComponent(`user:${OWNER} ${qualifiers}`)}&per_page=30&sort=created&order=asc`);
+  return j.items || [];
+}
+export function issuesCreatedBetween(startIso, endIso){ return searchWork(`is:issue created:${startIso}..${endIso}`); }
+export function prsCreatedBetween(startIso, endIso){ return searchWork(`is:pr created:${startIso}..${endIso}`); }
+export function prsMergedBetween(startIso, endIso){ return searchWork(`is:pr merged:${startIso}..${endIso}`); }
 
 // Reduce a PR head commit's check runs to one signal for a status dot.
 export async function checkState(repo, sha){

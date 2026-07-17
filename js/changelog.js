@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 70,
+    title: 'Review what every steward run actually did, in place',
+    kind: 'feature',
+    ts: '2026-07-17T15:16:11.015Z',
+    items: [
+      'Each row in Recent steward runs now expands (chevron) into an in-panel review: the run’s job and step log — every step with its pass/fail dot and duration — plus what the run produced: issues filed by a sweep, PRs opened by an improve run, PRs merged by the janitor, each linking straight to the item.',
+      'Production is time-correlated (everything created fleet-wide during the run’s execution window) and labeled as such; a run that produced nothing says so plainly, and the full GitHub log is always one click away.',
+      'Detail lookups ride the same request cache and degrade gracefully when rate-limited. Also fixed underneath: every GitHub call now carries an 8-second deadline, so a network that hangs connections (instead of refusing them) can no longer leave cards spinning on “Loading…” forever.',
+    ],
+  },
+  {
     v: 69,
     title: 'Fleet Ops stops burning the anonymous GitHub budget',
     kind: 'fix',
