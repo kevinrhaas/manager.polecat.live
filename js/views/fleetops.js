@@ -19,6 +19,7 @@ import {
   whoami, ghCred, ghToken, fleetOpsCfg, setFleetOpsCfg, clearGhCache,
   getRoster, putRoster, dispatchWorkflow, stewardRuns, stewardPRs, sweepIssues,
   checkState, fleetRepos, IMPROVE_WORKFLOW, SWEEP_WORKFLOWS,
+  runJobs, issuesCreatedBetween, prsCreatedBetween, prsMergedBetween,
 } from '../github.js';
 
 // Inline error note: a rate limit is a calm, self-healing condition (amber),
@@ -326,6 +327,63 @@ function healthCard(){
 // ---- recent steward runs -----------------------------------------------------
 const RUN_DOT = { success: 'ok', failure: 'err', cancelled: 'muted', startup_failure: 'err' };
 const RUNS_POLL_MS = 30000;
+
+// Expanded run detail: the job/step breakdown (an in-panel run log) plus what
+// the run PRODUCED — sweep runs file issues, improve runs open PRs, the
+// janitor merges them. Production is time-window correlated (anything created
+// fleet-wide while the run executed), so it's labeled as such.
+function runDetail(r){
+  const d = el('div', { class: 'fo-run-detail' });
+  d.innerHTML = `<span class="tiny muted">Loading run details…</span>`;
+  (async () => {
+    try{
+      const start = r.run_started_at || r.created_at;
+      const done = r.status === 'completed';
+      const end = new Date((done ? new Date(r.updated_at).getTime() : Date.now()) + 120000).toISOString();
+      const isJanitor = /janitor/i.test(r.name || '');
+      const [jobs, issues, prs, merged] = await Promise.all([
+        runJobs(r.id).catch(() => []),
+        issuesCreatedBetween(start, end).catch(() => []),
+        prsCreatedBetween(start, end).catch(() => []),
+        isJanitor ? prsMergedBetween(start, end).catch(() => []) : Promise.resolve([]),
+      ]);
+      d.innerHTML = '';
+
+      // job/step log skeleton
+      jobs.forEach(j => {
+        const wrap = el('div', { class: 'fo-steps' });
+        const mins = j.started_at && j.completed_at ? Math.max(1, Math.round((new Date(j.completed_at) - new Date(j.started_at)) / 60000)) + ' min' : '';
+        wrap.append(el('div', { class: 'tiny', html: `<b>${escapeHtml(j.name)}</b> <span class="muted">· ${escapeHtml(j.conclusion || j.status)}${mins ? ' · ' + mins : ''}</span>` }));
+        (j.steps || []).filter(s => s.conclusion !== 'skipped').forEach(s => {
+          const dot = s.conclusion === 'success' ? 'ok' : s.conclusion === 'failure' ? 'err' : s.status !== 'completed' ? 'live' : 'muted';
+          wrap.append(el('div', { class: 'fo-step tiny', html: `<span class="fo-dot ${dot}"></span><span class="fo-step-name">${escapeHtml(s.name)}</span>` }));
+        });
+        d.append(wrap);
+      });
+
+      // what it produced (time-correlated across the fleet)
+      const section = (title, items, ic) => {
+        if(!items.length) return false;
+        d.append(el('div', { class: 'fo-repo-name tiny', text: title }));
+        items.forEach(i => {
+          const repo = (i.repository_url || '').split('/').slice(-2).join('/');
+          d.append(workRow(ic, `${repo} #${i.number} · ${i.title}`, i.html_url));
+        });
+        return true;
+      };
+      const prIds = new Set(merged.map(p => p.id));
+      const any = [
+        section('Issues filed while this run executed', issues, 'eye'),
+        section('PRs opened while this run executed', prs.filter(p => !prIds.has(p.id)), 'branch'),
+        section('PRs merged while this run executed', merged, 'check'),
+      ].some(Boolean);
+      if(any) d.append(el('div', { class: 'tiny muted', style: 'margin-top:4px', text: 'Time-correlated: everything created fleet-wide during the run window.' }));
+      else d.append(el('div', { class: 'tiny muted', text: done ? 'This run filed no issues and opened no PRs.' : 'Still running — results appear as it produces them.' }));
+      d.append(el('a', { class: 'linkbtn tiny', href: r.html_url, target: '_blank', rel: 'noopener', html: `${icon('external')} Full log on GitHub` }));
+    }catch(e){ d.innerHTML = errNote(e); }
+  })();
+  return d;
+}
 function runsCard(){
   const card = el('div', { class: 'card', style: 'margin-top:16px' });
   const head = el('div', { class: 'section-title', style: 'margin-top:0' });
@@ -337,6 +395,7 @@ function runsCard(){
   const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loading runs…</span>` });
   card.append(head, body);
 
+  const openRuns = new Set();
   const load = async (fresh = false) => {
     try{
       const runs = await stewardRuns(30, fresh);
@@ -349,14 +408,22 @@ function runsCard(){
         // — manager.polecat.live" — fall back to the workflow name for runs
         // from before the platform annotated them.
         const title = r.display_title && r.display_title !== r.name ? r.display_title : r.name;
-        const row = el('a', { class: 'fo-run-row', href: r.html_url, target: '_blank', rel: 'noopener' });
-        row.innerHTML = `<span class="fo-dot ${dot}"></span>
+        const row = el('div', { class: 'fo-run-row fo-run-static' });
+        const exp = el('button', { class: 'fo-expand' + (openRuns.has(r.id) ? ' on' : ''),
+          title: 'What this run did', 'aria-label': `Details for ${title}`, 'aria-expanded': String(openRuns.has(r.id)),
+          html: icon('chevron'),
+          onclick: () => { openRuns.has(r.id) ? openRuns.delete(r.id) : openRuns.add(r.id); load(); } });
+        row.append(exp);
+        const mid = el('span', { class: 'fo-run-mid', html: `<span class="fo-dot ${dot}"></span>
           <span class="fo-run-name">${escapeHtml(title)}</span>
-          <span class="tiny muted">${escapeHtml(r.event)}</span>
-          <span class="sp"></span>
-          <span class="tiny ${dot === 'err' ? 'fo-warn' : 'muted'}">${escapeHtml(state)}</span>
-          <span class="tiny muted fo-when">${escapeHtml(ago(new Date(r.created_at).getTime()))}</span>`;
+          <span class="tiny muted">${escapeHtml(r.event)}</span>` });
+        row.append(mid, el('span', { class: 'sp' }),
+          el('span', { class: `tiny ${dot === 'err' ? 'fo-warn' : 'muted'}`, text: state }),
+          el('span', { class: 'tiny muted fo-when', text: ago(new Date(r.created_at).getTime()) }),
+          el('a', { class: 'btn ghost icon sm', href: r.html_url, target: '_blank', rel: 'noopener',
+            title: 'Open on GitHub', 'aria-label': `Open ${title} on GitHub`, html: icon('external') }));
         body.append(row);
+        if(openRuns.has(r.id)) body.append(runDetail(r));
       });
     }catch(e){ body.innerHTML = errNote(e); }
   };
