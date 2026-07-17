@@ -844,16 +844,36 @@ a.link:hover{text-decoration:underline}
 .fo-work-ic svg{width:14px;height:14px}
 .fo-repo-group{padding:6px 0}
 /* expandable run rows + the in-panel run detail */
-.fo-run-static{cursor:default}
-.fo-run-mid{display:inline-flex;align-items:center;gap:9px;min-width:0}
-.fo-expand{border:none;background:none;color:var(--text-3);cursor:pointer;padding:2px;flex:0 0 auto;
-  display:inline-flex;border-radius:6px}
+.fo-run-static{cursor:default;flex-wrap:wrap;row-gap:2px}
+.fo-run-main{display:inline-flex;align-items:center;gap:9px;min-width:0;flex:1;
+  border:none;background:none;padding:0;cursor:pointer;color:var(--text);text-align:left;font:inherit}
+.fo-run-main:focus-visible{outline:none;box-shadow:var(--ring);border-radius:6px}
+.fo-run-meta{display:inline-flex;align-items:center;gap:9px;flex:0 0 auto;min-width:0}
+.fo-expand{border:none;background:none;color:var(--text-3);cursor:pointer;padding:0;flex:0 0 auto;
+  width:30px;height:30px;align-items:center;justify-content:center;display:inline-flex;border-radius:8px}
+.fo-expand:hover{background:var(--surface-2);color:var(--text)}
 .fo-expand svg{width:14px;height:14px;transition:transform .18s}
 .fo-expand.on{color:var(--brand-b)} .fo-expand.on svg{transform:rotate(90deg)}
 .fo-expand:focus-visible{outline:none;box-shadow:var(--ring)}
+@media (max-width:640px){
+  /* phones: the title line owns the full width; metadata drops to its own
+     line under it, and the event name (workflow_dispatch/schedule) is noise */
+  .fo-run-event{display:none}
+  .fo-run-meta{flex-basis:100%;margin-left:39px;justify-content:flex-start}
+  .fo-health .fo-health-sub{display:none}
+  .fo-health .fo-run-name{flex:1}
+}
 .fo-run-detail{display:flex;flex-direction:column;gap:6px;margin:0 0 8px 30px;padding:10px 12px;
   border:1px solid var(--border);border-left:2px solid color-mix(in srgb,var(--brand-b) 55%,var(--border));
   border-radius:10px;background:var(--surface-2)}
+.fo-journal{font-size:13px;line-height:1.55;color:var(--text)}
+.fo-journal h5,.fo-journal h6{margin:0 0 6px;font-size:13px}
+.fo-journal p{margin:0 0 8px}
+.fo-journal ul,.fo-journal ol{margin:0 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:3px}
+.fo-journal li{color:var(--text-2)}
+.fo-journal a{color:var(--brand-b)}
+.fo-journal code{background:var(--surface-3);border-radius:5px;padding:1px 5px;font-family:var(--mono);font-size:12px}
+.fo-journal pre{background:var(--surface-3);border-radius:8px;padding:8px 10px;overflow-x:auto;margin:0 0 8px}
 .fo-steps{display:flex;flex-direction:column;gap:3px}
 .fo-step{display:flex;align-items:center;gap:8px;min-width:0}
 .fo-step .fo-dot{width:7px;height:7px}
