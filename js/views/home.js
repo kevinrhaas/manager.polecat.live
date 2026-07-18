@@ -2,7 +2,8 @@
 import { Store, STATUSES, healthBand, statusPill } from '../store.js';
 import { el, escapeHtml, fmtCT, ago, avatarColor, toast, modal, confirmDialog, sparkline, makeRowClickable } from '../ui.js';
 import { icon } from '../icons.js';
-import { openProjectEditor } from './projects.js';
+import { openProjectEditor, setLibraryFilter } from './projects.js';
+import { setReleasesFilter } from './releases.js';
 import { syncProject, forceSyncProject, attemptAutoSync } from '../ingest.js';
 
 function greeting(){
@@ -39,17 +40,27 @@ export function renderHome(root, ctx){
   const dismissedCount=Store.dismissedAttention().length;
   if(attn.length || dismissedCount) wrap.append(attentionPanel(attn, dismissedCount, ctx));
 
-  // stats
+  // stats — every tile links to the filtered detail view behind its number
+  // (house rule: no dead numbers on the dashboard).
   const stats=el('div',{class:'grid stats'});
-  const stat=(k,v,d,color,ic)=>{ const c=el('div',{class:'card stat'}); c.innerHTML=
+  const stat=(k,v,d,color,onClick)=>{
+    const c=el('div',{class:'card stat'+(onClick?' hover':''), onclick:onClick}); c.innerHTML=
     `<div class="glow" style="background:radial-gradient(circle,${color},transparent 70%)"></div>
-     <div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div>`; return c; };
+     <div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div>`;
+    if(onClick) makeRowClickable(c, onClick, `${k}: ${v}`);
+    return c;
+  };
   stats.append(
-    stat('Projects', projects.length, `${projects.filter(p=>p.pinned).length} pinned`, 'var(--brand-b)'),
-    stat('Live now', live, 'shipping to production', 'var(--success)'),
-    stat('Shipped · 7d', rel7, 'releases across the fleet', 'var(--consensus)'),
-    stat('Feature runs', feat, untilSweep===0?'sweep is next ✦':`${untilSweep} until next sweep`, 'var(--brand-c)'),
-    stat('Fleet health', fleetScore, `${fleetBand.label} · avg across ${projects.length}`, fleetBand.color),
+    stat('Projects', projects.length, `${projects.filter(p=>p.pinned).length} pinned`, 'var(--brand-b)',
+      ()=>{ setLibraryFilter({status:'all'}); ctx.go('projects'); }),
+    stat('Live now', live, 'shipping to production', 'var(--success)',
+      ()=>{ setLibraryFilter({status:'live', sort:'activity', dir:'desc'}); ctx.go('projects'); }),
+    stat('Shipped · 7d', rel7, 'releases across the fleet', 'var(--consensus)',
+      ()=>{ setReleasesFilter({range:'7'}); ctx.go('releases'); }),
+    stat('Feature runs', feat, untilSweep===0?'sweep is next ✦':`${untilSweep} until next sweep`, 'var(--brand-c)',
+      ()=>ctx.go('activity')),
+    stat('Fleet health', fleetScore, `${fleetBand.label} · avg across ${projects.length}`, fleetBand.color,
+      ()=>{ setLibraryFilter({status:'all', sort:'health', dir:'asc'}); ctx.go('projects'); }),
   );
   wrap.append(stats);
 
