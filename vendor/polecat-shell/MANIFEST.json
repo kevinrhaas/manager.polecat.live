@@ -1,13 +1,13 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.1",
   "files": {
-    "VERSION": "d915cc95d6ca8f47ae297713ed46d4e5c5d99ddd29fc3c61e263bdf305f2b5b0",
+    "VERSION": "f62184cee8787f2f6941c82041a5725d4edc9aa293ebe5dbf664406e82ec1fe1",
     "access.js": "532ce507b67afd4c87e87ec0abc0793319e4fa8a04f0a5ce0d67ce0b7c0a703b",
     "auth/null.js": "639217faef1c10efc8c1148fc33241900b7257a0d401fd09e62f05f64aab42d3",
     "auth/schema.js": "48379b720041131223f15735855057cd7e343392f6a8ff1ef99942b467ca2878",
     "auth/supabase.js": "266d27f7c4727df9774376406d7e12888157cc8db1bd9aefb6c688487a69b4f6",
-    "catalog.js": "4c7fdef45fd432b1f3e4826d84a1444eec50af0eb9faac4ed38f4ab575a3c1c0",
-    "icons.js": "7c68dcd4d0fc0231e775250d41f7d11347ee65a6b99e34cddf5422bef02f30e6",
+    "catalog.js": "4b7cbadeca55c483e399e9cbf31db4052600517a758db318b6b39b44e2a972dc",
+    "icons.js": "335e4130273927bc999e33716eac4b3485a5f432010269ea81ed584a70458b83",
     "notifications.js": "3d988b693bca4786ac059a2a1759c5cd14449b9e3d4ea4fd6302dd68bd287ce6",
     "settings.js": "18181e8e08153586405fea9d844980df95943351a7e09fd6fe6f7f788e286873",
     "shell.css": "0dabf151a25236acababdb2a3a1a116c57bb7d8da42b2bfb7fbc773c305d8c85",
