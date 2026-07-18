@@ -22,6 +22,23 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [x] **Dashboard/Releases stat tiles now link to detail** (shipped 2026-07-18) —
+      the highest-impact open UX-sweep finding (#19, flagged 3 sweeps running):
+      the Dashboard's 5 stat cards and the Releases page's 4 stat cards were
+      plain non-interactive numbers, violating the fleet's "tiles link to
+      detail" rule. Each now opens the filtered view behind it (Live now /
+      Fleet health jump to the library pre-filtered — Fleet health via a new
+      "Health score" sort, worst-first; Shipped·7d and the range cards jump to
+      Releases pre-scoped; Feature runs opens the cadence log; Most recent
+      opens the shipping project). Also fixed, while in the area: a Tech-sweep
+      finding (#20) — the project detail view's `.detail-grid` (two-column
+      layout) had no `min-width:0` on its grid items, so at 320px a wide child
+      could force the whole grid past the viewport (classic CSS Grid
+      min-content trap) — this was landing on `main` itself (flaky depending
+      on which project's detail the smoke run happened to open), not just a
+      regression in this PR's branch. Still open from #19: systemic
+      sub-44px touch targets across most secondary/filter controls on mobile
+      (a much larger, separate unit) and the gate screen's Unlock button size.
 - [x] **Fleet Ops in Manager** (shipped 2026-07-15) — a steward panel that
       toggles the platform's focus roster and dispatches/observes steward runs
       through the GitHub API using a credential from the vault, with recent-run

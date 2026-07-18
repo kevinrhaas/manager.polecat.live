@@ -503,6 +503,7 @@ input.lib-sel{width:16px;height:16px;accent-color:var(--brand-b);cursor:pointer;
 .detail-head .tavatar{width:56px;height:56px;border-radius:14px;font-size:22px}
 .detail-head h2{margin:0;font-size:22px;letter-spacing:-.3px}
 .detail-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+.detail-grid>*{min-width:0}
 @media(max-width:860px){ .detail-grid{grid-template-columns:1fr} }
 
 /* timeline (releases / what's new) */

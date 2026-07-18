@@ -19,6 +19,11 @@ const selected = new Set();
 function state(){ try{ return { ...DEFAULT_STATE, ...(JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')) }; }catch{ return { ...DEFAULT_STATE }; } }
 function saveState(s){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify(s)); }catch{} }
 
+// Set by setLibraryFilter() right before an explicit navigation into
+// Projects (e.g. a dashboard stat tile) so that navigation's filter isn't
+// immediately clobbered by the default-saved-view reapplication below.
+let suppressDefaultView = false;
+
 // If a saved view is marked default, applying it here — right before the
 // library actually renders — makes it "open automatically the next time the
 // library loads", instead of always falling back to whatever `manager.lib.view`
@@ -27,6 +32,7 @@ function saveState(s){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify(s)); }
 // yank the user's active filter out from under them mid-visit (same guard
 // shape as markReleasesSeen() in js/views/releases.js).
 export function applyDefaultSavedView(){
+  if(suppressDefaultView){ suppressDefaultView=false; return; }
   const def = Store.defaultSavedView();
   if(!def) return;
   const cur=state();
@@ -41,6 +47,18 @@ export function applyDefaultSavedView(){
 // filter below) with zero new filtering logic needed.
 export function setLibrarySearch(q){
   saveState({ ...state(), q });
+}
+
+// Sets any combination of the library's filter/sort state ahead of an
+// explicit navigation into Projects — used by the dashboard's stat tiles
+// (Live now, Fleet health, …) so each one lands on the library already
+// scoped to what it's summarizing, same idea as setLibrarySearch() above but
+// for status/sort rather than free text. Suppresses the next
+// applyDefaultSavedView() so a configured default view doesn't immediately
+// overwrite the filter the user just clicked through for.
+export function setLibraryFilter(partial){
+  saveState({ ...state(), ...partial });
+  suppressDefaultView = true;
 }
 
 const SAVED_VIEWS = [
@@ -265,7 +283,7 @@ export function renderProjects(root, ctx){
 
   const sortSel=el('select',{class:'input', style:'max-width:170px'});
   const fieldSorts=Store.fieldDefs().filter(d=>d.type==='number'||d.type==='date').map(d=>[`field:${d.key}`, d.label]);
-  [['activity','Last activity'],['name','Name'],['status','Status'],['version','Latest version'],...fieldSorts].forEach(([v,t])=>
+  [['activity','Last activity'],['name','Name'],['status','Status'],['version','Latest version'],['health','Health score'],...fieldSorts].forEach(([v,t])=>
     sortSel.append(el('option',{value:v,text:'Sort: '+t,selected:s.sort===v})));
   sortSel.addEventListener('change',()=>{ const ns={...state(),sort:sortSel.value}; saveState(ns); rerenderList(); });
   const dirBtn=el('button',{class:'btn icon', title:'Toggle direction', 'aria-label':'Toggle sort direction',
@@ -459,6 +477,7 @@ function buildList(ctx, renderBulk){
     if(s.sort==='name') r=a.name.localeCompare(b.name);
     else if(s.sort==='status') r=a.status.localeCompare(b.status);
     else if(s.sort==='version') r=((Store.latestRelease(a.id)?.v)||0)-((Store.latestRelease(b.id)?.v)||0);
+    else if(s.sort==='health') r=Store.healthScore(a.id)-Store.healthScore(b.id);
     else if(s.sort.startsWith('field:')){
       const key=s.sort.slice(6);
       const def=Store.fieldDefs().find(d=>d.key===key);

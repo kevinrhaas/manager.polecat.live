@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 74,
+    title: 'Dashboard and Releases stat tiles now link to their detail',
+    kind: 'fix',
+    ts: '2026-07-18T19:01:46.479Z',
+    items: [
+      'The Dashboard’s Projects/Live now/Shipped·7d/Feature runs/Fleet health cards and the Releases page’s Last 7 days/Last 30 days/All time/Most recent cards were plain non-interactive numbers. Each now opens the filtered view behind it — Live now and Fleet health jump to the library pre-filtered (Fleet health sorts worst-first, a new sort option), Shipped·7d and the range cards jump to Releases pre-scoped to that window, Feature runs opens the cadence log, and Most recent opens the project that shipped it.',
+      'Also fixed a mobile layout regression: the project detail page’s two-column grid could force a wider-than-viewport layout at narrow widths (320px), causing horizontal overflow.',
+    ],
+  },
+  {
     v: 73,
     title: 'Fleet Ops splits in two: the control room and the Steward log',
     kind: 'polish',

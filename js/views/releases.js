@@ -2,13 +2,21 @@
 // you can see at a glance what improved recently across the whole suite.
 // Read-only: it reads the same `releases` table the per-project timelines do.
 import { Store } from '../store.js';
-import { el, escapeHtml, fmtCT, avatarColor, toast, modal } from '../ui.js';
+import { el, escapeHtml, fmtCT, avatarColor, toast, modal, makeRowClickable } from '../ui.js';
 import { icon } from '../icons.js';
 
 const VIEW_KEY = 'manager.releases.view';
 const DEFAULT = { q:'', project:'all', range:'all', kind:'all', group:'day', density:'full', milestones:false };
 function state(){ try{ return { ...DEFAULT, ...(JSON.parse(localStorage.getItem(VIEW_KEY)||'{}')) }; }catch{ return { ...DEFAULT }; } }
 function save(s){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify(s)); }catch{} }
+
+// Sets any combination of the feed's filter state ahead of an explicit
+// navigation into Releases — used by the dashboard's "Shipped · 7d" stat tile
+// so it lands on the feed already scoped to the same window it summarized,
+// same idea as projects.js's setLibraryFilter().
+export function setReleasesFilter(partial){
+  save({ ...state(), ...partial });
+}
 
 // ---- "since you last looked" — a fleet-wide unread marker -----------------
 // Mirrors js/views/whatsnew.js's seen-version idea, but for the whole fleet's
@@ -217,18 +225,27 @@ export function renderReleases(root, ctx){
   head.append(el('span',{class:'tiny muted', text:'What shipped across the fleet'}));
   wrap.append(head);
 
-  // ---- summary stats ----
+  // ---- summary stats — every tile links to the filtered detail behind its
+  // number (house rule: no dead numbers on a dashboard-style stat row) ----
   const stats=el('div',{class:'grid stats', style:'margin-bottom:8px'});
-  const stat=(k,v,d,color)=>{ const c=el('div',{class:'card stat'}); c.innerHTML=
+  const stat=(k,v,d,color,onClick)=>{
+    const c=el('div',{class:'card stat'+(onClick?' hover':''), onclick:onClick}); c.innerHTML=
     `<div class="glow" style="background:radial-gradient(circle,${color},transparent 70%)"></div>
-     <div class="k">${k}</div><div class="v">${v}</div><div class="d">${escapeHtml(d)}</div>`; return c; };
+     <div class="k">${k}</div><div class="v">${v}</div><div class="d">${escapeHtml(d)}</div>`;
+    if(onClick) makeRowClickable(c, onClick, `${k}: ${v}`);
+    return c;
+  };
   const proj7 = new Set(in7.map(x=>x.p.id)).size;
   const newestLabel = all.length ? fmtCT(all[0].r.ts) : '—';
   stats.append(
-    stat('Last 7 days', in7.length, `${proj7} project${proj7!==1?'s':''} shipped`, 'var(--brand-b)'),
-    stat('Last 30 days', in30.length, 'releases across the fleet', 'var(--consensus)'),
-    stat('All time', all.length, `${Store.projects().length} projects tracked`, 'var(--brand-c)'),
-    stat('Most recent', all.length?('v'+all[0].r.v):'—', all.length?`${all[0].p.name} · ${newestLabel}`:'nothing yet', 'var(--success)'),
+    stat('Last 7 days', in7.length, `${proj7} project${proj7!==1?'s':''} shipped`, 'var(--brand-b)',
+      ()=>{ setReleasesFilter({range:'7'}); rangeSel.value='7'; rerender(); }),
+    stat('Last 30 days', in30.length, 'releases across the fleet', 'var(--consensus)',
+      ()=>{ setReleasesFilter({range:'30'}); rangeSel.value='30'; rerender(); }),
+    stat('All time', all.length, `${Store.projects().length} projects tracked`, 'var(--brand-c)',
+      ()=>{ setReleasesFilter({range:'all'}); rangeSel.value='all'; rerender(); }),
+    stat('Most recent', all.length?('v'+all[0].r.v):'—', all.length?`${all[0].p.name} · ${newestLabel}`:'nothing yet', 'var(--success)',
+      all.length?()=>ctx.go('project',{id:all[0].p.id}):undefined),
   );
   wrap.append(stats);
 
