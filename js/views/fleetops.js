@@ -42,13 +42,31 @@ export function renderFleetOps(root, ctx){
       title: 'What the steward has been doing', onclick: () => ctx.go('stewardlog') }));
   wrap.append(title);
 
-  wrap.append(connectCard(ctx));
-
   const grid = el('div', { class: 'fo-grid' });
-  const upcoming = upcomingCard();
-  const right = el('div', { class: 'fo-col' });
-  right.append(dispatchCard(), upcoming.card);
-  grid.append(rosterCard(upcoming.update), right);
+  // (Re)build the data cards. Called on first render and again whenever the
+  // Fleet Ops credential connects or changes — the cards each self-fetch on
+  // creation, so rebuilding re-reads the roster/runs with the now-present
+  // token. Without this, a roster that loaded anonymously (e.g. before the
+  // vault row was unlocked) stays stuck on its 403 even after "Connected".
+  let builtAuthed = false;
+  const buildGrid = () => {
+    builtAuthed = !!ghToken();
+    grid.innerHTML = '';
+    const upcoming = upcomingCard();
+    const right = el('div', { class: 'fo-col' });
+    right.append(dispatchCard(), upcoming.card);
+    grid.append(rosterCard(upcoming.update), right);
+  };
+  buildGrid();
+  // Rebuild only when it changes the outcome: a forced reload (the credential
+  // was switched) always rebuilds; a connect/Test reload rebuilds only if the
+  // grid was built without a token and one is now available — so a normal
+  // visit with a healthy token doesn't double-load.
+  const reload = (force) => {
+    if(!force && (!!ghToken() === builtAuthed)) return;
+    clearGhCache(); buildGrid();
+  };
+  wrap.append(connectCard(ctx, reload));
   wrap.append(grid);
 
   root.append(wrap);
@@ -111,7 +129,7 @@ function upcomingCard(){
 }
 
 // ---- connect: pick the vault credential that holds a GitHub PAT ------------
-function connectCard(ctx){
+function connectCard(ctx, onReload){
   const card = el('div', { class: 'card fo-connect' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">GitHub access</h2></div>`;
   const row = el('div', { class: 'fo-row' });
@@ -121,6 +139,10 @@ function connectCard(ctx){
   sel.append(el('option', { value: '', text: creds.length ? 'No token (public read-only)' : 'No credentials in the vault yet' }));
   creds.forEach(c => sel.append(el('option', { value: c.id, text: c.name || c.key || 'Unnamed credential', selected: fleetOpsCfg().credId === c.id })));
 
+  // When the connection proves healthy, refetch the data cards so a roster/runs
+  // that loaded anonymously (before the token was available) pick up the token
+  // instead of staying stuck on a 403. reload() no-ops when nothing changed, so
+  // repeated Test clicks are cheap.
   const status = el('span', { class: 'tiny muted fo-status' });
   const refreshStatus = async () => {
     const cred = ghCred();
@@ -131,11 +153,17 @@ function connectCard(ctx){
       const u = await whoami();
       status.innerHTML = `${icon('check')} Connected as <b>${escapeHtml(u.login)}</b> — roster writes and dispatch enabled.`;
       status.classList.add('fo-ok');
+      onReload?.(false);   // token proven good → refetch cards under auth if they loaded anonymously
     }catch(e){
       status.innerHTML = `<span class="fo-warn">${icon('warning')} ${escapeHtml(e.message)}</span>`;
     }
   };
-  sel.addEventListener('change', () => { setFleetOpsCfg({ credId: sel.value || null }); status.classList.remove('fo-ok'); refreshStatus(); });
+  sel.addEventListener('change', () => {
+    setFleetOpsCfg({ credId: sel.value || null });
+    status.classList.remove('fo-ok');
+    onReload?.(true);      // credential switched — rebuild cards for the new token
+    refreshStatus();
+  });
 
   row.append(el('label', { class: 'tiny muted', text: 'Token from vault' }), sel,
     el('button', { class: 'btn sm', html: `${icon('refresh')} Test`, onclick: refreshStatus }),

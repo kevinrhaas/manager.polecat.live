@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 83,
+    title: 'Fix: Fleet Ops now loads the roster once your token connects',
+    kind: 'fix',
+    ts: '2026-07-22T17:59:54.001Z',
+    items: [
+      'If the Focus roster opened before your vault token was ready — for example while the credential was still locked — it loaded anonymously, hit GitHub’s low unauthenticated rate limit, and got stuck on a “403 — connect a token” note even though the header above it said “Connected”. It now refetches the roster and the other Fleet Ops cards the moment the connection proves good (or you switch tokens), so authenticated data replaces the anonymous error automatically.',
+    ],
+  },
+  {
     v: 82,
     title: 'The landing page now wears the shared fleet header & footer',
     kind: 'polish',
