@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 87,
+    title: 'Fix: Fleet Ops was burning through the GitHub rate limit',
+    kind: 'fix',
+    ts: '2026-07-22T18:38:05.620Z',
+    items: [
+      'Expanding a steward run in the Steward log re-fetched its whole detail — journal, job log, and a fleet-wide Search for what it produced — on every 30-second live poll. Since a completed run never changes, that was pure waste, and the Search API has a much tighter per-minute limit, so a couple of expanded runs left open could drain the budget and 403 every panel (including the Focus roster, even with a token connected). A completed run’s detail is now fetched once and reused; only still-running runs keep refreshing.',
+      'When a rate limit does hit, the message now tells you the actual clock time it resets (from GitHub’s own headers) instead of a vague “within the hour” — and it no longer suggests connecting a token when you already have one connected.',
+    ],
+  },
+  {
     v: 86,
     title: 'Projects checks for new releases on its own — and flags what’s new',
     kind: 'feature',

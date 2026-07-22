@@ -443,6 +443,13 @@ const RUNS_POLL_MS = 30000;
 // the run PRODUCED — sweep runs file issues, improve runs open PRs, the
 // janitor merges them. Production is time-window correlated (anything created
 // fleet-wide while the run executed), so it's labeled as such.
+// A COMPLETED run's detail is immutable — its journal, job log, and the work it
+// produced never change again — so we fetch it once and reuse it. This matters
+// because the runs card re-renders every RUNS_POLL_MS: without the cache, every
+// expanded run re-fired ~5 calls per poll INCLUDING the Search API (which has a
+// far tighter ~30/min secondary limit), which could exhaust the budget and 403
+// the whole panel. In-progress runs skip the cache (their results still grow).
+const _runDetailCache = new Map();
 function runDetail(r){
   const d = el('div', { class: 'fo-run-detail' });
   d.innerHTML = `<span class="tiny muted">Loading run details…</span>`;
@@ -452,13 +459,19 @@ function runDetail(r){
       const done = r.status === 'completed';
       const end = new Date((done ? new Date(r.updated_at).getTime() : Date.now()) + 120000).toISOString();
       const isJanitor = /janitor/i.test(r.name || '');
-      const [journal, jobs, issues, prs, merged] = await Promise.all([
-        journalFor(r.id).catch(() => null),
-        runJobs(r.id).catch(() => []),
-        issuesCreatedBetween(start, end).catch(() => []),
-        prsCreatedBetween(start, end).catch(() => []),
-        isJanitor ? prsMergedBetween(start, end).catch(() => []) : Promise.resolve([]),
-      ]);
+      let data = done ? _runDetailCache.get(r.id) : null;
+      if(!data){
+        const [journal, jobs, issues, prs, merged] = await Promise.all([
+          journalFor(r.id).catch(() => null),
+          runJobs(r.id).catch(() => []),
+          issuesCreatedBetween(start, end).catch(() => []),
+          prsCreatedBetween(start, end).catch(() => []),
+          isJanitor ? prsMergedBetween(start, end).catch(() => []) : Promise.resolve([]),
+        ]);
+        data = { journal, jobs, issues, prs, merged };
+        if(done) _runDetailCache.set(r.id, data);   // immutable once completed — cache forever
+      }
+      const { journal, jobs, issues, prs, merged } = data;
       d.innerHTML = '';
 
       // Lead with the run's OWN account of what it did (the Steward journal —

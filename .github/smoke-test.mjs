@@ -1373,6 +1373,25 @@ try {
       }finally{ window.fetch = realFetch; g.clearGhCache(); }
     });
   });
+  await check('github rate-limit errors surface the reset time (and don\'t re-suggest a token you already have)', async () => {
+    return await page.evaluate(async () => {
+      const g = await import('/js/github.js');
+      g.clearGhCache();
+      const realFetch = window.fetch;
+      const resetEpoch = Math.floor(Date.now() / 1000) + 1800;   // 30 min out
+      window.fetch = async () => new Response(JSON.stringify({ message: 'API rate limit exceeded' }), {
+        status: 403, headers: { 'content-type': 'application/json', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(resetEpoch) } });
+      try{
+        let err;
+        try{ await g.gh('/rl-probe', { fresh: true }); }catch(e){ err = e; }
+        if(!err) return false;
+        // reset moment captured for the UI, and the message names a clock time, not "within the hour"
+        if(err.resetAt !== resetEpoch * 1000) return false;
+        if(!/resets \d/.test(err.message)) return false;
+        return true;
+      }finally{ window.fetch = realFetch; g.clearGhCache(); }
+    });
+  });
   await check('fleet ops dispatch + roster writes are gated behind a vault token (no silent unauthenticated writes)', async () => {
     // with no credential selected, the Improve run button must toast a warning, not POST
     await page.click('#view .btn.primary:has-text("Improve run")'); await page.waitForTimeout(300);
