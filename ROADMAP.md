@@ -22,6 +22,23 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [x] **Fleet Ops tells apart a rate-limited repo from a permanently-private
+      one** (shipped 2026-07-22) — UX sweep #23 finding #6: "Open steward
+      work across the fleet" counted every unreachable repo into one
+      undifferentiated `failed` bucket and guessed "rate limit or private —
+      connect a token" for all of them. `gh()` (js/github.js) already
+      attaches the real HTTP status to the thrown Error; the aggregate view
+      just wasn't reading it. Now splits failures into rate-limited (403,
+      clears within the hour on its own) vs. private (404, needs a token —
+      always will) vs. other, and names the private repo(s) directly instead
+      of leaving someone waiting out a limit that was never going to reset
+      for that one entry. Scoped to the fleet-wide summary in
+      `js/views/fleetops.js`'s `workCard()`; the per-project Steward card
+      already surfaced the specific per-call error and needed no change.
+      Closes #23 finding #6; still open from #23: #4 (gate Unlock button
+      sign-off, flag-only) and #5 (client-side GitHub rate-limit exposure —
+      architectural, needs a server-side token proxy).
+
 - [x] **Stat cards get a pointer cursor on hover** (shipped 2026-07-22) — UX
       sweep #23 finding #3: the Dashboard/Releases stat tiles have been
       clickable + keyboard-navigable since v74 (#22), but `.card.stat` never
