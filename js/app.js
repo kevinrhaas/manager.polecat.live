@@ -142,7 +142,7 @@ function buildShell(){
   app.innerHTML='';
   topTitle=el('h1',{text:TITLES[currentSection]||'Dashboard'});
   shell=initShell({
-    app:{ id:'manager', name:'Manager', wordmark:'<img src="/assets/logo.svg" alt=""/>' },
+    app:{ id:'manager', name:'Manager', icon: icon('gauge',22) },
     sections: SECTIONS.map(s=> s.group ? s : { ...s, icon:icon(s.icon) }),
     onNav:(s)=>go(s),
     isAdmin:()=>Access.isAdmin(),

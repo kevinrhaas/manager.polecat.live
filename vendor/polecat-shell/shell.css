@@ -85,14 +85,20 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
   transition:width .22s cubic-bezier(.4,0,.2,1);overflow:hidden;z-index:30}
 .ps-rail.open{width:var(--rail-w-open)}
 .ps-rail.dragging{transition:none}
-.ps-rail-brand{display:flex;align-items:center;gap:11px;padding:16px 14px;background:none;border:none;cursor:pointer;color:var(--text);width:100%}
-.ps-rail-brand:focus-visible{outline:none;box-shadow:var(--ring)}
+.ps-rail-brand{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:12px 14px 10px;width:100%}
+.ps-rail-home{display:flex;align-items:center;gap:11px;padding:4px 0;background:none;border:none;cursor:pointer;color:var(--text);width:100%}
+.ps-rail-home:focus-visible{outline:none;box-shadow:var(--ring);border-radius:9px}
 .ps-rail-logo{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:11px;background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;box-shadow:var(--shadow-sm)}
 .ps-rail-logo svg,.ps-rail-logo img{width:22px;height:22px}
-.ps-rail-brand .bt{display:flex;flex-direction:column;line-height:1.15;opacity:0;transition:opacity .2s;text-align:left;white-space:nowrap}
-.ps-rail.open .ps-rail-brand .bt{opacity:1}
-.ps-rail-brand b{font-size:15px;font-family:var(--font-display)}
-.ps-rail-brand small{font-size:11px;color:var(--text-2)}
+.ps-rail-home .bt{display:flex;flex-direction:column;line-height:1.15;opacity:0;transition:opacity .2s;text-align:left;white-space:nowrap}
+.ps-rail.open .ps-rail-home .bt{opacity:1}
+.ps-rail-home b{font-size:15px;font-family:var(--font-display)}
+/* barely-there link back to the suite — aligned under the app name (past the
+   38px tile + 11px gap), and hidden with the labels when the rail collapses */
+.ps-rail-suite{font-size:10.5px;color:var(--text-3);letter-spacing:.2px;text-decoration:none;
+  margin:-2px 0 0 49px;opacity:0;transition:opacity .2s,color .15s}
+.ps-rail.open .ps-rail-suite{opacity:.45}
+.ps-rail-suite:hover,.ps-rail-suite:focus-visible{opacity:.9;color:var(--text-2);text-decoration:underline;outline:none}
 .ps-rail-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 10px 56px;display:flex;flex-direction:column;gap:2px;scrollbar-width:thin}
 .ps-rail-group{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--text-3);padding:12px 10px 4px;opacity:0;transition:opacity .2s;white-space:nowrap}
 .ps-rail.open .ps-rail-group{opacity:1}
