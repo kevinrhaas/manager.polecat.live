@@ -5,6 +5,7 @@ import { el, escapeHtml, toast, modal, confirmDialog, fmtCT, avatarColor, slugif
 import { icon } from '../icons.js';
 import { editFieldDef } from './settings.js';
 import { openSyncAll } from './home.js';
+import { backgroundRefreshProjects } from '../ingest.js';
 
 const VIEW_KEY = 'manager.lib.view';   // { q, status, sort, dir, field, fieldValue, fieldMin, fieldMax }
 const DEFAULT_STATE = { q:'', status:'all', sort:'activity', dir:'desc', field:'', fieldValue:'', fieldMin:'', fieldMax:'' };
@@ -340,6 +341,14 @@ export function renderProjects(root, ctx){
     renderBulk();
   }
   rerenderList();
+
+  // Quietly check every connected project for new releases when the library
+  // opens (throttled + silent — see ingest.backgroundRefreshProjects), so you
+  // don't have to hit "Sync all" each visit. When something new lands, re-render
+  // the rows so the freshly-flagged projects pick up their NEW badge.
+  backgroundRefreshProjects().then(res => {
+    if(res && res.flagged > 0) rerenderList();
+  }).catch(()=>{});
 }
 
 // The bulk-action bar shown above the table once at least one row is
@@ -556,11 +565,13 @@ function projectRow(p, ctx, onSelectionChange){
   const pinTd=el('td');
   pinTd.append(el('button',{class:'pin-btn rowbtn'+(p.pinned?' on':''), title:p.pinned?'Unpin':'Pin', 'aria-label':p.pinned?'Unpin project':'Pin project',
     html:icon('pin'), onclick:(e)=>{ e.stopPropagation(); Store.togglePin(p.id); tr.closest('table')&&ctx.go('projects'); }}));
-  // name
+  // name (+ a transient NEW badge when a background refresh pulled new releases)
   const nameTd=el('td');
+  const newBadge=Store.projectHasNewUpdates(p.id)
+    ? `<span class="lib-new" title="New releases since you last opened this project">NEW</span>` : '';
   nameTd.innerHTML=`<div style="display:flex;align-items:center;gap:10px">
     <span class="tavatar" style="width:30px;height:30px;font-size:13px;border-radius:8px;background:${avatarColor(p.id)}">${icon(p.icon||'grid')}</span>
-    <div style="min-width:0"><b>${escapeHtml(p.name)}</b><div class="tiny mono muted" style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.repo||'')}</div></div></div>`;
+    <div style="min-width:0"><div style="display:flex;align-items:center;gap:7px"><b>${escapeHtml(p.name)}</b>${newBadge}</div><div class="tiny mono muted" style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(p.repo||'')}</div></div></div>`;
   // status
   const stTd=el('td',{html:statusPill(p.status)});
   // version + when that version shipped (CT)

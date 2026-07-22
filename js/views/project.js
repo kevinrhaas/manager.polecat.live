@@ -16,6 +16,10 @@ export function renderProject(root, ctx, params){
   }
   const st=STATUSES[p.status]||STATUSES.idea;
 
+  // Opening the project counts as seeing its updates — clear any transient NEW
+  // marker the library set from a background refresh (silent; no re-render).
+  Store.clearProjectUnseen(p.id);
+
   // back
   wrap.append(el('button',{class:'btn ghost sm', style:'margin-bottom:14px', html:`${icon('chevron')} Library`,
     onclick:()=>ctx.go('projects')}));

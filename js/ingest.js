@@ -201,6 +201,38 @@ export async function attemptAutoSync(p){
   return res;
 }
 
+// Background refresh for the Projects library: a quiet "check for new updates"
+// that runs when you open the library, so you don't have to hit "Sync all"
+// every visit. Unlike runAutoSync (opt-in, per-project, interval-gated), this
+// pulls EVERY connected project — but throttled to once per REFRESH_THROTTLE_MS
+// so rapid navigation doesn't hammer the network, and silent (no toasts): a
+// project that actually gains releases is flagged NEW (Store.markProjectUpdated)
+// for a transient badge on its row; failures just don't flag anything.
+const REFRESH_THROTTLE_MS = 90000;   // at most once every 90s
+let _lastBgRefresh = 0, _bgRefreshing = false;
+export async function backgroundRefreshProjects({ force = false } = {}){
+  if(_bgRefreshing) return null;
+  // Don't fan out real network syncs under browser automation (Playwright sets
+  // navigator.webdriver) — the smoke suite drives the library repeatedly and
+  // must not depend on reaching every project's external changelog host. The
+  // NEW-marker logic is exercised directly in the suite instead.
+  if(typeof navigator !== 'undefined' && navigator.webdriver && !force) return null;
+  if(!force && Date.now() - _lastBgRefresh < REFRESH_THROTTLE_MS) return null;
+  const targets = Store.projects().filter(p => p.site || p.changelogUrl);
+  if(!targets.length){ _lastBgRefresh = Date.now(); return null; }
+  _bgRefreshing = true; _lastBgRefresh = Date.now();
+  try{
+    let flagged = 0, ok = 0;
+    for(const p of targets){
+      const res = await syncProject(p);
+      if(res.status === 'ok'){ ok++; if(res.added > 0){ Store.markProjectUpdated(p.id); flagged++; } }
+    }
+    return { attempted: targets.length, ok, flagged };
+  } finally {
+    _bgRefreshing = false;
+  }
+}
+
 // A module-level in-flight guard so overlapping ticks (frequent intervals +
 // slow networks) can never stack up. If a run is already going, we skip.
 let _autoSyncing = false;

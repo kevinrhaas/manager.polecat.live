@@ -535,6 +535,33 @@ export const Store = new (class {
     this.setSetting('recDismissed', all);
   }
 
+  // Transient "new updates" markers on the Projects library. When a background
+  // refresh actually pulls new releases for a project, it stamps the project
+  // here (settings.projectUnseen = { [id]: firstUnseenAt }). The library shows
+  // a NEW badge on that row; opening the project clears it, and it decays on its
+  // own after PROJECT_NEW_DECAY_DAYS so a never-opened row doesn't stay NEW
+  // forever (PROJECT_NEW_DECAY_DAYS = 10). Stored in settings (not on the
+  // project row) so it never touches project data or the undo history.
+  markProjectUpdated(projectId){
+    const all = { ...(this.settings().projectUnseen || {}) };
+    if(all[projectId]) return;                 // keep the FIRST unseen time (decay anchors to it)
+    all[projectId] = Date.now();
+    this.setSetting('projectUnseen', all);
+  }
+  clearProjectUnseen(projectId){
+    const all = { ...(this.settings().projectUnseen || {}) };
+    if(all[projectId] == null) return;
+    delete all[projectId];
+    this.setSetting('projectUnseen', all);
+  }
+  projectHasNewUpdates(projectId){
+    const at = (this.settings().projectUnseen || {})[projectId];
+    if(!at) return false;
+    const fresh = (Date.now() - at) < 10 * 86400000;                 // PROJECT_NEW_DECAY_DAYS
+    if(!fresh){ this.clearProjectUnseen(projectId); return false; }   // self-prune stale markers
+    return true;
+  }
+
   // Recommend the release that reads as the best recent "stable stopping
   // point": the moment a burst of feature work settled into polish/fixes and
   // then paused. A pure heuristic over (kind, version, ts) — no network, no
