@@ -63,11 +63,14 @@
 }
 .psx-brand-name { white-space: nowrap; }
 .psx-nav { display: flex; align-items: center; gap: 22px; font-size: 14px; }
-.psx-nav > a {
+/* only the app's own section links get the muted treatment — scoped to
+   .psx-section so it never outranks the CTA's or the parent link's own color
+   (a bare `.psx-nav > a` would, and the CTA lost its contrast color to it) */
+.psx-nav > a.psx-section {
   color: var(--psx-muted); text-decoration: none; white-space: nowrap;
   transition: color .14s ease;
 }
-.psx-nav > a:hover { color: var(--psx-text); }
+.psx-nav > a.psx-section:hover { color: var(--psx-text); }
 
 /* per-app primary call to action — accent-filled pill */
 .psx-cta {
