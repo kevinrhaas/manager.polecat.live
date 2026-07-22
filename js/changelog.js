@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 75,
+    title: 'A brand-new public site — real screenshots, and it finally shows Fleet Ops',
+    kind: 'feature',
+    ts: '2026-07-22T14:23:02.568Z',
+    items: [
+      'The marketing site (manager.polecat.live) got a proper glow-up: the hero is now an auto-rotating carousel of real, freshly-captured app screenshots — the dashboard, Fleet Ops, the Steward log, the library, and the releases feed — instead of a faked-up mockup.',
+      'The copy caught up with what Manager actually is now: driving the platform steward from Fleet Ops, reviewing what each run did in the Steward log, connecting a real database, and encrypting secrets at rest — none of which the old site mentioned.',
+      'The screenshots regenerate from the live app at deploy time (a new .github/gen-shots.mjs), so the site can never drift from the real UI. A smoke check guards the carousel — real images, working dots, auto-advance.',
+    ],
+  },
+  {
     v: 74,
     title: 'Dashboard and Releases stat tiles now link to their detail',
     kind: 'fix',
