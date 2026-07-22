@@ -9,13 +9,23 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
-    v: 81,
+    v: 82,
     title: 'The landing page now wears the shared fleet header & footer',
     kind: 'polish',
-    ts: '2026-07-22T17:52:40.275Z',
+    ts: '2026-07-22T17:57:50.862Z',
     items: [
       'Manager’s front door adopts the suite-wide header and footer, so it matches every Polecat app — the same brand tile, a consistent “Polecat” link back to the suite, and the standard footer.',
       'Picked up Polecat Shell v0.5.1 (the shared site-chrome plus the ~44px mobile touch targets).',
+    ],
+  },
+  {
+    v: 81,
+    title: 'Fleet Ops: dial how many slices an app runs per fire',
+    kind: 'feature',
+    ts: '2026-07-22T17:03:13.676Z',
+    items: [
+      'Each app lane in the Focus roster now has a ×N control next to its cadence. Leave it at ×1 for the usual one-unit-of-work-per-run, or push a lane you want to move faster up to ×5 — that many independent improve runs fire each time the lane is due, each a full unit with its own pull request and smoke gate, run back-to-back so the app never overlaps itself.',
+      'A boosted lane lights up in the roster and shows its multiplier in the Coming-up list, so it’s obvious at a glance which app is being pushed harder. It’s just a roster setting (focus.json), so it takes effect on the next hourly tick and needs no workflow changes.',
     ],
   },
   {
