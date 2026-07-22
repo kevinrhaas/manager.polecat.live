@@ -36,8 +36,8 @@ main:focus-visible{outline:none}
 .aurora span{position:absolute;width:60vmax;height:60vmax;border-radius:50%;filter:blur(80px);
   opacity:.22;mix-blend-mode:screen;animation:drift 32s ease-in-out infinite}
 .aurora span:nth-child(1){background:var(--brand-b);top:-24vmax;left:-14vmax}
-.aurora span:nth-child(2){background:var(--consensus);bottom:-28vmax;right:-12vmax;animation-delay:-11s}
-.aurora span:nth-child(3){background:var(--violet);top:26vmax;right:24vmax;opacity:.14;animation-delay:-19s}
+.aurora span:nth-child(2){background:var(--brand-a);bottom:-28vmax;right:-12vmax;animation-delay:-11s}
+.aurora span:nth-child(3){background:var(--brand-b);top:26vmax;right:24vmax;opacity:.14;animation-delay:-19s}
 @keyframes drift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(6vmax,4vmax) scale(1.1)}66%{transform:translate(-5vmax,3vmax) scale(.95)}}
 .gridbg{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
   background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
