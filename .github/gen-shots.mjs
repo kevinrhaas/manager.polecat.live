@@ -101,8 +101,9 @@ const MOBILE = [ ['home','m-dashboard', 1200], ['fleetops','m-fleetops', 1600] ]
   };
 
   try{
-    // ---- desktop (1300×860 @1.5x) --------------------------------------
-    const ctx = await browser.newContext({ viewport:{ width:1300, height:860 }, deviceScaleFactor:1.5 });
+    // ---- desktop (1440×952 @2x → 2880×1904 px; ~1.513 ratio matches the
+    //      carousel container so hi-DPI displays get crisp, un-upscaled art) --
+    const ctx = await browser.newContext({ viewport:{ width:1440, height:952 }, deviceScaleFactor:2 });
     await stubGitHub(ctx);
     await ctx.addInitScript(GRANT);
     const p = await ctx.newPage();
