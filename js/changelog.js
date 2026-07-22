@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 92,
+    title: 'Landing backdrop settles into Manager’s own blue',
+    kind: 'polish',
+    ts: '2026-07-22T21:24:49.291Z',
+    items: [
+      'The drifting aurora on the landing page now stays in Manager’s cyan-and-sky brand blues instead of straying into indigo and violet, so the front door matches the app’s mark.',
+    ],
+  },
+  {
     v: 91,
     title: 'The Manager mark now wears its brand color everywhere',
     kind: 'polish',
