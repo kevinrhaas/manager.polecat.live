@@ -83,12 +83,30 @@ export async function gh(path, { method = 'GET', body, fresh = false } = {}){
   let json = null;
   try{ json = await res.json(); }catch{ /* some endpoints return no body */ }
   if(!res.ok){
+    // Rate-limit? GitHub signals it a few ways: a 403/429 with a "rate limit"
+    // message, x-ratelimit-remaining: 0, or a retry-after (the search API's
+    // stricter secondary limit). Pull the reset moment from the headers so the
+    // UI can say WHEN it clears instead of a vague "within the hour" — and,
+    // when a token is already connected, drop the misleading "connect a token"
+    // advice (a connected token that's still limited just needs to cool down).
+    const remaining = res.headers.get('x-ratelimit-remaining');
+    const resetHdr = res.headers.get('x-ratelimit-reset');
+    const retryAfter = res.headers.get('retry-after');
+    const isRateLimit = (res.status === 403 || res.status === 429) &&
+      ((json?.message || '').toLowerCase().includes('rate limit') || remaining === '0' || retryAfter != null);
+    let resetMs = null;
+    if(resetHdr) resetMs = parseInt(resetHdr, 10) * 1000;
+    else if(retryAfter) resetMs = Date.now() + parseInt(retryAfter, 10) * 1000;
+    const resetTxt = resetMs ? new Date(resetMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
     const hint = res.status === 401 ? 'token rejected'
-      : res.status === 403 ? (json?.message?.includes('rate limit') ? 'rate-limited — resets within the hour; connect a vault token to raise limits' : 'forbidden — token lacks scope')
+      : isRateLimit ? (`rate-limited${resetTxt ? ` — resets ${resetTxt}` : ' — resets within the hour'}`
+          + (token ? '' : '; connect a vault token to raise the limit'))
+      : res.status === 403 ? 'forbidden — token lacks scope'
       : res.status === 404 ? 'not found (private repo needs a token)'
       : (json?.message || 'request failed');
     const err = new Error(`GitHub ${res.status}: ${hint}`);
     err.status = res.status;
+    err.resetAt = resetMs;
     throw err;
   }
   if(isGet) cachePut(path, json); else clearGhCache();
