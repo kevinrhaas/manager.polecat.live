@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 77,
+    title: 'The blurry hero screenshots are finally, genuinely sharp',
+    kind: 'fix',
+    ts: '2026-07-22T16:47:55.783Z',
+    items: [
+      'The real cause of the soft carousel: Manager’s glassy rail and cards use a backdrop blur, which trips a browser bug where capturing the page at 2× (for crisp retina art) rasterizes the whole page at half resolution and scales it back up — so every screenshot came out uniformly fuzzy no matter the file size or cache tag.',
+      'The screenshot generator now switches that backdrop blur off for the capture only (the live app is untouched — the panels look identical because they carry their own background), so the shots are now pin-sharp at full 2× resolution.',
+    ],
+  },
+  {
     v: 76,
     title: 'Fix: the hero screenshots were showing a stale, blurry cached copy',
     kind: 'fix',
