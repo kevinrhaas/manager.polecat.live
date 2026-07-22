@@ -742,6 +742,27 @@ try {
     // v5 (or the stabilizing tail) should be picked, with a score and reasons
     return rec && typeof rec.score === 'number' && rec.score > 0 && rec.reasons >= 1;
   });
+  await check('milestones: dismissing or marking a recommendation clears it (never re-nagged)', async () => {
+    return await store(`(S)=>{
+      const pid='smoke-ms-dismiss';
+      S.put('projects',{id:pid,name:'Smoke Dismiss',status:'active'},{silent:true});
+      const day=86400000, base=Date.now()-40*day;
+      const mk=(v,kind,d)=>S.put('releases',{id:pid+'-r'+v,projectId:pid,v,kind,title:'r'+v,ts:new Date(base+d*day).toISOString()},{silent:true});
+      mk(1,'feature',0); mk(2,'feature',1); mk(3,'feature',2); mk(4,'polish',3); mk(5,'fix',4);
+      const first = S.recommendedMilestone(pid); if(!first){ S.remove('projects',pid,{silent:true}); return false; }
+      // dismiss it → the SAME version must not come back
+      S.dismissRecommendation(pid, first.release.v);
+      const afterDismiss = S.recommendedMilestone(pid);
+      const dismissedGone = !afterDismiss || afterDismiss.release.v !== first.release.v;
+      // marking a recommended release as a milestone also removes it
+      const second = afterDismiss;
+      let markGone = true;
+      if(second){ S.setMilestone(second.release.id, true, 'x'); const afterMark = S.recommendedMilestone(pid); markGone = !afterMark || afterMark.release.v !== second.release.v; }
+      S.remove('projects',pid,{silent:true});
+      const dism = (S.settings().recDismissed||{}); delete dism[pid]; S.setSetting('recDismissed', dism);
+      return dismissedGone && markGone;
+    }`);
+  });
   await check('releases feed has a "Milestones" filter that narrows to marked releases', async () => {
     await store(`(S)=>{const r=S.releasesFor('relay')[0]; S.setMilestone(r.id, true, 'Smoke milestone');}`);
     await openSec('releases');
