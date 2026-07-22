@@ -210,6 +210,15 @@ export async function attemptAutoSync(p){
 // for a transient badge on its row; failures just don't flag anything.
 const REFRESH_THROTTLE_MS = 90000;   // at most once every 90s
 let _lastBgRefresh = 0, _bgRefreshing = false;
+// Whether a call right now would actually do work (not in-flight, not throttled,
+// not under automation, and there's something to sync) — lets the library show
+// a "checking…" indicator ONLY when a refresh is really about to run.
+export function bgRefreshWillRun(){
+  if(_bgRefreshing) return false;
+  if(typeof navigator !== 'undefined' && navigator.webdriver) return false;
+  if(Date.now() - _lastBgRefresh < REFRESH_THROTTLE_MS) return false;
+  return Store.projects().some(p => p.site || p.changelogUrl);
+}
 export async function backgroundRefreshProjects({ force = false } = {}){
   if(_bgRefreshing) return null;
   // Don't fan out real network syncs under browser automation (Playwright sets
@@ -223,11 +232,17 @@ export async function backgroundRefreshProjects({ force = false } = {}){
   _bgRefreshing = true; _lastBgRefresh = Date.now();
   try{
     let flagged = 0, ok = 0;
-    for(const p of targets){
-      const res = await syncProject(p);
-      if(res.status === 'ok'){ ok++; if(res.added > 0){ Store.markProjectUpdated(p.id); flagged++; } }
-    }
-    return { attempted: targets.length, ok, flagged };
+    // One batch around the whole sweep: the per-project writes below each emit
+    // 'releases'/'projects', which reactively repaint the library — batching
+    // defers those to a single paint at the end instead of one flash per
+    // project (and collapses the write-through sync to a single push).
+    await Store.batch(async () => {
+      for(const p of targets){
+        const res = await syncProject(p);
+        if(res.status === 'ok'){ ok++; if(res.added > 0){ Store.markProjectUpdated(p.id); flagged++; } }
+      }
+    });
+    return { attempted: targets.length, ok, flagged, ran: true };
   } finally {
     _bgRefreshing = false;
   }
