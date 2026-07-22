@@ -13,8 +13,18 @@
 //               start > end (e.g. [22, 6]).
 //   startAt     ISO — the lane sleeps until this moment.
 //   until       ISO — the lane expires at this moment.
+//   slices      int 1..5 (default 1) — how many independent improve runs to
+//               dispatch each time the lane fires. Doesn't affect WHEN a lane
+//               runs (isDueAt/nextRunAt ignore it) — only how many units it
+//               kicks off that hour.
 
 export const TICK_MINUTE = 3;   // steward-focus.yml runs at :03 UTC
+
+// Slices per fired tick (default 1, clamped 1..5). Mirrors platform slicesOf.
+export function slicesOf(lane){
+  const n = Math.floor(Number(lane && lane.slices) || 1);
+  return Math.max(1, Math.min(5, n));
+}
 
 export function isDueAt(lane, date){
   if(!lane || !lane.enabled) return false;
