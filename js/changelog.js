@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 77,
+    title: 'The landing page now wears the shared fleet header & footer',
+    kind: 'polish',
+    ts: '2026-07-22T16:49:33.262Z',
+    items: [
+      'Manager’s front door adopts the suite-wide header and footer, so it matches every Polecat app — the same brand tile, a consistent “Polecat” link back to the suite, and the standard footer.',
+      'Picked up Polecat Shell v0.5.1 (the shared site-chrome plus the ~44px mobile touch targets).',
+    ],
+  },
+  {
     v: 76,
     title: 'Fix: the hero screenshots were showing a stale, blurry cached copy',
     kind: 'fix',

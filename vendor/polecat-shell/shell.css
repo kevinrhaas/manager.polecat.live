@@ -219,6 +219,11 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
   .ps-rail-toggle,.ps-rail-resize{display:none}
   .ps-topbar-menu{display:grid}
   .ps-view{padding:16px 14px}
+  /* touch targets: ~44px minimum (WCAG 2.5.5) below the drawer breakpoint;
+     .icon.sm stays compact since it's only ever paired with adjacent text/controls */
+  .btn:not(.icon){min-height:44px}
+  .btn.icon{width:44px;height:44px}
+  .ps-rail-item{min-height:44px}
 }
 @media (max-width:520px){
   .ps-topbar h1{display:none}
