@@ -274,6 +274,10 @@ body{
 }
 .card.hover:hover{border-color:var(--brand-b);transform:translateY(-2px);
   box-shadow:var(--shadow-sm)}
+/* stat cards (Dashboard/Releases) opted into role="button" + keyboard nav
+   when clickable (see #22), but never picked up a mouse hover affordance —
+   .qa/.tile set their own cursor:pointer on the base class, .stat didn't */
+.card.stat.hover{cursor:pointer}
 /* keyboard focus for card/tile/row elements that act as buttons (see
    ui.js makeRowClickable) — mirrors .btn:focus-visible's ring so tabbing
    to a project tile or library row is exactly as visible as tabbing to

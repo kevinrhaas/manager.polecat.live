@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 79,
+    title: 'Polish: stat cards get a pointer cursor on hover',
+    kind: 'polish',
+    ts: '2026-07-22T17:06:05.240Z',
+    items: [
+      'The Dashboard and Releases stat tiles (Live now, Fleet health, Shipped·7d, etc.) have been clickable and keyboard-navigable since v74, but the mouse cursor never changed on hover — a UX-sweep finding. They now show a pointer, matching every other clickable card in the app.',
+    ],
+  },
+  {
     v: 78,
     title: 'Polish: thumb-sized tap targets on mobile',
     kind: 'polish',

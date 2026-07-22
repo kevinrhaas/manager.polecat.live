@@ -22,6 +22,18 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [x] **Stat cards get a pointer cursor on hover** (shipped 2026-07-22) — UX
+      sweep #23 finding #3: the Dashboard/Releases stat tiles have been
+      clickable + keyboard-navigable since v74 (#22), but `.card.stat` never
+      picked up `cursor:pointer` the way `.qa`/`.tile` (the app's other
+      clickable-card families) already had on their base class — so a mouse
+      user got no visual affordance that the number was a link. One-line CSS
+      fix, scoped to `.card.stat.hover` (only the actually-clickable stat
+      cards, not a static info card). Downgrades #23's remaining open items
+      to #4 (gate Unlock sign-off, flag-only), #5 (client-side GitHub
+      rate-limit exposure, architectural), and #6 (Solution Engineering's
+      permanent 404 against the unauthenticated GitHub API).
+
 - [x] **Thumb-sized tap targets on mobile** (shipped 2026-07-22) — UX sweep
       #23 finding #1/#2 (carried unaddressed across 3+ sweeps, #9→#13→#19→#23):
       filter chips, toggle switches (`.toggle`/`.fo-toggle`), Fleet Ops icon
