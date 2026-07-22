@@ -41,6 +41,18 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      # Regenerate the landing-page hero screenshots from the just-built app so
+      # the marketing site always matches the live UI. Written into the Pages
+      # artifact only — NOT committed — so we don't bloat git with ~2 MB of
+      # PNGs on every deploy. Best-effort: the committed baselines ship if it
+      # fails (e.g. a transient headless hiccup).
+      - name: Regenerate marketing screenshots
+        continue-on-error: true
+        run: |
+          npm install -D playwright
+          npx playwright install --with-deps chromium
+          node .github/gen-shots.mjs
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

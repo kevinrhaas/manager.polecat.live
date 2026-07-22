@@ -67,6 +67,23 @@ try {
   await check('landing has a Launch link to /app/', async () =>
     (await page.$$eval('a', (as) => as.some((a) => /\/app\/?$/.test(a.getAttribute('href') || '')))));
   await check('landing shows the fleet showcase', async () => (await count('#fleet .fchip')) >= 5);
+  await check('landing hero carousel: real screenshots present, dots built, auto-advances with a caption', async () => {
+    if ((await count('#hero-carousel .hc-slide')) < 4) return false;
+    // every slide references an actual shipped screenshot file (not a broken src)
+    const shots = await page.$$eval('#hero-carousel .hc-slide img', (imgs) => imgs.map((i) => i.getAttribute('src')));
+    if (!shots.every((s) => /^\/assets\/shots\/.+\.png$/.test(s || ''))) return false;
+    const broken = await page.$$eval('#hero-carousel .hc-slide img', (imgs) => imgs.filter((i) => i.complete && i.naturalWidth === 0).length);
+    if (broken > 0) return false;
+    if ((await count('#hero-carousel .hc-dots button')) !== (await count('#hero-carousel .hc-slide'))) return false;
+    // caption populated for the active slide
+    const cap = await page.$eval('#hc-title', (n) => n.textContent).catch(() => '');
+    if (!cap) return false;
+    // auto-advance moves the active slide within the hold window
+    const before = await page.$eval('#hero-carousel .hc-slide.on img', (n) => n.getAttribute('src'));
+    await page.waitForTimeout(6000);
+    const after = await page.$eval('#hero-carousel .hc-slide.on img', (n) => n.getAttribute('src'));
+    return before !== after;
+  });
   await check('landing keeps its own version copy honest (reads live from js/changelog.js, never hand-frozen)', async () => {
     const latest = await page.evaluate(`import('/js/changelog.js').then(m=>m.CHANGELOG[0])`);
     const whatsNew = await page.$eval('#whats-new', (el) => el.textContent).catch(() => '');

@@ -35,6 +35,7 @@
     <g id="i-play" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8V4Z"/></g>
     <g id="i-bolt" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></g>
     <g id="i-layers" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5ZM3 13l9 5 9-5"/></g>
+    <g id="i-rocket" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15c-1.5 1-2 4-2 4s3-.5 4-2M9 11a8 8 0 0 1 8-8c2 0 3 1 3 3a8 8 0 0 1-8 8l-3-3ZM14 9h.01M9 11l-3 1M13 15l-1 3"/></g>
   </defs></svg>
 
   <header class="nav" id="nav">
@@ -53,58 +54,61 @@
     <!-- hero -->
     <section class="hero">
       <div class="wrap">
-        <span class="eyebrow"><span class="dot"></span> Self-improving · Serverless · Invite-only</span>
-        <h1>Mission control for projects that <span class="g">build themselves</span>.</h1>
-        <p class="lead">Manager is the console that sits on top of your fleet of Claude Code projects — each one improving itself on a loop. Watch every project's status, latest version, and what's-new in one place, and jump straight to the session driving the work.</p>
-        <a class="whats-new" id="whats-new" href="/app/">✦ New — v52 A "Tags" manager: rename or clean up a tag fleet-wide</a>
+        <span class="eyebrow"><span class="dot"></span> Self-improving fleet · Serverless · Invite-only</span>
+        <h1>Mission control for a fleet that <span class="g">ships itself</span>.</h1>
+        <p class="lead">Manager is the console over a fleet of Claude Code projects that improve themselves on GitHub Actions. Watch every project's health and what's-new in one dashboard — then schedule, launch, and review the whole self-improvement engine from Fleet Ops, without leaving the browser.</p>
+        <a class="whats-new" id="whats-new" href="/app/">✦ New — the latest ship</a>
         <div class="hero-cta">
           <a class="btn primary lg" href="/app/">Launch Manager <svg width="18" height="18" viewBox="0 0 24 24"><use href="#i-arrow"/></svg></a>
           <a class="btn lg ghost" href="#how">See how it works</a>
         </div>
         <div class="trust">
           <span class="chip"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg> No backend</span>
-          <span class="chip"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg> Invite-only</span>
           <span class="chip"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg> Runs in your browser</span>
+          <span class="chip"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg> Drives the platform steward</span>
           <span class="chip"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg> Mobile-first</span>
-          <span class="chip"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg> Improves hourly</span>
         </div>
 
-        <!-- recent-activity ticker: a real feel for the hourly cadence before you
-             ever unlock the app. Populated live from js/changelog.js below; the
-             chips baked in here are the correct fallback for JS-disabled visitors
-             as of this run, same honesty pattern as #whats-new. -->
+        <!-- recent-activity ticker: a real feel for the shipping cadence before
+             you ever unlock the app. Populated live from js/changelog.js below;
+             the chips baked in here are the correct fallback for JS-disabled
+             visitors as of this run. -->
         <div class="activity-ticker reveal" aria-label="Recent activity">
-          <div class="at-head">Recent activity</div>
+          <div class="at-head">Shipping now</div>
           <div class="at-track" id="at-track">
-            <span class="at-chip"><b>v52</b> A "Tags" manager: rename or clean up a tag fleet-wide</span>
-            <span class="at-chip"><b>v51</b> Public site: a "recent activity" ticker under the hero</span>
-            <span class="at-chip"><b>v50</b> Nav rail gets the app's own branded keyboard-focus ring</span>
-            <span class="at-chip"><b>v49</b> Public site: the fleet showcase feels alive — status pulse + staggered entrance</span>
-            <span class="at-chip"><b>v48</b> Sweep: keyboard-focus rings and a skip-to-content link, fleet-showcase status colors</span>
+            <span class="at-chip"><b>v73</b> Fleet Ops splits into the control room and the Steward log</span>
+            <span class="at-chip"><b>v72</b> Run reviews tell you what happened, in the steward's own words</span>
+            <span class="at-chip"><b>v68</b> The whole platform schedule in one place — sweeps, janitor, fleet improve</span>
+            <span class="at-chip"><b>v60</b> Fleet Ops — drive the platform steward from Manager</span>
+            <span class="at-chip"><b>v59</b> Manager moves onto the shared Polecat Shell</span>
           </div>
         </div>
       </div>
 
-      <!-- live-feeling console mock (pure HTML/CSS) -->
-      <div class="console reveal" aria-hidden="true">
-        <div class="bar"><i></i><i></i><i></i><span class="url">manager.polecat.live/app</span></div>
-        <div class="screen">
-          <div class="mrail"><b></b><s class="on"></s><s></s><s></s><s></s></div>
-          <div class="body">
-            <div class="krow">
-              <div class="kpi"><u>Projects</u><b>6</b></div>
-              <div class="kpi"><u>Live now</u><b>4</b></div>
-              <div class="kpi"><u>Shipped · 7d</u><b>3</b></div>
-              <div class="kpi"><u>Until sweep</u><b>4</b></div>
-            </div>
-            <div class="mtiles">
-              <div class="mtile"><span class="pill"></span><div class="h"><i style="background:linear-gradient(135deg,#22d3ee,#6366f1)"></i><b>Relay</b></div><div class="ln"></div><div class="ln s"></div></div>
-              <div class="mtile"><div class="h"><i style="background:linear-gradient(135deg,#a855f7,#6366f1)"></i><b>Games</b></div><div class="ln"></div><div class="ln s"></div></div>
-              <div class="mtile"><span class="pill"></span><div class="h"><i style="background:linear-gradient(135deg,#34d399,#22d3ee)"></i><b>Polecat</b></div><div class="ln"></div><div class="ln s"></div></div>
-              <div class="mtile"><div class="h"><i style="background:linear-gradient(135deg,#a3e635,#65a30d)"></i><b>Manager</b></div><div class="ln"></div><div class="ln s"></div></div>
-            </div>
-          </div>
-        </div>
+      <!-- HERO: auto-rotating carousel of real, chrome-less app screenshots,
+           regenerated from the live app by .github/gen-shots.mjs. Each slide
+           explains one capability. -->
+      <div class="hero-carousel reveal" id="hero-carousel" role="region" aria-roledescription="carousel" aria-label="Manager screenshots">
+        <div class="hc-progress" aria-hidden="true"></div>
+        <div class="hc-slide on" data-title="A living dashboard"
+             data-cap="One tile per project — health score, latest version, last ship time, a velocity sparkline — updating the moment anything changes.">
+          <img src="/assets/shots/dashboard.png" alt="Manager dashboard: fleet stats and a wall of project tiles" width="1950" height="1290" loading="eager"/></div>
+        <div class="hc-slide" data-title="Fleet Ops — the control room"
+             data-cap="Schedule the whole self-improvement engine: per-app improve lanes and platform jobs, with cadence, time windows, and a live 'Coming up' timeline. Dispatch a one-off run any time.">
+          <img src="/assets/shots/fleetops.png" alt="Fleet Ops: the schedule roster, dispatch panel, and Coming-up timeline" width="1950" height="1290" loading="lazy"/></div>
+        <div class="hc-slide" data-title="The Steward log — what happened"
+             data-cap="Every self-improvement run, reviewable in place: the steward's own summary of what it shipped, the safety nets that keep main green, and open work across the fleet.">
+          <img src="/assets/shots/stewardlog.png" alt="Steward log: safety nets, run reviews, and open steward work" width="1950" height="1290" loading="lazy"/></div>
+        <div class="hc-slide" data-title="A curated library"
+             data-cap="Filter, sort, search, pin and edit every project. Add your own typed metadata fields, save the views you use most, and manage tags fleet-wide.">
+          <img src="/assets/shots/library.png" alt="The project library with filters, saved views, and metadata" width="1950" height="1290" loading="lazy"/></div>
+        <div class="hc-slide" data-title="Every 'what's new'"
+             data-cap="Each project keeps its own release timeline, synced live from its deployed changelog — the whole fleet's shipping history in one searchable feed.">
+          <img src="/assets/shots/releases.png" alt="The fleet-wide releases feed with per-project timelines" width="1950" height="1290" loading="lazy"/></div>
+        <button class="hc-arrow prev" aria-label="Previous screenshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg></button>
+        <button class="hc-arrow next" aria-label="Next screenshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 6 6 6-6 6"/></svg></button>
+        <div class="hc-cap"><h3 id="hc-title"></h3><p id="hc-text"></p></div>
+        <div class="hc-dots" id="hc-dots" role="tablist" aria-label="Choose screenshot"></div>
       </div>
     </section>
 
@@ -113,22 +117,22 @@
       <div class="wrap">
         <div class="sec-head reveal">
           <div class="kick">Why Manager</div>
-          <h2>Everything your fleet is doing — at a glance.</h2>
-          <p>Six things that turn a pile of self-improving repos into a calm, legible command center.</p>
+          <h2>Watch the fleet — and drive the engine that improves it.</h2>
+          <p>Six things that turn a family of self-improving repos into a calm, legible command center you actually control.</p>
         </div>
         <div class="grid f3">
           <div class="card reveal"><div class="ic" style="background:linear-gradient(135deg,#22d3ee,#0e7490)"><svg viewBox="0 0 24 24"><use href="#i-gauge"/></svg></div>
-            <h3>A living dashboard</h3><p>One tile per project: status, the time it last shipped in CT, the latest version, and a short assessment. It updates the moment anything changes.</p></div>
-          <div class="card reveal"><div class="ic" style="background:linear-gradient(135deg,#6366f1,#4338ca)"><svg viewBox="0 0 24 24"><use href="#i-grid"/></svg></div>
-            <h3>A curated library</h3><p>Filter, sort, search, pin, and edit every project. Add your own metadata fields and save the views you use most.</p></div>
-          <div class="card reveal"><div class="ic" style="background:linear-gradient(135deg,#a3e635,#65a30d)"><svg viewBox="0 0 24 24"><use href="#i-spark"/></svg></div>
-            <h3>Every "what's new"</h3><p>Each project keeps its own release timeline. See the latest and the whole history, searchable and sortable.</p></div>
-          <div class="card reveal"><div class="ic" style="background:linear-gradient(135deg,#38bdf8,#0369a1)"><svg viewBox="0 0 24 24"><use href="#i-term"/></svg></div>
-            <h3>Straight to the session</h3><p>One click opens the Claude Code session steering each project — no more hunting for the right tab.</p></div>
+            <h3>A living dashboard</h3><p>One tile per project: a health score, the latest version, the time it last shipped, a velocity sparkline, and a short assessment. It updates the moment anything changes.</p></div>
+          <div class="card reveal"><div class="ic" style="background:linear-gradient(135deg,#38bdf8,#0369a1)"><svg viewBox="0 0 24 24"><use href="#i-rocket"/></svg></div>
+            <h3>Fleet Ops: schedule &amp; run it</h3><p>Turn each app's self-improvement loop on or off, set its cadence and time window, dispatch one-off runs, and preview exactly what fires next — the whole platform steward, driven from here.</p></div>
           <div class="card reveal"><div class="ic" style="background:linear-gradient(135deg,#a855f7,#7c3aed)"><svg viewBox="0 0 24 24"><use href="#i-clock"/></svg></div>
-            <h3>Cadence you can see</h3><p>Manager tracks the feature/sweep rhythm — four features, then a polish sweep — so you always know what's next.</p></div>
+            <h3>The Steward log</h3><p>Every self-improvement run, reviewable in place — the steward's own account of what it shipped, the safety nets that keep every site green, and open work across the whole fleet.</p></div>
+          <div class="card reveal"><div class="ic" style="background:linear-gradient(135deg,#6366f1,#4338ca)"><svg viewBox="0 0 24 24"><use href="#i-grid"/></svg></div>
+            <h3>A curated library</h3><p>Filter, sort, search, pin, and edit every project. Add your own typed metadata fields, save the views you use most, and rename or clean up tags fleet-wide.</p></div>
+          <div class="card reveal"><div class="ic" style="background:linear-gradient(135deg,#a3e635,#65a30d)"><svg viewBox="0 0 24 24"><use href="#i-spark"/></svg></div>
+            <h3>Every "what's new"</h3><p>Each project keeps its own release timeline, synced live from its deployed changelog. See the latest and the whole fleet's history, searchable and sortable.</p></div>
           <div class="card reveal"><div class="ic" style="background:linear-gradient(135deg,#34d399,#0f766e)"><svg viewBox="0 0 24 24"><use href="#i-db"/></svg></div>
-            <h3>Yours, and portable</h3><p>Local-first storage, one-click export/import, history + undo. Shaped like a database so it can graduate to SQLite later.</p></div>
+            <h3>Local-first, yours to keep</h3><p>Works fully in your browser, or connect a real database (Turso, Supabase, Firebase) to reach it anywhere — with an option to encrypt your secrets at rest. Export, import, undo.</p></div>
         </div>
       </div>
     </section>
@@ -136,11 +140,11 @@
     <!-- how -->
     <section id="how">
       <div class="wrap">
-        <div class="sec-head reveal"><div class="kick">How it works</div><h2>From scattered repos to one console.</h2></div>
+        <div class="sec-head reveal"><div class="kick">How it works</div><h2>From scattered repos to one self-shipping fleet.</h2></div>
         <div class="steps">
-          <div class="step reveal"><div class="n"></div><h3>Add your projects</h3><p>Point Manager at each repo and site, drop in the <code>Claude Code</code> session URL, and tag it however you think.</p></div>
-          <div class="step reveal"><div class="n"></div><h3>Let them self-improve</h3><p>Each project runs its own loop — a cron routine or a GitHub Action — shipping features and a changelog on a schedule.</p></div>
-          <div class="step reveal"><div class="n"></div><h3>Watch, steer, curate</h3><p>The dashboard shows what shipped and when. Jump into any session, log the cadence, and keep the library sharp.</p></div>
+          <div class="step reveal"><div class="n"></div><h3>Add your projects</h3><p>Point Manager at each repo and site, drop in the <code>Claude Code</code> session URL, and tag it however you think. Manager already knows the whole polecat.live family — including itself.</p></div>
+          <div class="step reveal"><div class="n"></div><h3>Schedule the steward</h3><p>From Fleet Ops, give each app a cadence — hourly, every few hours, or fenced to a window. A shared GitHub Actions steward builds one improvement at a time, tests it, and merges only when green.</p></div>
+          <div class="step reveal"><div class="n"></div><h3>Watch it ship — and review</h3><p>The dashboard shows what shipped and when; the Steward log shows what each run actually did. Jump into any session, connect a token to run things yourself, and keep the library sharp.</p></div>
         </div>
       </div>
     </section>
@@ -207,6 +211,46 @@
       const io=new IntersectionObserver((es)=>{ for(const e of es){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } } },{threshold:.12,rootMargin:'0px 0px -40px 0px'});
       reveals.forEach(el=>io.observe(el));
     } else reveals.forEach(el=>el.classList.add('in'));
+
+    // Hero carousel: real app screenshots, auto-advancing with a progress bar,
+    // caption per slide, dots + arrows, and a keyboard + swipe. Pauses on hover
+    // and respects prefers-reduced-motion (no auto-advance, still navigable).
+    (function(){
+      const root=document.getElementById('hero-carousel'); if(!root) return;
+      const slides=[...root.querySelectorAll('.hc-slide')];
+      const dotsWrap=root.querySelector('#hc-dots');
+      const title=root.querySelector('#hc-title'), text=root.querySelector('#hc-text');
+      const prog=root.querySelector('.hc-progress');
+      const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const HOLD=5000; let i=0, timer=null, t0=0, raf=null;
+      const dots=slides.map((_,n)=>{ const b=document.createElement('button'); b.setAttribute('role','tab');
+        b.setAttribute('aria-label','Screenshot '+(n+1)); b.innerHTML='<i></i>';
+        b.addEventListener('click',()=>{ go(n); restart(); }); dotsWrap.append(b); return b; });
+      function paint(){
+        slides.forEach((s,n)=>s.classList.toggle('on',n===i));
+        dots.forEach((d,n)=>{ d.classList.toggle('on',n===i); d.setAttribute('aria-selected',n===i); });
+        const s=slides[i]; title.textContent=s.dataset.title||''; text.textContent=s.dataset.cap||'';
+      }
+      function go(n){ i=(n+slides.length)%slides.length; paint(); }
+      function tickProg(){
+        if(!prog) return;
+        const p=Math.min(1,(performance.now()-t0)/HOLD);
+        prog.style.width=(p*100)+'%';
+        raf=requestAnimationFrame(tickProg);
+      }
+      function start(){ if(reduce) return; t0=performance.now(); if(prog){ prog.style.width='0%'; cancelAnimationFrame(raf); tickProg(); }
+        timer=setInterval(()=>{ go(i+1); t0=performance.now(); }, HOLD); }
+      function stop(){ clearInterval(timer); cancelAnimationFrame(raf); }
+      function restart(){ stop(); start(); }
+      root.querySelector('.hc-arrow.prev').addEventListener('click',()=>{ go(i-1); restart(); });
+      root.querySelector('.hc-arrow.next').addEventListener('click',()=>{ go(i+1); restart(); });
+      root.addEventListener('mouseenter',stop); root.addEventListener('mouseleave',start);
+      root.addEventListener('keydown',(e)=>{ if(e.key==='ArrowLeft'){ go(i-1); restart(); } else if(e.key==='ArrowRight'){ go(i+1); restart(); } });
+      let sx=0; root.addEventListener('touchstart',(e)=>{ sx=e.touches[0].clientX; stop(); },{passive:true});
+      root.addEventListener('touchend',(e)=>{ const dx=e.changedTouches[0].clientX-sx;
+        if(Math.abs(dx)>40){ go(i+(dx<0?1:-1)); } start(); },{passive:true});
+      paint(); start();
+    })();
   </script>
 
   <!-- Keeps the "what's new" banner and the fleet card's version number honest
