@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 78,
+    title: 'Polish: thumb-sized tap targets on mobile',
+    kind: 'polish',
+    ts: '2026-07-22T16:57:10.995Z',
+    items: [
+      'Filter chips, toggle switches, Fleet Ops icon buttons, and most secondary buttons (Settings, Credentials, Activity, the invite gate) were well under the ~44px mobile touch-target floor — a UX-sweep finding carried unaddressed across three sweeps. They now meet it on phone-width screens, both themes, with no change to desktop.',
+    ],
+  },
+  {
     v: 77,
     title: 'The blurry hero screenshots are finally, genuinely sharp',
     kind: 'fix',
