@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 86,
+    title: 'Projects checks for new releases on its own — and flags what’s new',
+    kind: 'feature',
+    ts: '2026-07-22T18:24:49.788Z',
+    items: [
+      'Opening the Projects library now quietly pulls fresh changelogs for every connected project in the background, so you don’t have to hit “Sync all” each visit (throttled so rapid navigation doesn’t hammer anything, and silent — an unreachable source just doesn’t flag anything).',
+      'When a background check actually finds new releases for a project, its row gets a transient NEW badge. It clears the moment you open that project, and fades on its own after about ten days if you never do — so NEW always means “genuinely new since you last looked”, never a permanent sticker.',
+    ],
+  },
+  {
     v: 85,
     title: 'The marketing carousel’s caption no longer dims the screenshot',
     kind: 'polish',

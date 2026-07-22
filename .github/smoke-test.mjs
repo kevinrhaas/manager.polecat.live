@@ -373,6 +373,34 @@ try {
   console.log('Projects library');
   await openSec('projects');
   await check('library renders a table of projects', async () => (await count('.lib-table tbody tr')) >= 5);
+  await check('projects: transient NEW marker flags, decays, and clears when opened', async () => {
+    return await store(`(S)=>{
+      const pid=S.projects()[0]?.id; if(!pid) return false;
+      S.clearProjectUnseen(pid);
+      if(S.projectHasNewUpdates(pid)) return false;            // clean baseline
+      S.markProjectUpdated(pid);
+      if(!S.projectHasNewUpdates(pid)) return false;           // flags on a real update
+      const at1=(S.settings().projectUnseen||{})[pid];
+      S.markProjectUpdated(pid);                                // idempotent — keeps first-seen time
+      if((S.settings().projectUnseen||{})[pid]!==at1) return false;
+      // a marker older than the 10-day decay window self-prunes on read
+      const stale={...(S.settings().projectUnseen||{})}; stale[pid]=Date.now()-11*86400000; S.setSetting('projectUnseen',stale);
+      if(S.projectHasNewUpdates(pid)) return false;
+      // and opening a project clears it
+      S.markProjectUpdated(pid); S.clearProjectUnseen(pid);
+      return !S.projectHasNewUpdates(pid);
+    }`);
+  });
+  await check('projects: a flagged project shows a NEW badge in the library that clears after opening it', async () => {
+    const pid = await store(`(S)=>{ const id=S.projects()[0]?.id; if(id) S.markProjectUpdated(id); return id; }`);
+    if(!pid) return false;
+    await openSec('projects'); await page.waitForTimeout(200);
+    const badgeShown = (await count('.lib-table .lib-new')) >= 1;
+    await page.evaluate((id)=>{ location.hash = 'project/'+id; }, pid); await page.waitForTimeout(250);
+    await openSec('projects'); await page.waitForTimeout(200);
+    const stillFlagged = await store(`(S)=>S.projectHasNewUpdates('${pid}')`);
+    return badgeShown && !stillFlagged;
+  });
   await check('status pills carry an explanatory hover tooltip', async () => {
     const title = await page.$eval('.lib-table .status', (s) => s.getAttribute('title') || '');
     return /—/.test(title) && title.length > 12;   // "Live — Shipping to production…"
