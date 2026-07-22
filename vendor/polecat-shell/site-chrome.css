@@ -1,0 +1,153 @@
+/* -----------------------------------------------------------------------
+   site-chrome.css — the shared PUBLIC-SITE header + footer for the fleet's
+   marketing/landing pages (NOT the in-app shell; that's shell.css). Pairs
+   with site-chrome.js siteHeader()/siteFooter(). One source of truth so the
+   brand mark, the "back to polecat.live" affordance, the layout, and the
+   footer read identically on every app's front door. See docs/BRAND.md.
+
+   Namespaced `psx-` (Polecat Site cHrome) so it never collides with an app's
+   own page CSS or with the in-app shell's `ps-` classes. Dark-first (every
+   fleet landing page is dark today) with a light fallback. The per-app accent
+   arrives as the inline custom property `--psx-accent`; everything else is
+   fixed Polecat identity.
+   ----------------------------------------------------------------------- */
+
+.psx-header, .psx-footer {
+  --psx-accent: #e08a45;                 /* overridden inline per app */
+  --psx-bg: rgba(12, 11, 18, .72);
+  --psx-solid: #0c0b12;
+  --psx-text: #f1edf7;
+  --psx-muted: #a59fb8;
+  --psx-faint: #6b6480;
+  --psx-border: rgba(255, 255, 255, .10);
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+.psx-header *, .psx-footer * { box-sizing: border-box; }
+
+/* the fixed Polecat wordmark gradient (brand identity, not the app accent) */
+.psx-grad {
+  background: linear-gradient(110deg, #9C6B3F, #e08a45 45%, #F4A6A6);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+/* the shared icon chassis — same rounded, accent-tinted tile the launcher
+   grid uses for every app, so a card and a header read as the same object */
+.psx-tile {
+  width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--psx-accent);
+  background: color-mix(in srgb, var(--psx-accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--psx-accent) 32%, transparent);
+}
+.psx-tile svg { display: block; width: 18px; height: 18px; }
+.psx-tile-sm { width: 24px; height: 24px; border-radius: 7px; }
+.psx-tile-sm svg { width: 15px; height: 15px; }
+
+/* ---------------- header ---------------- */
+.psx-header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--psx-bg); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--psx-border);
+  transition: box-shadow .2s ease, background .2s ease;
+}
+.psx-header.psx-scrolled { box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
+.psx-h-in {
+  max-width: 1080px; margin: 0 auto; padding: 11px 22px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.psx-brand {
+  display: inline-flex; align-items: center; gap: 10px;
+  text-decoration: none; color: var(--psx-text);
+  font-weight: 800; font-size: 16px; letter-spacing: -.3px;
+}
+.psx-brand-name { white-space: nowrap; }
+.psx-nav { display: flex; align-items: center; gap: 22px; font-size: 14px; }
+.psx-nav > a {
+  color: var(--psx-muted); text-decoration: none; white-space: nowrap;
+  transition: color .14s ease;
+}
+.psx-nav > a:hover { color: var(--psx-text); }
+
+/* per-app primary call to action — accent-filled pill */
+.psx-cta {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 15px; border-radius: 100px; font-weight: 700; font-size: 14px;
+  /* foreground is set per-accent by the builder for legibility on light hues */
+  color: var(--psx-cta-fg, #fff); background: var(--psx-accent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--psx-accent) 34%, transparent);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.psx-cta:hover { transform: translateY(-1px); }
+.psx-cta svg { width: 16px; height: 16px; }
+
+/* the consistent "up to the suite" affordance — the Polecat wordmark, muted,
+   sits to the right of the app's own nav on every app */
+/* inline (NOT flex) so the "Polecat" wordmark stays one tight word — a flex
+   container would split the "Pole" text node from the gradient "cat" span */
+.psx-parent {
+  font-weight: 800; font-size: 14px; letter-spacing: -.2px; white-space: nowrap;
+  color: var(--psx-faint); text-decoration: none; opacity: .85;
+  transition: opacity .14s ease;
+}
+.psx-parent::after { content: '↗'; font-weight: 400; font-size: 12px; margin-left: 3px; }
+.psx-parent:hover { opacity: 1; }
+
+/* ---------------- footer ---------------- */
+.psx-footer {
+  border-top: 1px solid var(--psx-border);
+  background: var(--psx-solid); color: var(--psx-muted);
+}
+.psx-f-in {
+  max-width: 1080px; margin: 0 auto; padding: 26px 22px;
+  display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center;
+}
+.psx-f-l1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.psx-footer .psx-brand { font-size: 15px; color: var(--psx-text); }
+.psx-f-tag { font-size: 14px; color: var(--psx-muted); }
+.psx-f-tag a, .psx-f-l2 a { color: var(--psx-muted); text-decoration: none; }
+.psx-f-tag a:hover, .psx-f-l2 a:hover { color: var(--psx-text); }
+.psx-f-tag a { border-bottom: 1px solid color-mix(in srgb, var(--psx-accent) 55%, transparent); }
+.psx-f-l2 {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+  font-size: 13px; color: var(--psx-faint);
+}
+.psx-copy { color: var(--psx-faint); }
+.psx-dot { color: var(--psx-faint); opacity: .6; }
+
+/* root (polecat.live) footer variant — keeps the sharp wordmark on top */
+.psx-f-root { gap: 14px; padding-top: 30px; padding-bottom: 30px; }
+.psx-wordmark { font-weight: 800; font-size: 22px; letter-spacing: -.6px; color: var(--psx-text); }
+.psx-f-links { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 14px; }
+.psx-f-links a { color: var(--psx-muted); text-decoration: none; }
+.psx-f-links a:hover { color: var(--psx-text); }
+.psx-f-meta { font-size: 12px; color: var(--psx-faint); }
+
+/* focus visibility for keyboard users */
+.psx-header a:focus-visible, .psx-footer a:focus-visible {
+  outline: 2px solid var(--psx-accent); outline-offset: 3px; border-radius: 4px;
+}
+
+/* mobile: the app's own section links collapse to the brand + CTA. The brand
+   name can ellipsis and paddings tighten so nothing overflows a narrow phone. */
+@media (max-width: 640px) {
+  .psx-h-in { padding-left: 16px; padding-right: 16px; gap: 10px; }
+  .psx-nav { gap: 12px; }
+  .psx-nav > a.psx-section { display: none; }
+  .psx-brand { min-width: 0; }
+  .psx-brand-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .psx-cta { padding: 7px 12px; }
+}
+/* the "Polecat ↗" parent link is redundant with the footer's suite link on a
+   phone — drop it below 560px to keep the header uncrowded */
+@media (max-width: 560px) { .psx-parent { display: none; } }
+
+/* light-surface fallback (no fleet landing page uses it today, but the
+   component shouldn't assume dark) */
+@media (prefers-color-scheme: light) {
+  .psx-header[data-psx-theme="auto"], .psx-footer[data-psx-theme="auto"] {
+    --psx-bg: rgba(255, 255, 255, .8); --psx-solid: #f6f2ec;
+    --psx-text: #1b1720; --psx-muted: #5b5468; --psx-faint: #8b8397;
+    --psx-border: rgba(0, 0, 0, .10);
+  }
+}

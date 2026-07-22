@@ -98,12 +98,22 @@ try {
     const after = await page.$eval('.skip-link', (el) => parseFloat(getComputedStyle(el).top));
     return before < 0 && after >= 0;
   });
-  await check('landing buttons show a visible keyboard-focus ring (was entirely missing before this sweep)', async () => {
-    const before = await page.$eval('.nav .btn.primary', (b) => getComputedStyle(b).boxShadow);
-    await page.$eval('.nav .btn.primary', (b) => b.focus());
-    await page.waitForTimeout(250);   // let the .18s box-shadow transition settle before reading it back
-    const after = await page.$eval('.nav .btn.primary', (b) => getComputedStyle(b).boxShadow);
-    return after !== 'none' && after !== before;
+  await check('landing CTA (shared site-chrome) shows a visible keyboard-focus ring', async () => {
+    // Tab through the header until the shared CTA is focused (keyboard focus
+    // reliably triggers :focus-visible, unlike a programmatic .focus()).
+    await page.evaluate(() => (document.activeElement || document.body).blur?.());
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Tab');
+      const r = await page.evaluate(() => {
+        const el = document.activeElement;
+        if (!el || !el.classList.contains('psx-cta')) return null;
+        const cs = getComputedStyle(el);
+        return parseFloat(cs.outlineWidth) > 0 && cs.outlineStyle !== 'none';
+      });
+      if (r === true) return true;
+      if (r === false) return false;
+    }
+    return false;
   });
   await check('fleet showcase colors Live vs Active status differently, matching real in-app status semantics', async () => {
     const liveColor = await page.$eval('.fchip .st.is-live', (el) => getComputedStyle(el).color);
