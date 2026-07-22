@@ -789,26 +789,16 @@ a.link:hover{text-decoration:underline}
 .tl-item.is-milestone::before{border-color:var(--ms);background:color-mix(in srgb,var(--ms) 40%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--ms) 20%,transparent)}
 .rel-card.is-milestone{border-left:3px solid var(--ms);padding-left:13px}
 .tl-actions .btn.icon.active{color:var(--ms)}
+/* rare "suggested milestone" hint, right on a release's timeline card */
+.tl-item.is-suggested::before{border-color:var(--ms);box-shadow:0 0 0 3px color-mix(in srgb,var(--ms) 14%,transparent)}
+.tl-suggest{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:650;white-space:nowrap;cursor:pointer;
+  padding:2px 8px;border-radius:999px;color:var(--ms);
+  border:1px dashed color-mix(in srgb,var(--ms) 50%,transparent);
+  background:color-mix(in srgb,var(--ms) 9%,transparent)}
+.tl-suggest:hover{background:color-mix(in srgb,var(--ms) 18%,transparent)}
+.tl-suggest svg{width:11px;height:11px}
+.tl-suggest:focus-visible{outline:none;box-shadow:var(--ring)}
 .tl-actions .btn.icon.active svg{fill:color-mix(in srgb,var(--ms) 25%,transparent)}
-/* the recommendation callout is a stacked card, not the default flex-row callout */
-.callout.rec-milestone{position:relative;flex-direction:column;gap:10px;align-items:stretch;
-  border-color:color-mix(in srgb,var(--ms) 38%,var(--border));
-  background:color-mix(in srgb,var(--ms) 8%,transparent);margin-bottom:16px}
-.rec-milestone .rec-dismiss{position:absolute;top:8px;right:8px;color:var(--text-3)}
-.rec-milestone .rec-dismiss:hover{color:var(--text-1)}
-.rec-milestone .rec-dismiss svg{width:15px;height:15px}
-.rec-milestone .rec-head{display:flex;gap:12px;align-items:flex-start;padding-right:28px}
-.rec-milestone .rec-ic{flex:0 0 auto;margin-top:1px}
-.rec-milestone .rec-ic svg{width:22px;height:22px;color:var(--ms)}
-.rec-milestone .rec-lead{min-width:0}
-.rec-milestone .rec-title{font-weight:680;font-size:13.5px;display:flex;align-items:center;gap:8px}
-.rec-milestone .rec-score{font-family:var(--mono);font-size:11px;font-weight:700;color:#241a02;
-  background:var(--ms);border-radius:6px;padding:1px 7px}
-.rec-milestone .rec-sub{font-size:13px;color:var(--text-2);margin-top:3px;overflow-wrap:anywhere}
-.rec-milestone .rec-why{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
-.rec-milestone .rec-why li{font-size:12.5px;color:var(--text-2);line-height:1.45}
-.rec-milestone .rec-foot{display:flex;gap:8px;flex-wrap:wrap}
-.rec-detail{margin:10px 0 4px}
 
 /* ---- fleet ops (steward console) ---------------------------------------- */
 .fo-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start}

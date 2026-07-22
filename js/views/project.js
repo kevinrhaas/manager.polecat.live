@@ -62,7 +62,6 @@ export function renderProject(root, ctx, params){
   th.append(el('button',{class:'btn sm', html:`${icon('bolt')} Force sync`, title:'Fully reconcile local releases to the source — overwrites drifted rows and removes synced releases no longer published there', onclick:()=>runForceSync(p, ctx)}));
   th.append(el('button',{class:'btn sm primary', html:`${icon('plus')} Add release`, onclick:()=>addRelease(p.id, ctx)}));
   main.append(th);
-  main.append(recommendedCallout(p, ctx));
 
   const rels=Store.releasesFor(p.id);
   if(!rels.length){
@@ -70,7 +69,11 @@ export function renderProject(root, ctx, params){
   }else{
     main.append(timelineLegend());
     const tl=el('div',{class:'timeline'});
-    rels.forEach(r=>tl.append(release(r, ctx)));
+    // A single (rare) "suggested milestone" hint lives ON the timeline now — a
+    // quiet marker on its release's card — instead of a dismissable banner.
+    const rec=Store.recommendedMilestone(p.id);
+    const recId=rec && !rec.release.milestone ? rec.release.id : null;
+    rels.forEach(r=>tl.append(release(r, ctx, r.id===recId ? rec : null)));
     main.append(tl);
   }
   grid.append(main);
@@ -418,48 +421,6 @@ function linkBtn(href, ic, label, cls=''){
   return el('a',{class:'linkbtn '+cls, href, target:'_blank', rel:'noopener', html:`${icon(ic)} ${label}`});
 }
 
-// A gentle "this looks like a good stable stopping point" nudge — Manager's
-// read on where the release history *settled* (a burst of features, then a
-// stabilizing tail / a quiet pause / a round version). Purely advisory; the
-// human decides what actually gets the milestone flag.
-function recommendedCallout(p, ctx){
-  const rec=Store.recommendedMilestone(p.id);
-  if(!rec) return el('span',{style:'display:none'});
-  const r=rec.release;
-  const box=el('div',{class:'callout rec-milestone'});
-  box.innerHTML=`<div class="rec-head">
-      <span class="rec-ic">${icon('trophy')}</span>
-      <div class="rec-lead">
-        <div class="rec-title">Recommended release point <span class="rec-score" title="Manager's confidence this is a natural stable milestone (0–10)">${rec.score.toFixed(1)}</span></div>
-        <div class="rec-sub"><span class="vchip mono">v${r.v}</span> ${escapeHtml(r.title||'Untitled release')} <span class="tiny muted">· ${escapeHtml(fmtCT(r.ts))}</span></div>
-      </div>
-    </div>
-    ${rec.reasons.length?`<ul class="rec-why">${rec.reasons.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`:''}`;
-  // Dismiss (×): wave off this suggestion for good. It won't come back for the
-  // same version, but a later stable point still can. Marking it as a milestone
-  // also clears it (the recommender skips milestones), so either action ends it.
-  const dismiss=el('button',{class:'btn ghost icon sm rec-dismiss', title:'Dismiss this suggestion', 'aria-label':`Dismiss the recommended release point v${r.v}`,
-    html:icon('x'), onclick:()=>{ Store.dismissRecommendation(p.id, r.v); toast(`Recommendation for v${r.v} dismissed`,{kind:'ok'}); ctx.go('project',{id:p.id}); }});
-  box.append(dismiss);
-  const foot=el('div',{class:'rec-foot'});
-  const mark=el('button',{class:'btn sm primary', html:`${icon('flag')} Mark as milestone`,
-    onclick:()=>{ Store.setMilestone(r.id, true, 'Stable milestone'); toast(`v${r.v} marked as a milestone`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); ctx.go('project',{id:p.id}); }});
-  const jump=el('button',{class:'btn sm ghost', text:'Why this one?', title:'Manager weighs feature bursts, stabilizing fixes, quiet pauses, round versions and recency', onclick:()=>explainRecommendation(rec)});
-  foot.append(mark, jump);
-  box.append(foot);
-  return box;
-}
-
-function explainRecommendation(rec){
-  const r=rec.release;
-  const body=el('div');
-  body.innerHTML=`<p class="muted" style="margin-top:0">Manager looks for the shape of a natural “it’s done for now” point in a project’s release history — not just the newest version.</p>
-    <div class="rec-detail"><b>v${r.v} · ${escapeHtml(r.title||'')}</b> scored <b>${rec.score.toFixed(1)}/10</b> because:</div>
-    <ul>${rec.reasons.map(x=>`<li>${escapeHtml(x)}</li>`).join('')||'<li>it stands out against the surrounding releases</li>'}</ul>
-    <p class="tiny muted">Signals weighed: a run of shipped features, a stabilizing tail of polish/fix releases after them, a quiet gap before the next change, round version numbers, and how recent it is. This is a suggestion — mark whichever release feels complete to you.</p>`;
-  const {hide}=modal({ title:'Why this release point', icon:icon('trophy'), body, foot:[el('button',{class:'btn primary', text:'Got it', onclick:()=>hide()})] });
-}
-
 function toggleMilestone(r, ctx){
   if(r.milestone){
     Store.setMilestone(r.id, false);
@@ -504,17 +465,32 @@ function timelineLegend(){
   return leg;
 }
 
-function release(r, ctx){
+function release(r, ctx, rec){
   const kind=r.kind||'feature';
   const ki=KIND_INFO[kind]||KIND_INFO.feature;
-  const item=el('div',{class:'tl-item '+kind+(r.milestone?' is-milestone':''), title:`${ki.label} — ${ki.desc}`});
+  const item=el('div',{class:'tl-item '+kind+(r.milestone?' is-milestone':'')+(rec?' is-suggested':''), title:`${ki.label} — ${ki.desc}`});
   const head=el('div',{class:'tl-head'});
   head.innerHTML=`<span class="tl-badge" title="Version number">v${r.v}</span><b>${escapeHtml(r.title||'Untitled release')}</b>
     ${r.milestone?`<span class="ms-badge" title="${escapeHtml(r.milestoneLabel||'Marked milestone')}">${icon('flag')} ${escapeHtml(r.milestoneLabel||'Milestone')}</span>`:''}
     ${r.kind&&r.kind!=='feature'?`<span class="wn-kind" title="${escapeHtml(ki.label)} — ${escapeHtml(ki.desc)}">${escapeHtml(r.kind)}</span>`:''}
     ${r.source==='sync'?`<span class="tag sync-tag" title="Synced from the project’s live changelog${r.sourceUrl?` (${escapeHtml(r.sourceUrl)})`:''}">${icon('refresh')} synced</span>`:''}
     <span class="tl-when">${escapeHtml(fmtCT(r.ts))}</span>`;
+  // Rare "suggested milestone" hint: a quiet, clickable badge right on this
+  // release's card (Manager thinks it reads as a natural stable point). Click
+  // to accept, × to dismiss — no banner, no nagging.
+  if(rec){
+    const why = rec.reasons.length ? rec.reasons.join('; ') : 'it stands out from the releases around it';
+    const sug=el('button',{class:'tl-suggest', title:`Manager suggests this as a natural stable milestone (confidence ${rec.score.toFixed(1)}/10) — ${why}. Click to mark it as a milestone.`,
+      html:`${icon('trophy')} Suggested`,
+      onclick:()=>{ Store.setMilestone(r.id, true, 'Stable milestone'); toast(`v${r.v} marked as a milestone`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); ctx.go('project',{id:r.projectId}); }});
+    const badge=head.querySelector('.tl-badge');
+    head.insertBefore(sug, badge.nextSibling);
+  }
   const actions=el('div',{class:'tl-actions', style:'margin-left:auto;display:inline-flex;gap:4px'});
+  if(rec){
+    actions.append(el('button',{class:'btn ghost icon sm', title:'Dismiss this suggestion', 'aria-label':'Dismiss milestone suggestion', html:icon('x'),
+      onclick:()=>{ Store.dismissRecommendation(r.projectId, r.v); toast('Suggestion dismissed',{kind:'ok'}); ctx.go('project',{id:r.projectId}); }}));
+  }
   const flag=el('button',{class:'btn ghost icon sm'+(r.milestone?' active':''), title:r.milestone?'Unmark milestone':'Mark as major milestone',
     'aria-label':r.milestone?'Unmark milestone':'Mark milestone', html:icon('flag'),
     onclick:()=>toggleMilestone(r, ctx)});

@@ -601,8 +601,11 @@ export const Store = new (class {
     const now = Date.now();
     const isFeat = r => (r.kind||'feature')==='feature';
     // Never re-nominate a release the user already resolved: one they've marked
-    // as a milestone (accepted) or explicitly dismissed. A fresh, later stable
-    // point still surfaces.
+    // as a milestone (accepted) or explicitly dismissed — but we pick the single
+    // GLOBAL best stable point first and only suppress if THAT one is resolved,
+    // rather than falling through to a weaker candidate. That's what stops the
+    // "dismiss one, another pops up" treadmill: one suggestion per project, and
+    // dismissing/accepting it ends it (a later, stronger point can still appear).
     const dismissed = new Set(this.dismissedRecs(projectId));
     let best=null;
     asc.forEach((r,i)=>{
@@ -623,10 +626,17 @@ export const Store = new (class {
       else if(tail>=2) reasons.push(`${tail} polish/fix releases with no new features`);
       if(gapDays>=5) reasons.push(`${Math.round(gapDays)} quiet day${Math.round(gapDays)===1?'':'s'} ${next?'before the next release':'since'}`);
       if(round) reasons.push(`round version v${r.v}`);
-      const eligible = candidate && !r.milestone && !dismissed.has(r.v);
-      if(eligible && (!best || score>best.score)) best={ release:r, score, reasons, ageDays };
+      if(candidate && (!best || score>best.score)) best={ release:r, score, reasons, ageDays };
     });
-    if(!best || best.score < 4.5 || best.ageDays > 120) return null;   // notable + still relevant
+    // Deliberately RARE: only surface a suggestion when the best release is a
+    // clear standout stable point, so at most one shows per project (often none)
+    // and it's a signal, not noise. A high bar matters most for projects with a
+    // long history (hundreds of releases repeat the burst→polish shape), where a
+    // low threshold would nominate one candidate after another.
+    if(!best || best.score < 8 || best.ageDays > 120) return null;   // strong + still relevant
+    // If the standout point is already accepted (a milestone) or was dismissed,
+    // show nothing — do NOT drop to a weaker candidate (no treadmill).
+    if(best.release.milestone || dismissed.has(best.release.v)) return null;
     return { release:best.release, score:Math.min(10, Math.round(best.score*10)/10), reasons:best.reasons.slice(0,3) };
   }
   // Reconcile a project's releases with a fetched/pasted changelog: add rows
