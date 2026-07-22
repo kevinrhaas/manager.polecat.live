@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 89,
+    title: 'Milestone suggestions moved onto the timeline — and got rare',
+    kind: 'polish',
+    ts: '2026-07-22T19:47:52.519Z',
+    items: [
+      'The “Recommended release point” banner is gone. When a release genuinely stands out as a natural stable point, Manager now marks it right on the What’s-new timeline with a quiet “Suggested” badge (tooltip explains why) — click it to accept, × to dismiss.',
+      'It’s deliberately rare now: at most one suggestion per project, often none, and it no longer drops to a weaker pick when you dismiss one — so busy projects like Analytics stop showing an endless stream of things to accept or dismiss.',
+    ],
+  },
+  {
     v: 88,
     title: 'The Projects list no longer flashes while it checks for updates',
     kind: 'fix',

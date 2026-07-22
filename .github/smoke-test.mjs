@@ -781,7 +781,7 @@ try {
     // v5 (or the stabilizing tail) should be picked, with a score and reasons
     return rec && typeof rec.score === 'number' && rec.score > 0 && rec.reasons >= 1;
   });
-  await check('milestones: dismissing or marking a recommendation clears it (never re-nagged)', async () => {
+  await check('milestones: dismissing or marking the suggestion ends it with no weaker fallback (no treadmill)', async () => {
     return await store(`(S)=>{
       const pid='smoke-ms-dismiss';
       S.put('projects',{id:pid,name:'Smoke Dismiss',status:'active'},{silent:true});
@@ -789,18 +789,21 @@ try {
       const mk=(v,kind,d)=>S.put('releases',{id:pid+'-r'+v,projectId:pid,v,kind,title:'r'+v,ts:new Date(base+d*day).toISOString()},{silent:true});
       mk(1,'feature',0); mk(2,'feature',1); mk(3,'feature',2); mk(4,'polish',3); mk(5,'fix',4);
       const first = S.recommendedMilestone(pid); if(!first){ S.remove('projects',pid,{silent:true}); return false; }
-      // dismiss it → the SAME version must not come back
+      const clean=(ok)=>{ S.remove('projects',pid,{silent:true}); const d=(S.settings().recDismissed||{}); delete d[pid]; S.setSetting('recDismissed',d); return ok; };
+      // dismiss the standout → NOTHING else surfaces (no drop to a weaker one)
       S.dismissRecommendation(pid, first.release.v);
-      const afterDismiss = S.recommendedMilestone(pid);
-      const dismissedGone = !afterDismiss || afterDismiss.release.v !== first.release.v;
-      // marking a recommended release as a milestone also removes it
-      const second = afterDismiss;
-      let markGone = true;
-      if(second){ S.setMilestone(second.release.id, true, 'x'); const afterMark = S.recommendedMilestone(pid); markGone = !afterMark || afterMark.release.v !== second.release.v; }
-      S.remove('projects',pid,{silent:true});
-      const dism = (S.settings().recDismissed||{}); delete dism[pid]; S.setSetting('recDismissed', dism);
-      return dismissedGone && markGone;
+      if(S.recommendedMilestone(pid) !== null) return clean(false);
+      // and marking it as a milestone also yields no suggestion
+      const d=(S.settings().recDismissed||{}); delete d[pid]; S.setSetting('recDismissed',d);
+      const again = S.recommendedMilestone(pid); if(!again) return clean(false);
+      S.setMilestone(again.release.id, true, 'x');
+      return clean(S.recommendedMilestone(pid) === null);
     }`);
+  });
+  await check('project page shows no recommendation banner — the suggestion lives on the timeline', async () => {
+    // the old dismissable banner is gone; a rec (when any) is a marker on a card
+    await page.evaluate(() => { location.hash = 'project/relay'; }); await page.waitForTimeout(300);
+    return (await count('.rec-milestone')) === 0 && (await count('.callout.rec-milestone')) === 0;
   });
   await check('releases feed has a "Milestones" filter that narrows to marked releases', async () => {
     await store(`(S)=>{const r=S.releasesFor('relay')[0]; S.setMilestone(r.id, true, 'Smoke milestone');}`);
