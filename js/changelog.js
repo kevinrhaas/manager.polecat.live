@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 76,
+    title: 'Fix: the hero screenshots were showing a stale, blurry cached copy',
+    kind: 'fix',
+    ts: '2026-07-22T15:55:47.083Z',
+    items: [
+      'The new hi-res hero screenshots share the same filenames as the originals, so browsers (and the CDN) kept serving the first, lower-resolution copy — the carousel looked blurry even though the deployed images were sharp. The image URLs now carry a version tag so an updated screenshot is always fetched fresh.',
+    ],
+  },
+  {
     v: 75,
     title: 'A brand-new public site — real screenshots, and it finally shows Fleet Ops',
     kind: 'feature',
