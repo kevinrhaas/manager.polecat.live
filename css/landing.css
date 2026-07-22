@@ -113,7 +113,7 @@ main:focus-visible{outline:none}
 /* hero carousel — real, chrome-less app screenshots, auto-rotating with a
    caption overlay. Regenerated from the live app by .github/gen-shots.mjs. */
 .hero-carousel{position:relative;max-width:1080px;margin:48px auto 0;border-radius:18px;overflow:hidden;
-  border:1px solid var(--border);background:var(--surface);aspect-ratio:1300/860;
+  border:1px solid var(--border);background:var(--surface);aspect-ratio:1440/952;
   box-shadow:0 40px 120px rgba(0,0,0,.6),0 0 0 1px color-mix(in srgb,var(--brand-b) 12%,transparent)}
 .hc-slide{position:absolute;inset:0;opacity:0;transition:opacity .55s ease;pointer-events:none}
 .hc-slide.on{opacity:1;pointer-events:auto}
