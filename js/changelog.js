@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 85,
+    title: 'The marketing carousel’s caption no longer dims the screenshot',
+    kind: 'polish',
+    ts: '2026-07-22T18:13:44.380Z',
+    items: [
+      'The caption gradient over the hero screenshots on the public site was heavy enough to shade a big chunk of the image, making the app itself hard to read. It’s now a lighter, shorter scrim anchored at the very bottom, with a soft text-shadow keeping the caption legible — so the screenshot reads clearly and the words still pop.',
+    ],
+  },
+  {
     v: 84,
     title: 'The recommended release point can now be dismissed',
     kind: 'fix',
