@@ -6,7 +6,11 @@
 // showcased view fresh:
 //   node .github/gen-shots.mjs
 //
-// Writes assets/shots/*.png. The invite gate is satisfied by pre-seeding the
+// Writes assets/shots/*.png. NOTE: the filenames are stable, so the landing
+// page busts browser/CDN cache with a `?v=N` query on each <img> src — when a
+// regenerated shot visibly changes, bump that N in index.html (search `?v=`).
+//
+// The invite gate is satisfied by pre-seeding the
 // `manager.access` grant (same shape Access.grant() writes). Fleet Ops and
 // the Steward log depend on the GitHub API, so those calls are STUBBED with a
 // representative roster + run history so the marquee views render populated

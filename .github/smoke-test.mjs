@@ -71,7 +71,7 @@ try {
     if ((await count('#hero-carousel .hc-slide')) < 4) return false;
     // every slide references an actual shipped screenshot file (not a broken src)
     const shots = await page.$$eval('#hero-carousel .hc-slide img', (imgs) => imgs.map((i) => i.getAttribute('src')));
-    if (!shots.every((s) => /^\/assets\/shots\/.+\.png$/.test(s || ''))) return false;
+    if (!shots.every((s) => /^\/assets\/shots\/.+\.png(\?v=\d+)?$/.test(s || ''))) return false;
     const broken = await page.$$eval('#hero-carousel .hc-slide img', (imgs) => imgs.filter((i) => i.complete && i.naturalWidth === 0).length);
     if (broken > 0) return false;
     if ((await count('#hero-carousel .hc-dots button')) !== (await count('#hero-carousel .hc-slide'))) return false;
