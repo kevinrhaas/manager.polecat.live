@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 84,
+    title: 'The recommended release point can now be dismissed',
+    kind: 'fix',
+    ts: '2026-07-22T18:06:38.088Z',
+    items: [
+      'The “Recommended release point” nudge on a project page had no way to go away — even after you marked the suggested release as a milestone, it kept showing. It now has a dismiss (×), and both dismissing it and marking it as a milestone clear it for good.',
+      'A dismissal sticks to that specific version, so the same suggestion won’t reappear — but if the project later settles at a new stable point, a fresh recommendation still surfaces.',
+    ],
+  },
+  {
     v: 83,
     title: 'Fix: Fleet Ops now loads the roster once your token connects',
     kind: 'fix',

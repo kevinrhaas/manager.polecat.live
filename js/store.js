@@ -521,6 +521,20 @@ export const Store = new (class {
   milestonesFor(projectId){ return this.releasesFor(projectId).filter(r=>r.milestone); }
   allMilestones(){ return this.all('releases').filter(r=>r.milestone && this.project(r.projectId)); }
 
+  // Dismissed recommendations — versions the user waved off on a project's
+  // "Recommended release point" nudge. Persisted per project so the SAME
+  // suggestion never reappears, while a fresh recommendation (a different,
+  // later version) still surfaces. Marking a release as a milestone also
+  // removes it from recommendation (recommendedMilestone skips milestones), so
+  // both "mark it" and "dismiss it" make the card go away for good.
+  dismissedRecs(projectId){ return (this.settings().recDismissed || {})[projectId] || []; }
+  dismissRecommendation(projectId, v){
+    const all = { ...(this.settings().recDismissed || {}) };
+    const set = new Set(all[projectId] || []); set.add(v);
+    all[projectId] = [...set];
+    this.setSetting('recDismissed', all);
+  }
+
   // Recommend the release that reads as the best recent "stable stopping
   // point": the moment a burst of feature work settled into polish/fixes and
   // then paused. A pure heuristic over (kind, version, ts) — no network, no
@@ -532,6 +546,10 @@ export const Store = new (class {
     const asc = rel.slice().sort((a,b)=>(a.v||0)-(b.v||0));   // oldest-first
     const now = Date.now();
     const isFeat = r => (r.kind||'feature')==='feature';
+    // Never re-nominate a release the user already resolved: one they've marked
+    // as a milestone (accepted) or explicitly dismissed. A fresh, later stable
+    // point still surfaces.
+    const dismissed = new Set(this.dismissedRecs(projectId));
     let best=null;
     asc.forEach((r,i)=>{
       const next = asc[i+1];
@@ -551,7 +569,8 @@ export const Store = new (class {
       else if(tail>=2) reasons.push(`${tail} polish/fix releases with no new features`);
       if(gapDays>=5) reasons.push(`${Math.round(gapDays)} quiet day${Math.round(gapDays)===1?'':'s'} ${next?'before the next release':'since'}`);
       if(round) reasons.push(`round version v${r.v}`);
-      if(candidate && (!best || score>best.score)) best={ release:r, score, reasons, ageDays };
+      const eligible = candidate && !r.milestone && !dismissed.has(r.v);
+      if(eligible && (!best || score>best.score)) best={ release:r, score, reasons, ageDays };
     });
     if(!best || best.score < 4.5 || best.ageDays > 120) return null;   // notable + still relevant
     return { release:best.release, score:Math.min(10, Math.round(best.score*10)/10), reasons:best.reasons.slice(0,3) };

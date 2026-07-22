@@ -783,10 +783,13 @@ a.link:hover{text-decoration:underline}
 .tl-actions .btn.icon.active{color:var(--ms)}
 .tl-actions .btn.icon.active svg{fill:color-mix(in srgb,var(--ms) 25%,transparent)}
 /* the recommendation callout is a stacked card, not the default flex-row callout */
-.callout.rec-milestone{flex-direction:column;gap:10px;align-items:stretch;
+.callout.rec-milestone{position:relative;flex-direction:column;gap:10px;align-items:stretch;
   border-color:color-mix(in srgb,var(--ms) 38%,var(--border));
   background:color-mix(in srgb,var(--ms) 8%,transparent);margin-bottom:16px}
-.rec-milestone .rec-head{display:flex;gap:12px;align-items:flex-start}
+.rec-milestone .rec-dismiss{position:absolute;top:8px;right:8px;color:var(--text-3)}
+.rec-milestone .rec-dismiss:hover{color:var(--text-1)}
+.rec-milestone .rec-dismiss svg{width:15px;height:15px}
+.rec-milestone .rec-head{display:flex;gap:12px;align-items:flex-start;padding-right:28px}
 .rec-milestone .rec-ic{flex:0 0 auto;margin-top:1px}
 .rec-milestone .rec-ic svg{width:22px;height:22px;color:var(--ms)}
 .rec-milestone .rec-lead{min-width:0}

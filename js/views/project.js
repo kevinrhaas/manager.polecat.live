@@ -423,7 +423,6 @@ function recommendedCallout(p, ctx){
   if(!rec) return el('span',{style:'display:none'});
   const r=rec.release;
   const box=el('div',{class:'callout rec-milestone'});
-  const already=r.milestone;
   box.innerHTML=`<div class="rec-head">
       <span class="rec-ic">${icon('trophy')}</span>
       <div class="rec-lead">
@@ -432,8 +431,14 @@ function recommendedCallout(p, ctx){
       </div>
     </div>
     ${rec.reasons.length?`<ul class="rec-why">${rec.reasons.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`:''}`;
+  // Dismiss (×): wave off this suggestion for good. It won't come back for the
+  // same version, but a later stable point still can. Marking it as a milestone
+  // also clears it (the recommender skips milestones), so either action ends it.
+  const dismiss=el('button',{class:'btn ghost icon sm rec-dismiss', title:'Dismiss this suggestion', 'aria-label':`Dismiss the recommended release point v${r.v}`,
+    html:icon('x'), onclick:()=>{ Store.dismissRecommendation(p.id, r.v); toast(`Recommendation for v${r.v} dismissed`,{kind:'ok'}); ctx.go('project',{id:p.id}); }});
+  box.append(dismiss);
   const foot=el('div',{class:'rec-foot'});
-  const mark=el('button',{class:'btn sm primary', html:`${icon('flag')} ${already?'Milestone marked':'Mark as milestone'}`, disabled:already,
+  const mark=el('button',{class:'btn sm primary', html:`${icon('flag')} Mark as milestone`,
     onclick:()=>{ Store.setMilestone(r.id, true, 'Stable milestone'); toast(`v${r.v} marked as a milestone`,{kind:'ok', action:{label:'Undo', fn:()=>Store.undo()}}); ctx.go('project',{id:p.id}); }});
   const jump=el('button',{class:'btn sm ghost', text:'Why this one?', title:'Manager weighs feature bursts, stabilizing fixes, quiet pauses, round versions and recency', onclick:()=>explainRecommendation(rec)});
   foot.append(mark, jump);
