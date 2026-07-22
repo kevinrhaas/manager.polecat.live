@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 91,
+    title: 'The Manager mark now wears its brand color everywhere',
+    kind: 'polish',
+    ts: '2026-07-22T20:56:52.834Z',
+    items: [
+      'The rail brand tile and the app-switcher tiles now use Manager’s own brand gradient — the same vivid color you see on its polecat.live launcher tile and landing page, so the mark reads identically everywhere.',
+      'Built on Polecat Shell v0.5.4.',
+    ],
+  },
+  {
     v: 90,
     title: 'The app rail now wears Manager’s own mark',
     kind: 'polish',

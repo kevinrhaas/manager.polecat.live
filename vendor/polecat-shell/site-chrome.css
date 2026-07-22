@@ -14,6 +14,7 @@
 
 .psx-header, .psx-footer {
   --psx-accent: #e08a45;                 /* overridden inline per app */
+  --psx-accent2: #e08a45;                /* brand-gradient end, per app */
   --psx-bg: rgba(12, 11, 18, .72);
   --psx-solid: #0c0b12;
   --psx-text: #f1edf7;
@@ -31,14 +32,15 @@
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
 
-/* the shared icon chassis — same rounded, accent-tinted tile the launcher
-   grid uses for every app, so a card and a header read as the same object */
+/* the shared icon chassis — the same vivid brand-gradient tile (white glyph)
+   the launcher grid and the in-app rail use, so a card, a header, and the app
+   itself all read as the same object in the same brand color */
 .psx-tile {
   width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  color: var(--psx-accent);
-  background: color-mix(in srgb, var(--psx-accent) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--psx-accent) 32%, transparent);
+  color: #fff;
+  background: linear-gradient(140deg, var(--psx-accent), var(--psx-accent2, var(--psx-accent)));
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--psx-accent) 30%, transparent);
 }
 .psx-tile svg { display: block; width: 18px; height: 18px; }
 .psx-tile-sm { width: 24px; height: 24px; border-radius: 7px; }

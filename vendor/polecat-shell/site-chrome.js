@@ -51,7 +51,7 @@ function ctaFg(hex) {
 function ident(app) {
   if (typeof app === 'string') {
     const a = fleetApp(app);
-    if (a) return { name: a.name, icon: a.icon, accent: a.accent };
+    if (a) return { name: a.name, icon: a.icon, accent: a.accent, accent2: a.accent2 };
   }
   return app || {};
 }
@@ -59,13 +59,13 @@ function ident(app) {
 export function siteHeader(mount, opts = {}) {
   const el = elFor(mount);
   if (!el) return null;
-  const { name, icon: glyph, accent } = ident(opts.app);
+  const { name, icon: glyph, accent, accent2 } = ident(opts.app);
   const nav = Array.isArray(opts.nav) ? opts.nav : [];
   const cta = opts.cta;
   const home = opts.home || '/';
   el.className = 'psx-header';
   if (opts.theme === 'auto') el.setAttribute('data-psx-theme', 'auto');
-  if (accent) { el.style.setProperty('--psx-accent', accent); el.style.setProperty('--psx-cta-fg', ctaFg(accent)); }
+  if (accent) { el.style.setProperty('--psx-accent', accent); el.style.setProperty('--psx-accent2', accent2 || accent); el.style.setProperty('--psx-cta-fg', ctaFg(accent)); }
 
   const links = nav.map(n =>
     `<a class="psx-section" href="${esc(n.href)}">${esc(n.label)}</a>`).join('');
@@ -120,8 +120,8 @@ export function siteFooter(mount, opts = {}) {
   // App variant — the canonical two-line fleet footer:
   //   AppName · part of the polecat.live suite
   //   Docs · App · Third-party notices · © 2026 Polecat.live
-  const { name, icon: glyph, accent } = ident(opts.app);
-  if (accent) el.style.setProperty('--psx-accent', accent);
+  const { name, icon: glyph, accent, accent2 } = ident(opts.app);
+  if (accent) { el.style.setProperty('--psx-accent', accent); el.style.setProperty('--psx-accent2', accent2 || accent); }
   const home = opts.home || '/';
   const l2 = [];
   if (opts.docs) l2.push(`<a href="${esc(opts.docs)}">Docs</a>`);
