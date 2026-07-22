@@ -9,6 +9,13 @@
 // Styling lives in shell.css (ps- prefixed classes); tokens in tokens.css.
 // -----------------------------------------------------------------------
 
+// The one exception to shell.js's no-imports rule: the fleet catalog is
+// data-only (no deps of its own) and every app already vendors it for the
+// waffle switcher, so the rail brand tile can auto-color from an app's
+// catalog accent by `app.id` — same brand color as its launcher + marketing
+// tiles, with no per-app wiring.
+import { fleetApp } from './catalog.js';
+
 // Tiny DOM builder (same shape as ui.js el(), inlined to stay dep-free).
 function h(tag, props={}, children){
   const node = document.createElement(tag);
@@ -107,10 +114,18 @@ export function initShell({
   // the suite. Structured as a div (home button + suite link) so the suite is
   // a real, valid link rather than nested inside the home button.
   const railLogo = app.icon || app.wordmark || `<b>${esc((app.name||'?')[0])}</b>`;
+  // Tile color = the app's brand gradient (accent → accent2), sourced from the
+  // catalog by id (or passed explicitly on `app`) so the rail mark is the SAME
+  // brand color as the launcher + marketing tiles. Falls back to the CSS var
+  // gradient in shell.css when the app isn't in the catalog.
+  const meta = app.id ? (fleetApp(app.id) || null) : null;
+  const acc = app.accent || meta?.accent;
+  const acc2 = app.accent2 || meta?.accent2 || acc;
+  const logoStyle = acc ? ` style="background:linear-gradient(140deg,${esc(acc)},${esc(acc2)})"` : '';
   const railBrand = h('div',{class:'ps-rail-brand'});
   railBrand.append(
     h('button',{class:'ps-rail-home', title:esc(app.name||''),
-      html:`<span class="ps-rail-logo">${railLogo}</span>`+
+      html:`<span class="ps-rail-logo"${logoStyle}>${railLogo}</span>`+
            `<span class="bt"><b>${esc(app.name||'')}</b></span>`,
       onclick:()=>{ if(firstKey) nav(firstKey); }}),
     h('a',{class:'ps-rail-suite', href:'https://polecat.live', target:'_blank',
