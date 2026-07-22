@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 80,
+    title: 'Fix: Fleet Ops tells you when a private repo will never load without a token',
+    kind: 'fix',
+    ts: '2026-07-22T17:12:18.811Z',
+    items: [
+      'The "Open steward work across the fleet" summary lumped every unreachable repo into one "rate limit or private — connect a token" guess. A private repo (like Solution Engineering) permanently 404s to the unauthenticated GitHub API — no amount of waiting fixes it, unlike a 403 rate limit, which clears within the hour on its own. The summary now tells the two apart and names the private repo directly.',
+    ],
+  },
+  {
     v: 79,
     title: 'Polish: stat cards get a pointer cursor on hover',
     kind: 'polish',
