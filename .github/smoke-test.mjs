@@ -185,7 +185,7 @@ try {
       await page.$eval(sel, (n) => n.blur());
       return after !== 'none' && after !== before;
     };
-    return (await ringOf('.ps-rail-brand')) && (await ringOf('.ps-rail-item[data-sec="home"]')) && (await ringOf('.ps-rail-toggle'));
+    return (await ringOf('.ps-rail-home')) && (await ringOf('.ps-rail-item[data-sec="home"]')) && (await ringOf('.ps-rail-toggle'));
   });
   for (const s of ['home', 'projects', 'releases', 'activity', 'credentials', 'docs', 'settings']) {
     await check(`section "${s}" opens`, async () => { if (!(await openSec(s))) return false; return (await count('#view *')) > 0; });

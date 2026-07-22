@@ -1,7 +1,7 @@
 {
-  "version": "0.5.2",
+  "version": "0.5.3",
   "files": {
-    "VERSION": "554eb17beed4ab183f889c5e2cbb6ce65e157d050dfc6e285f8afc6336f7485e",
+    "VERSION": "71316bc8acf7d66c92ac8e5db15e366ce33e0dd7048aaac2f8a6aba62d9d0a20",
     "access.js": "532ce507b67afd4c87e87ec0abc0793319e4fa8a04f0a5ce0d67ce0b7c0a703b",
     "auth/null.js": "639217faef1c10efc8c1148fc33241900b7257a0d401fd09e62f05f64aab42d3",
     "auth/schema.js": "48379b720041131223f15735855057cd7e343392f6a8ff1ef99942b467ca2878",
@@ -10,8 +10,8 @@
     "icons.js": "335e4130273927bc999e33716eac4b3485a5f432010269ea81ed584a70458b83",
     "notifications.js": "3d988b693bca4786ac059a2a1759c5cd14449b9e3d4ea4fd6302dd68bd287ce6",
     "settings.js": "18181e8e08153586405fea9d844980df95943351a7e09fd6fe6f7f788e286873",
-    "shell.css": "0b28d87e528aca6b81991685a769f81ca1bbdd027ee32de82536e5c9975a2ba7",
-    "shell.js": "6099a5103be7e0a62ff3a10730a4729dfc4283b849c7f3e08a142c48925f767a",
+    "shell.css": "8e4f375a769746065f2b6702e46525b44992f322060de0310855cfff2f5621fe",
+    "shell.js": "55f6e5199d35e9c27239a38e6c827f6447bde117365227928d6b3f4de68fd277",
     "shortcuts.js": "d4841184ded6274f98355f9b3d764e982aa2f6e4c064e9e2ed4f7cf410cb2bd2",
     "site-chrome.css": "7e8df3fc7e8bbddb24ce88de219564fa3bffebe58f7ecf306103847a4b7a91d1",
     "site-chrome.js": "47942acf6adc9aea4ada2920710408ba1cf7ccb927498250bbb043fa26f68a09",

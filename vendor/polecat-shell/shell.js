@@ -101,10 +101,22 @@ export function initShell({
   const visible = sections.filter(s => s.group ||
     ((!s.admin || admin) && modeRank >= (MODE_RANK[s.minMode] ?? 0)));
   const firstKey = visible.find(s=>s.key)?.key;
-  rail.append(h('button',{class:'ps-rail-brand', title:esc(app.name||''),
-    html:`<span class="ps-rail-logo">${app.wordmark || `<b>${esc((app.name||'?')[0])}</b>`}</span>`+
-         `<span class="bt"><b>${esc(app.name||'')}</b><small>polecat.live</small></span>`,
-    onclick:()=>{ if(firstKey) nav(firstKey); }}));
+  // Brand: a standard glyph tile (prefer app.icon — the app's catalog glyph —
+  // so the in-app mark matches its launcher tile; app.wordmark stays a legacy
+  // fallback) + the app name, then a barely-there "polecat.live" link back to
+  // the suite. Structured as a div (home button + suite link) so the suite is
+  // a real, valid link rather than nested inside the home button.
+  const railLogo = app.icon || app.wordmark || `<b>${esc((app.name||'?')[0])}</b>`;
+  const railBrand = h('div',{class:'ps-rail-brand'});
+  railBrand.append(
+    h('button',{class:'ps-rail-home', title:esc(app.name||''),
+      html:`<span class="ps-rail-logo">${railLogo}</span>`+
+           `<span class="bt"><b>${esc(app.name||'')}</b></span>`,
+      onclick:()=>{ if(firstKey) nav(firstKey); }}),
+    h('a',{class:'ps-rail-suite', href:'https://polecat.live', target:'_blank',
+      rel:'noopener', text:'polecat.live', title:'Back to polecat.live'}),
+  );
+  rail.append(railBrand);
 
   const scroll = h('div',{class:'ps-rail-scroll'});
   let pendingGroup = null;   // group labels append lazily — an all-filtered group leaves no orphan header
