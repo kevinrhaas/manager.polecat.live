@@ -9,13 +9,40 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
-    v: 78,
+    v: 81,
     title: 'Fleet Ops: dial how many slices an app runs per fire',
     kind: 'feature',
     ts: '2026-07-22T17:03:13.676Z',
     items: [
       'Each app lane in the Focus roster now has a ×N control next to its cadence. Leave it at ×1 for the usual one-unit-of-work-per-run, or push a lane you want to move faster up to ×5 — that many independent improve runs fire each time the lane is due, each a full unit with its own pull request and smoke gate, run back-to-back so the app never overlaps itself.',
       'A boosted lane lights up in the roster and shows its multiplier in the Coming-up list, so it’s obvious at a glance which app is being pushed harder. It’s just a roster setting (focus.json), so it takes effect on the next hourly tick and needs no workflow changes.',
+    ],
+  },
+  {
+    v: 80,
+    title: 'Fix: Fleet Ops tells you when a private repo will never load without a token',
+    kind: 'fix',
+    ts: '2026-07-22T17:12:18.811Z',
+    items: [
+      'The "Open steward work across the fleet" summary lumped every unreachable repo into one "rate limit or private — connect a token" guess. A private repo (like Solution Engineering) permanently 404s to the unauthenticated GitHub API — no amount of waiting fixes it, unlike a 403 rate limit, which clears within the hour on its own. The summary now tells the two apart and names the private repo directly.',
+    ],
+  },
+  {
+    v: 79,
+    title: 'Polish: stat cards get a pointer cursor on hover',
+    kind: 'polish',
+    ts: '2026-07-22T17:06:05.240Z',
+    items: [
+      'The Dashboard and Releases stat tiles (Live now, Fleet health, Shipped·7d, etc.) have been clickable and keyboard-navigable since v74, but the mouse cursor never changed on hover — a UX-sweep finding. They now show a pointer, matching every other clickable card in the app.',
+    ],
+  },
+  {
+    v: 78,
+    title: 'Polish: thumb-sized tap targets on mobile',
+    kind: 'polish',
+    ts: '2026-07-22T16:57:10.995Z',
+    items: [
+      'Filter chips, toggle switches, Fleet Ops icon buttons, and most secondary buttons (Settings, Credentials, Activity, the invite gate) were well under the ~44px mobile touch-target floor — a UX-sweep finding carried unaddressed across three sweeps. They now meet it on phone-width screens, both themes, with no change to desktop.',
     ],
   },
   {

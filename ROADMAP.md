@@ -22,6 +22,59 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [x] **Fleet Ops tells apart a rate-limited repo from a permanently-private
+      one** (shipped 2026-07-22) — UX sweep #23 finding #6: "Open steward
+      work across the fleet" counted every unreachable repo into one
+      undifferentiated `failed` bucket and guessed "rate limit or private —
+      connect a token" for all of them. `gh()` (js/github.js) already
+      attaches the real HTTP status to the thrown Error; the aggregate view
+      just wasn't reading it. Now splits failures into rate-limited (403,
+      clears within the hour on its own) vs. private (404, needs a token —
+      always will) vs. other, and names the private repo(s) directly instead
+      of leaving someone waiting out a limit that was never going to reset
+      for that one entry. Scoped to the fleet-wide summary in
+      `js/views/fleetops.js`'s `workCard()`; the per-project Steward card
+      already surfaced the specific per-call error and needed no change.
+      Closes #23 finding #6; still open from #23: #4 (gate Unlock button
+      sign-off, flag-only) and #5 (client-side GitHub rate-limit exposure —
+      architectural, needs a server-side token proxy).
+
+- [x] **Stat cards get a pointer cursor on hover** (shipped 2026-07-22) — UX
+      sweep #23 finding #3: the Dashboard/Releases stat tiles have been
+      clickable + keyboard-navigable since v74 (#22), but `.card.stat` never
+      picked up `cursor:pointer` the way `.qa`/`.tile` (the app's other
+      clickable-card families) already had on their base class — so a mouse
+      user got no visual affordance that the number was a link. One-line CSS
+      fix, scoped to `.card.stat.hover` (only the actually-clickable stat
+      cards, not a static info card). Downgrades #23's remaining open items
+      to #4 (gate Unlock sign-off, flag-only), #5 (client-side GitHub
+      rate-limit exposure, architectural), and #6 (Solution Engineering's
+      permanent 404 against the unauthenticated GitHub API).
+
+- [x] **Thumb-sized tap targets on mobile** (shipped 2026-07-22) — UX sweep
+      #23 finding #1/#2 (carried unaddressed across 3+ sweeps, #9→#13→#19→#23):
+      filter chips, toggle switches (`.toggle`/`.fo-toggle`), Fleet Ops icon
+      buttons (`.fo-gear`/`.fo-expand`), the theme segmented control, and most
+      `.btn`/`.btn.sm`/`.btn.icon` secondary buttons (Settings, Credentials,
+      Activity, What's-New close, the invite gate's Unlock) were well under
+      the ~44px mobile touch-target floor. Fixed with real box growth (not an
+      invisible hit-area overlay, which risks swallowing a tightly-packed
+      neighbor's tap) scoped to a `max-width:720px` media query — zero desktop
+      visual change. The narrower `max-width:420px` block, which further
+      *shrank* padding for tiny screens, was adjusted to only tighten
+      horizontal footprint, never undoing the touch-safe vertical padding.
+      Uncovered and fixed in the same pass: the growth pushed the mobile
+      Projects library table just past one viewport's fold for the first
+      time, and the existing "scrolls to its last row" smoke check raced
+      `.view`'s `scroll-behavior:smooth` CSS (a direct `scrollTop` assignment
+      animates under that property instead of jumping) with only a 100ms
+      wait — now forced instant via a temporary `scroll-behavior:auto`, which
+      is the correct methodology regardless of content height, not a
+      workaround specific to this change. Still open from #23: the gate
+      screen's Unlock button width/copy sign-off (#4, flag-only) and the
+      client-side GitHub rate-limit exposure (#5, architectural — needs a
+      server-side token proxy, out of scope for a CSS pass).
+
 - [x] **Dashboard/Releases stat tiles now link to detail** (shipped 2026-07-18) —
       the highest-impact open UX-sweep finding (#19, flagged 3 sweeps running):
       the Dashboard's 5 stat cards and the Releases page's 4 stat cards were

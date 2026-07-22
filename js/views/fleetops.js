@@ -555,9 +555,18 @@ function workCard(ctx){
       repo, prs: await stewardPRs(repo), issues: await sweepIssues(repo),
     })));
     body.innerHTML = '';
-    let shown = 0, failed = 0;
-    results.forEach(res => {
-      if(res.status !== 'fulfilled'){ failed++; return; }
+    let shown = 0;
+    // 403 (rate limit) is transient and clears within the hour on its own;
+    // 404 (private repo, unauthenticated) never will — a token is the only
+    // fix. Distinguishing the two means the fleet-wide summary doesn't tell
+    // someone to "wait it out" for a repo that can never load without one.
+    const rateLimited = [], privateRepos = [], otherFailed = [];
+    results.forEach((res, i) => {
+      if(res.status !== 'fulfilled'){
+        const status = res.reason?.status;
+        (status === 403 ? rateLimited : status === 404 ? privateRepos : otherFailed).push(repos[i]);
+        return;
+      }
       const { repo, prs, issues } = res.value;
       if(!prs.length && !issues.length) return;
       shown++;
@@ -579,8 +588,13 @@ function workCard(ctx){
       issues.forEach(i => g.append(workRow('eye', `Issue #${i.number} · ${i.title}`, i.html_url)));
       body.append(g);
     });
-    if(!shown) body.append(el('div', { class: 'tiny muted', text: failed ? `No open steward work found (${failed} repo${failed === 1 ? '' : 's'} unreachable — a token raises limits and reads private repos).` : 'No open steward work — the fleet is clear.' }));
-    else if(failed) body.append(el('div', { class: 'tiny muted', style: 'margin-top:8px', text: `${failed} repo${failed === 1 ? '' : 's'} unreachable (rate limit or private — connect a token).` }));
+    const failed = rateLimited.length + privateRepos.length + otherFailed.length;
+    const failParts = [];
+    if(rateLimited.length) failParts.push(`${rateLimited.length} rate-limited (resets within the hour)`);
+    if(privateRepos.length) failParts.push(`${privateRepos.length} private — needs a token to ever read (${privateRepos.join(', ')})`);
+    if(otherFailed.length) failParts.push(`${otherFailed.length} unreachable`);
+    if(!shown) body.append(el('div', { class: 'tiny muted', text: failed ? `No open steward work found (${failParts.join('; ')}${ghToken() ? '' : ' — connect a vault token to raise limits and read private repos'}).` : 'No open steward work — the fleet is clear.' }));
+    else if(failed) body.append(el('div', { class: 'tiny muted', style: 'margin-top:8px', text: `${failParts.join('; ')}${ghToken() ? '' : ' — connect a vault token to raise limits and read private repos'}.` }));
   })();
   return card;
 }
