@@ -13,7 +13,7 @@
 import { Store } from '../store.js';
 import { el, escapeHtml, toast, ago, confirmDialog } from '../ui.js';
 import { fmtCT, mdToHtml } from '../ui.js';
-import { nextRunAt, isoToLocalInput, localInputToIso, utcHourLabel } from '../schedule.js';
+import { nextRunAt, slicesOf, isoToLocalInput, localInputToIso, utcHourLabel } from '../schedule.js';
 import { icon } from '../icons.js';
 import {
   whoami, ghCred, ghToken, fleetOpsCfg, setFleetOpsCfg, clearGhCache,
@@ -88,10 +88,10 @@ function upcomingCard(){
     if(!roster){ body.append(el('div', { class: 'tiny muted', text: 'Roster unavailable.' })); return; }
     const entries = [];
     for(const [name, lane] of Object.entries(roster.apps || {})){
-      const n = nextRunAt(lane); if(n) entries.push({ label: name, mono: true, at: n });
+      const n = nextRunAt(lane); if(n) entries.push({ label: name, mono: true, at: n, slices: slicesOf(lane) });
     }
     for(const [job, lane] of Object.entries(roster.jobs || {})){
-      const n = nextRunAt(lane); if(n) entries.push({ label: JOB_META[job]?.label || job, mono: false, at: n });
+      const n = nextRunAt(lane); if(n) entries.push({ label: JOB_META[job]?.label || job, mono: false, at: n, slices: 1 });
     }
     entries.sort((a, b) => a.at - b.at);
     if(!entries.length){ body.append(el('div', { class: 'tiny muted', text: 'Nothing scheduled — every lane is off. Flip one on in the roster, or dispatch a one-off above.' })); return; }
@@ -99,7 +99,9 @@ function upcomingCard(){
       const row = el('div', { class: 'fo-app-row', style: 'padding:3px 0' });
       row.append(
         el('span', { class: 'fo-dot live' }),
-        el('span', { class: 'fo-app-name' + (e.mono ? ' mono' : ''), text: e.label }),
+        el('span', { class: 'fo-app-name' + (e.mono ? ' mono' : ''), text: e.label }));
+      if(e.slices > 1) row.append(el('span', { class: 'fo-slices-badge', text: '×' + e.slices, title: `${e.slices} slices per run` }));
+      row.append(
         el('span', { class: 'sp' }),
         el('span', { class: 'tiny muted fo-when', text: fmtCT(e.at.getTime()) }));
       body.append(row);
@@ -165,7 +167,7 @@ function rosterCard(onChange){
   const card = el('div', { class: 'card fo-roster' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Focus roster</h2>
     <span class="sp"></span></div>
-    <p class="tiny muted" style="margin:0 0 10px">Per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform; ticks hourly at :03 UTC). Set cadence, align which hours it lands on, fence it to a time window, or give it a start/stop — then commit; the next tick picks it up.</p>`;
+    <p class="tiny muted" style="margin:0 0 10px">Per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform; ticks hourly at :03 UTC). Set cadence, dial the slices (<span class="mono">×N</span>) to run more units per fire, align which hours it lands on, fence it to a time window, or give it a start/stop — then commit; the next tick picks it up.</p>`;
   const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loading roster…</span>` });
   card.append(body);
 
@@ -236,7 +238,7 @@ function rosterCard(onChange){
     return ed;
   };
 
-  const laneRow = (key, a, display, hint, mono=true) => {
+  const laneRow = (key, a, display, hint, mono=true, isApp=false) => {
     const r = el('div', { class: 'fo-app-row' });
     const nextEl = el('span', { class: 'tiny muted fo-next', text: laneNextLabel(a) });
     const refreshRow = () => { nextEl.textContent = laneNextLabel(a); };
@@ -253,13 +255,32 @@ function rosterCard(onChange){
       if(a.offset != null) a.offset = a.offset % Math.max(1, a.everyHours);
       touch(); render();   // re-render: the align options depend on cadence
     });
+    // Slices per run (apps only): fire N independent improve runs each time the
+    // lane is due — each a full unit of work (its own PR + smoke gate), run
+    // back-to-back. Default 1; >1 lights up so a boosted app reads at a glance.
+    let slicesSel = null;
+    if(isApp){
+      const cur = slicesOf(a);
+      slicesSel = el('select', { class: 'input fo-cad fo-slices' + (cur > 1 ? ' boosted' : ''),
+        'aria-label': `Slices per run for ${display}`,
+        title: 'Slices per run — how many improve runs to fire each time this lane is due. Each is a separate unit of work with its own PR.' });
+      for(let s = 1; s <= 5; s++) slicesSel.append(el('option', { value: s, text: '×' + s, selected: cur === s }));
+      slicesSel.addEventListener('change', () => {
+        const v = parseInt(slicesSel.value, 10);
+        if(v > 1) a.slices = v; else delete a.slices;
+        slicesSel.classList.toggle('boosted', v > 1);
+        touch();
+      });
+    }
     const gear = el('button', { class: 'btn ghost icon sm fo-gear' + (openEditors.has(key) ? ' on' : ''),
       title: 'Schedule details', 'aria-label': `Schedule details for ${display}`, 'aria-expanded': String(openEditors.has(key)),
       html: icon('sliders'),
       onclick: () => { openEditors.has(key) ? openEditors.delete(key) : openEditors.add(key); render(); } });
     const name = el('span', { class: 'fo-app-name' + (mono ? ' mono' : ''), text: display });
     if(hint) name.title = hint;
-    r.append(tog, name, nextEl, el('span', { class: 'sp' }), cad, gear);
+    r.append(tog, name, nextEl, el('span', { class: 'sp' }), cad);
+    if(slicesSel) r.append(slicesSel);
+    r.append(gear);
     body.append(r);
     if(openEditors.has(key)) body.append(laneEditor(display, a, refreshRow));
   };
@@ -267,14 +288,14 @@ function rosterCard(onChange){
   const render = () => {
     body.innerHTML = '';
     const apps = state.roster.apps || {};
-    Object.keys(apps).forEach(name => laneRow(name, apps[name], name, ''));
+    Object.keys(apps).forEach(name => laneRow(name, apps[name], name, '', true, true));
     const jobs = state.roster.jobs || {};
     if(Object.keys(jobs).length){
       body.append(el('div', { class: 'fo-repo-name tiny', style: 'margin-top:8px',
         text: 'Platform jobs — sweeps, janitor, fleet improve' }));
       Object.keys(jobs).forEach(job => {
         const meta = JOB_META[job] || { label: job, hint: '' };
-        laneRow('job:' + job, jobs[job], meta.label, meta.hint, false);
+        laneRow('job:' + job, jobs[job], meta.label, meta.hint, false, false);
       });
     }
     body.append(saveRow);
@@ -297,6 +318,7 @@ function rosterCard(onChange){
       if(!a.startAt) delete a.startAt;
       if(!a.until) delete a.until;
       if(!Array.isArray(a.window) || a.window.length !== 2) delete a.window;
+      if(!(a.slices > 1)) delete a.slices; else a.slices = Math.min(5, Math.max(2, Math.floor(a.slices)));
     });
     try{
       const res = await putRoster(state.roster, state.sha, `fleet-ops: roster update via Manager (${on.length} lane${on.length === 1 ? '' : 's'} on)`);

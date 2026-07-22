@@ -46,7 +46,7 @@ const NOW = Date.now();
 const iso = (msAgo) => new Date(NOW - msAgo).toISOString();
 const ROSTER = { apps: {
     'games.polecat.live':{enabled:false,everyHours:1}, 'jobtracker.polecat.live':{enabled:true,everyHours:2},
-    'manager.polecat.live':{enabled:true,everyHours:1}, 'analytics.polecat.live':{enabled:true,everyHours:1},
+    'manager.polecat.live':{enabled:true,everyHours:1}, 'analytics.polecat.live':{enabled:true,everyHours:1,slices:3},
     'autoselector.polecat.live':{enabled:false,everyHours:1}, 'relay.polecat.live':{enabled:false,everyHours:1},
   }, jobs: {
     'fleet-improve':{enabled:true,everyHours:2,offset:1}, 'sweep-ux':{enabled:true,everyHours:12,offset:6},

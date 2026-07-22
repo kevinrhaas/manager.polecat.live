@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 78,
+    title: 'Fleet Ops: dial how many slices an app runs per fire',
+    kind: 'feature',
+    ts: '2026-07-22T17:03:13.676Z',
+    items: [
+      'Each app lane in the Focus roster now has a ×N control next to its cadence. Leave it at ×1 for the usual one-unit-of-work-per-run, or push a lane you want to move faster up to ×5 — that many independent improve runs fire each time the lane is due, each a full unit with its own pull request and smoke gate, run back-to-back so the app never overlaps itself.',
+      'A boosted lane lights up in the roster and shows its multiplier in the Coming-up list, so it’s obvious at a glance which app is being pushed harder. It’s just a roster setting (focus.json), so it takes effect on the next hourly tick and needs no workflow changes.',
+    ],
+  },
+  {
     v: 77,
     title: 'The blurry hero screenshots are finally, genuinely sharp',
     kind: 'fix',

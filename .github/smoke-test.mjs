@@ -1269,7 +1269,12 @@ try {
     if (!(await openSec('fleetops'))) return false;
     if (!(await $('.fo-connect'))) return false;
     if ((await count('#view .card')) < 4) return false;
-    return foBodiesSettle();
+    if (!(await foBodiesSettle())) return false;
+    // when the roster loaded (needs GitHub, may be unreachable in CI), app lanes
+    // carry the ×N slices control and platform-job lanes don't
+    const appRows = await count('.fo-roster .fo-app-row');
+    if (appRows > 0 && (await count('.fo-roster .fo-slices')) === 0) return false;
+    return true;
   });
   await check('lane schedule evaluator mirrors the platform semantics (cadence/offset/window/until/startAt, next-run on the :03 tick)', async () => {
     return await page.evaluate(async () => {
@@ -1285,6 +1290,9 @@ try {
       ok.push(!!n && n.toISOString() === '2026-07-16T21:03:00.000Z');
       ok.push(m.nextRunAt({ enabled:true, until:'2026-07-16T21:00:00Z' }, new Date(Date.UTC(2026,6,16,20,30))) === null);
       ok.push(m.localInputToIso(m.isoToLocalInput('2026-07-16T21:03:00.000Z')) === '2026-07-16T21:03:00.000Z');
+      // slices: default 1, clamp 1..5, and it must NOT change when a lane fires
+      ok.push(m.slicesOf({}) === 1 && m.slicesOf({ slices: 3 }) === 3 && m.slicesOf({ slices: 9 }) === 5 && m.slicesOf({ slices: 0 }) === 1);
+      ok.push(m.isDueAt({ enabled:true, everyHours:1, slices:3 }, at(21)) === m.isDueAt({ enabled:true, everyHours:1 }, at(21)));
       return ok.every(Boolean);
     });
   });

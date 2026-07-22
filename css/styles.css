@@ -811,6 +811,14 @@ a.link:hover{text-decoration:underline}
 .fo-app-name{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .fo-cad{width:auto;max-width:110px;padding:5px 26px 5px 9px;font-size:12px;flex:0 0 auto}
 .fo-next{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:2px}
+/* slices-per-run selector — compact, sits between cadence and the gear */
+.fo-slices{max-width:56px;padding-left:8px;text-align:center;flex:0 0 auto}
+.fo-slices.boosted{color:var(--brand-b);border-color:color-mix(in srgb,var(--brand-b) 55%,var(--border));
+  background:color-mix(in srgb,var(--brand-b) 12%,var(--surface));font-weight:650}
+/* "×N" badge in the Coming-up preview when an app runs multiple slices */
+.fo-slices-badge{flex:0 0 auto;font-size:10.5px;font-weight:650;line-height:1;padding:2px 6px;border-radius:999px;
+  color:var(--brand-b);background:color-mix(in srgb,var(--brand-b) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--brand-b) 35%,transparent)}
 .fo-gear.on{color:var(--brand-b);background:var(--surface-2)}
 .fo-lane-editor{display:flex;flex-direction:column;gap:8px;margin:2px 0 8px 48px;padding:10px 12px;
   border:1px solid var(--border);border-left:2px solid color-mix(in srgb,var(--brand-b) 55%,var(--border));
