@@ -75,6 +75,14 @@ async function stubGitHub(ctx){
 
 // Strip first-run chrome so shots show the clean, populated app.
 const DECLUTTER = `document.querySelectorAll('.tour-back,.tour-pop,.confetti-root,#toasts .toast,.ps-rail-backdrop').forEach(e=>e.remove());`;
+// CRISP — capture-only skin. Manager's glassy rail + cards use `backdrop-filter:
+// blur()`; at deviceScaleFactor 2 that trips a Chromium bug where the ENTIRE
+// page is rasterized at reduced scale then upscaled, so every screenshot comes
+// out uniformly soft (the reason the carousel looked blurry). Neutralizing
+// backdrop-filter for the capture keeps the shots pin-sharp at 2× while leaving
+// the real app styling untouched — the frosted panels carry their own opaque
+// background, so the look is visually identical. Injected as a <style> per page.
+const CRISP = `*,*::before,*::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}`;
 const GRANT = `try{localStorage.setItem('manager.access',JSON.stringify({grantedAt:Date.now(),via:'ci',label:'Preview'}));localStorage.setItem('manager.theme','manager:dark');localStorage.setItem('manager.tourDone','1');}catch(e){}`;
 // Connect Fleet Ops to a (stubbed) token so the roster/runs render live.
 const CONNECT_FO = `try{const s=JSON.parse(localStorage.getItem('manager.db')||'{}');}catch(e){}`;
@@ -113,6 +121,7 @@ const MOBILE = [ ['home','m-dashboard', 1200], ['fleetops','m-fleetops', 1600] ]
     const p = await ctx.newPage();
     await p.goto(base, { waitUntil:'networkidle', timeout:20000 });
     await p.waitForSelector('.ps-rail-item', { timeout:12000 });
+    await p.addStyleTag({ content: CRISP });
     // Wire Fleet Ops to the stubbed token (first credential) so it connects.
     await p.evaluate(async ()=>{
       const { Store } = await import('/js/store.js');
@@ -132,6 +141,7 @@ const MOBILE = [ ['home','m-dashboard', 1200], ['fleetops','m-fleetops', 1600] ]
     const mp = await mctx.newPage();
     await mp.goto(base, { waitUntil:'networkidle', timeout:20000 });
     await mp.waitForSelector('.ps-rail-item', { timeout:12000 });
+    await mp.addStyleTag({ content: CRISP });
     await mp.evaluate(async ()=>{
       const { Store } = await import('/js/store.js');
       let cred = Store.credentials('global')[0] || Store.addCredential({ scope:'global', name:'STEWARD_PAT', value:'ghp_stub' });

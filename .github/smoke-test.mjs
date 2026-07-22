@@ -2071,7 +2071,14 @@ try {
     // the last table row must become visible within the viewport once scrolled.
     const reached = await page.evaluate(async () => {
       const v = document.querySelector('.view'); if (!v) return false;
+      // .view has scroll-behavior:smooth, which makes a direct scrollTop
+      // assignment animate instead of jump — force instant so the check
+      // doesn't race a CSS transition whose duration grows with content
+      // height (e.g. taller mobile touch-target rows).
+      const prevBehavior = v.style.scrollBehavior;
+      v.style.scrollBehavior = 'auto';
       v.scrollTop = v.scrollHeight;                 // scroll to the very bottom
+      v.style.scrollBehavior = prevBehavior;
       await new Promise(r => setTimeout(r, 100));
       const atBottom = Math.abs(v.scrollTop + v.clientHeight - v.scrollHeight) <= 2;
       const rows = document.querySelectorAll('.lib-table tbody tr');

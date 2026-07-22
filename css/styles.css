@@ -274,6 +274,10 @@ body{
 }
 .card.hover:hover{border-color:var(--brand-b);transform:translateY(-2px);
   box-shadow:var(--shadow-sm)}
+/* stat cards (Dashboard/Releases) opted into role="button" + keyboard nav
+   when clickable (see #22), but never picked up a mouse hover affordance —
+   .qa/.tile set their own cursor:pointer on the base class, .stat didn't */
+.card.stat.hover{cursor:pointer}
 /* keyboard focus for card/tile/row elements that act as buttons (see
    ui.js makeRowClickable) — mirrors .btn:focus-visible's ring so tabbing
    to a project tile or library row is exactly as visible as tabbing to
@@ -1047,13 +1051,35 @@ a.link:hover{text-decoration:underline}
   table.data th,table.data td{padding:9px 11px}
   #toasts{left:14px;right:14px;bottom:14px}
   .toast{max-width:none}
+
+  /* thumb-sized tap targets (UX sweep 2026-07-19 findings #1/#2, carried
+     unaddressed across 3+ sweeps) — most secondary/filter controls read fine
+     on desktop but fall well under the ~44px mobile touch-target floor. Real
+     box growth, not an invisible hit-area overlay, so nothing can silently
+     swallow a tightly-packed neighbor's tap. */
+  .btn{min-height:44px}
+  .btn.icon{width:44px;height:44px}
+  .btn.sm{min-height:44px;padding:11px 14px}
+  .filter-chip{min-height:44px;padding:14px 14px}
+  .filter-chip-custom .fc-apply{padding:14px 8px 14px 14px}
+  .filter-chip-custom .fc-del{padding:14px 14px 14px 8px}
+  .seg button{padding:14px 16px}
+  .toggle,.fo-toggle{width:46px;height:27px}
+  .toggle::after,.fo-toggle .fo-knob{width:21px;height:21px}
+  .toggle.on::after{left:23px}
+  .fo-toggle.on .fo-knob{transform:translateX(21px)}
+  .fo-gear{width:44px;height:44px}
+  .fo-expand{width:44px;height:44px}
 }
 @media (max-width:420px){
-  .btn.sm{padding:6px 9px}
-  .filter-chip{font-size:11.5px;padding:5px 10px}
+  /* narrower horizontal footprint only — vertical padding stays at the
+     44px-safe values set above, so tiny screens still get a touch-safe
+     height, just a tighter width to fit more chips per row */
+  .btn.sm{padding:11px 9px}
+  .filter-chip{font-size:11.5px;padding:14px 10px}
   .filter-chip-custom{font-size:11.5px}
-  .filter-chip-custom .fc-apply{padding:5px 3px 5px 10px}
-  .filter-chip-custom .fc-del{padding:5px 8px 5px 3px}
+  .filter-chip-custom .fc-apply{padding:14px 3px 14px 10px}
+  .filter-chip-custom .fc-del{padding:14px 8px 14px 3px}
 }
 
 @media (prefers-reduced-motion: reduce){

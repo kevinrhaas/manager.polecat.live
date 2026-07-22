@@ -9,13 +9,50 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
-    v: 77,
+    v: 81,
     title: 'The landing page now wears the shared fleet header & footer',
     kind: 'polish',
-    ts: '2026-07-22T16:49:33.262Z',
+    ts: '2026-07-22T17:52:40.275Z',
     items: [
       'Manager’s front door adopts the suite-wide header and footer, so it matches every Polecat app — the same brand tile, a consistent “Polecat” link back to the suite, and the standard footer.',
       'Picked up Polecat Shell v0.5.1 (the shared site-chrome plus the ~44px mobile touch targets).',
+    ],
+  },
+  {
+    v: 80,
+    title: 'Fix: Fleet Ops tells you when a private repo will never load without a token',
+    kind: 'fix',
+    ts: '2026-07-22T17:12:18.811Z',
+    items: [
+      'The "Open steward work across the fleet" summary lumped every unreachable repo into one "rate limit or private — connect a token" guess. A private repo (like Solution Engineering) permanently 404s to the unauthenticated GitHub API — no amount of waiting fixes it, unlike a 403 rate limit, which clears within the hour on its own. The summary now tells the two apart and names the private repo directly.',
+    ],
+  },
+  {
+    v: 79,
+    title: 'Polish: stat cards get a pointer cursor on hover',
+    kind: 'polish',
+    ts: '2026-07-22T17:06:05.240Z',
+    items: [
+      'The Dashboard and Releases stat tiles (Live now, Fleet health, Shipped·7d, etc.) have been clickable and keyboard-navigable since v74, but the mouse cursor never changed on hover — a UX-sweep finding. They now show a pointer, matching every other clickable card in the app.',
+    ],
+  },
+  {
+    v: 78,
+    title: 'Polish: thumb-sized tap targets on mobile',
+    kind: 'polish',
+    ts: '2026-07-22T16:57:10.995Z',
+    items: [
+      'Filter chips, toggle switches, Fleet Ops icon buttons, and most secondary buttons (Settings, Credentials, Activity, the invite gate) were well under the ~44px mobile touch-target floor — a UX-sweep finding carried unaddressed across three sweeps. They now meet it on phone-width screens, both themes, with no change to desktop.',
+    ],
+  },
+  {
+    v: 77,
+    title: 'The blurry hero screenshots are finally, genuinely sharp',
+    kind: 'fix',
+    ts: '2026-07-22T16:47:55.783Z',
+    items: [
+      'The real cause of the soft carousel: Manager’s glassy rail and cards use a backdrop blur, which trips a browser bug where capturing the page at 2× (for crisp retina art) rasterizes the whole page at half resolution and scales it back up — so every screenshot came out uniformly fuzzy no matter the file size or cache tag.',
+      'The screenshot generator now switches that backdrop blur off for the capture only (the live app is untouched — the panels look identical because they carry their own background), so the shots are now pin-sharp at full 2× resolution.',
     ],
   },
   {
