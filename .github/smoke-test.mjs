@@ -391,6 +391,17 @@ try {
       return !S.projectHasNewUpdates(pid);
     }`);
   });
+  await check('store.batch coalesces reactive events — a bulk write repaints once, not once per row', async () => {
+    return await store(`(S)=>new Promise(async (resolve)=>{
+      let hits = 0;
+      const off = S.on('projects', () => hits++);
+      const ids = S.projects().slice(0, 5).map(p => p.id);
+      await S.batch(async () => { for(const id of ids){ S.updateProject(id, { _batchProbe: Date.now() }, { silent:true }); } });
+      off();
+      // 5 writes inside the batch → the 'projects' listener fired exactly once
+      resolve(hits === 1);
+    })`);
+  });
   await check('projects: a flagged project shows a NEW badge in the library that clears after opening it', async () => {
     const pid = await store(`(S)=>{ const id=S.projects()[0]?.id; if(id) S.markProjectUpdated(id); return id; }`);
     if(!pid) return false;

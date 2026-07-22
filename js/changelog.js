@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 88,
+    title: 'The Projects list no longer flashes while it checks for updates',
+    kind: 'fix',
+    ts: '2026-07-22T19:36:31.428Z',
+    items: [
+      'The new background “check for updates” on the Projects library synced each project one after another, and every one repainted the whole list — so landing on the page flashed several times. The refresh now batches all its writes and updates the list in a single repaint, with a small “Checking for updates…” note while it runs.',
+    ],
+  },
+  {
     v: 87,
     title: 'Fix: Fleet Ops was burning through the GitHub rate limit',
     kind: 'fix',

@@ -5,7 +5,7 @@ import { el, escapeHtml, toast, modal, confirmDialog, fmtCT, avatarColor, slugif
 import { icon } from '../icons.js';
 import { editFieldDef } from './settings.js';
 import { openSyncAll } from './home.js';
-import { backgroundRefreshProjects } from '../ingest.js';
+import { backgroundRefreshProjects, bgRefreshWillRun } from '../ingest.js';
 
 const VIEW_KEY = 'manager.lib.view';   // { q, status, sort, dir, field, fieldValue, fieldMin, fieldMax }
 const DEFAULT_STATE = { q:'', status:'all', sort:'activity', dir:'desc', field:'', fieldValue:'', fieldMin:'', fieldMax:'' };
@@ -344,11 +344,18 @@ export function renderProjects(root, ctx){
 
   // Quietly check every connected project for new releases when the library
   // opens (throttled + silent — see ingest.backgroundRefreshProjects), so you
-  // don't have to hit "Sync all" each visit. When something new lands, re-render
-  // the rows so the freshly-flagged projects pick up their NEW badge.
+  // don't have to hit "Sync all" each visit. The refresh batches its writes, so
+  // fresh data lands in ONE repaint (not a flash per project); a small
+  // "checking…" note shows while it runs, only when a refresh will actually go.
+  let checking = null;
+  if(bgRefreshWillRun()){
+    checking = el('span', { class: 'lib-checking tiny muted', html: `${icon('refresh')} Checking for updates…` });
+    head.append(checking);
+  }
   backgroundRefreshProjects().then(res => {
-    if(res && res.flagged > 0) rerenderList();
-  }).catch(()=>{});
+    if(checking) checking.remove();
+    if(res && res.flagged > 0) rerenderList();   // safety net if the reactive repaint didn't cover it
+  }).catch(()=>{ if(checking) checking.remove(); });
 }
 
 // The bulk-action bar shown above the table once at least one row is

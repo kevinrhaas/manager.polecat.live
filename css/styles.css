@@ -486,6 +486,10 @@ table.data tbody tr[role="button"]:focus-visible{outline:2px solid var(--brand-b
 .lib-new{flex:0 0 auto;font-size:9.5px;font-weight:750;letter-spacing:.04em;line-height:1;padding:3px 6px;border-radius:5px;
   color:var(--brand-b);background:color-mix(in srgb,var(--brand-b) 15%,transparent);
   border:1px solid color-mix(in srgb,var(--brand-b) 38%,transparent)}
+/* "checking for updates…" note shown while the library's background refresh runs */
+.lib-checking{display:inline-flex;align-items:center;gap:6px;margin-left:10px}
+.lib-checking svg{width:13px;height:13px;animation:lib-spin 1s linear infinite}
+@keyframes lib-spin{to{transform:rotate(360deg)}}
 
 .pin-btn{color:var(--text-3);background:none;border:0;cursor:pointer;padding:4px;
   border-radius:6px;transition:.15s}

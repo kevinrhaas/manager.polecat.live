@@ -171,7 +171,34 @@ export const Store = new (class {
 
   // ---- events ------------------------------------------------------------
   on(evt, fn){ (this._listeners[evt]||=[]).push(fn); return ()=>{ this._listeners[evt]=this._listeners[evt].filter(f=>f!==fn); }; }
-  emit(evt, payload){ (this._listeners[evt]||[]).forEach(f=>{ try{ f(payload); }catch(e){ console.error(e); } }); (this._listeners['*']||[]).forEach(f=>f(evt,payload)); }
+  emit(evt, payload){
+    // Inside a batch(), coalesce: record the event but don't dispatch yet, so a
+    // bulk operation (e.g. the Projects background refresh writing releases for
+    // every project) doesn't repaint reactive views once PER write across its
+    // awaits — which paints a flash each time. batch() replays each distinct
+    // event once at the end, synchronously, so the browser paints just once.
+    if(this._batching){ this._batchEvents.add(evt); return; }
+    (this._listeners[evt]||[]).forEach(f=>{ try{ f(payload); }catch(e){ console.error(e); } });
+    (this._listeners['*']||[]).forEach(f=>f(evt,payload));
+  }
+  // Run fn (sync or async) with reactive re-renders deferred until it settles.
+  // Writes still persist immediately; only listener dispatch is held. Nesting
+  // is reference-counted so an inner batch doesn't flush early.
+  async batch(fn){
+    const outer = this._batching;
+    if(!outer){ this._batching = true; this._batchEvents = new Set(); }
+    try{ return await fn(); }
+    finally{
+      if(!outer){
+        this._batching = false;
+        const evts = this._batchEvents; this._batchEvents = null;
+        evts.forEach(evt => {
+          (this._listeners[evt]||[]).forEach(f=>{ try{ f({ batched:true }); }catch(e){ console.error(e); } });
+          (this._listeners['*']||[]).forEach(f=>f(evt, { batched:true }));
+        });
+      }
+    }
+  }
 
   // ---- generic table ops -------------------------------------------------
   all(table){ return Object.values(this._db[table]||{}); }
