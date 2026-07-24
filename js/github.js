@@ -92,8 +92,14 @@ export async function gh(path, { method = 'GET', body, fresh = false } = {}){
     const remaining = res.headers.get('x-ratelimit-remaining');
     const resetHdr = res.headers.get('x-ratelimit-reset');
     const retryAfter = res.headers.get('retry-after');
+    // GitHub signals rate limits several ways. The SECONDARY / abuse limit — hit
+    // by bursts like back-to-back dispatches — returns a 403 whose message is
+    // "secondary rate limit" or "abuse detection mechanism" (NOT the plain "rate
+    // limit" string), so match those too or it gets mislabeled as a scope error.
+    const msg = (json?.message || '').toLowerCase();
     const isRateLimit = (res.status === 403 || res.status === 429) &&
-      ((json?.message || '').toLowerCase().includes('rate limit') || remaining === '0' || retryAfter != null);
+      (msg.includes('rate limit') || msg.includes('secondary rate') || msg.includes('abuse detection')
+        || remaining === '0' || retryAfter != null);
     let resetMs = null;
     if(resetHdr) resetMs = parseInt(resetHdr, 10) * 1000;
     else if(retryAfter) resetMs = Date.now() + parseInt(retryAfter, 10) * 1000;
@@ -101,7 +107,7 @@ export async function gh(path, { method = 'GET', body, fresh = false } = {}){
     const hint = res.status === 401 ? 'token rejected'
       : isRateLimit ? (`rate-limited${resetTxt ? ` — resets ${resetTxt}` : ' — resets within the hour'}`
           + (token ? '' : '; connect a vault token to raise the limit'))
-      : res.status === 403 ? 'forbidden — token lacks scope'
+      : res.status === 403 ? `forbidden — ${json?.message || 'token lacks a required scope'} (dispatching runs needs the 'workflow' scope on a classic PAT, or Actions read/write on a fine-grained one)`
       : res.status === 404 ? 'not found (private repo needs a token)'
       : (json?.message || 'request failed');
     const err = new Error(`GitHub ${res.status}: ${hint}`);

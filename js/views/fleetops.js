@@ -537,18 +537,23 @@ function runsCard(){
   card.append(head, body);
 
   const openRuns = new Set();
+  let shown = 15;   // how many runs to render; "Show more" grows it (history, not just latest)
   const load = async (fresh = false) => {
     try{
-      const runs = await stewardRuns(30, fresh);
+      const runs = await stewardRuns(40, fresh);
       body.innerHTML = '';
       if(!runs.length){ body.append(el('div', { class: 'tiny muted', text: 'No steward runs yet.' })); return; }
-      runs.slice(0, 12).forEach(r => {
+      runs.slice(0, shown).forEach(r => {
         const state = r.status !== 'completed' ? r.status.replace('_', ' ') : (r.conclusion || 'done');
         const dot = r.status !== 'completed' ? 'live' : (RUN_DOT[r.conclusion] || 'muted');
-        // run-name (display_title) carries the target app — "Steward improve
-        // — manager.polecat.live" — fall back to the workflow name for runs
+        // run-name (display_title) carries the target app AND, for a chained
+        // improve run, the slice — "Steward improve — analytics.polecat.live
+        // [1/2]". Split the "[n/m]" into its own badge so you can see which
+        // slice a RUNNING run is on. Fall back to the workflow name for runs
         // from before the platform annotated them.
-        const title = r.display_title && r.display_title !== r.name ? r.display_title : r.name;
+        const rawTitle = r.display_title && r.display_title !== r.name ? r.display_title : r.name;
+        const sliceM = rawTitle.match(/\s*\[(\d+)\s*\/\s*(\d+)\]\s*$/);
+        const title = sliceM ? rawTitle.slice(0, sliceM.index).trim() : rawTitle;
         // Mobile-first row: the title line owns the width (tapping it toggles
         // the detail too — the chevron alone is a thin target on a phone);
         // the metadata wraps to its own line on narrow screens (see CSS) and
@@ -559,7 +564,8 @@ function runsCard(){
           title: 'What this run did', 'aria-label': `Details for ${title}`, 'aria-expanded': String(openRuns.has(r.id)),
           html: icon('chevron'), onclick: toggle });
         const main = el('button', { class: 'fo-run-main', title: 'What this run did', onclick: toggle,
-          html: `<span class="fo-dot ${dot}"></span><span class="fo-run-name">${escapeHtml(title)}</span>` });
+          html: `<span class="fo-dot ${dot}"></span><span class="fo-run-name">${escapeHtml(title)}</span>`
+            + (sliceM ? `<span class="fo-slice-badge" title="slice ${sliceM[1]} of ${sliceM[2]} in this chain">slice ${sliceM[1]}/${sliceM[2]}</span>` : '') });
         const meta = el('span', { class: 'fo-run-meta' });
         meta.append(
           el('span', { class: 'tiny muted fo-run-event', text: r.event }),
@@ -571,6 +577,13 @@ function runsCard(){
         body.append(row);
         if(openRuns.has(r.id)) body.append(runDetail(r));
       });
+      // History, not just the latest: reveal older runs in batches (the poll
+      // re-renders every 30s and keeps whatever's been expanded to).
+      if(runs.length > shown){
+        body.append(el('button', { class: 'btn ghost sm fo-show-more',
+          text: `Show ${Math.min(15, runs.length - shown)} more (${runs.length - shown} older)`,
+          onclick: () => { shown = Math.min(runs.length, shown + 15); load(); } }));
+      }
     }catch(e){ body.innerHTML = errNote(e); }
   };
   load();

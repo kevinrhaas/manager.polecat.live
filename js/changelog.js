@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 94,
+    title: 'Steward log: see which slice a run is on, and more history',
+    kind: 'improvement',
+    ts: '2026-07-24T18:28:15.922Z',
+    items: [
+      'Each chained improve run now shows a "slice n/m" badge, so you can tell at a glance which slice of a chain is running right now — not just that something is running.',
+      'The runs list keeps more history: a "Show more" control reveals older runs in batches instead of only the latest handful.',
+      'A failed dispatch now reports the real reason — a burst rate-limit ("secondary"/"abuse") is named as such instead of being mislabeled "token lacks scope", and a genuine scope error spells out that dispatching runs needs the "workflow" scope on a classic token.',
+    ],
+  },
+  {
     v: 93,
     title: 'Fleet Ops roster: the next-run time and slice count are readable again',
     kind: 'fix',
