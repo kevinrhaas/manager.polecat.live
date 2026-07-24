@@ -182,7 +182,9 @@ function laneNextLabel(a){
   if(!a.enabled) return 'off';
   const n = nextRunAt(a);
   if(!n) return a.until && new Date(a.until) <= new Date() ? 'ended' : 'never';
-  return `next ${fmtCT(n.getTime())}`;
+  // Drop the year — every scheduled run is within days, so "Jul 23, 11:03 PM CT"
+  // reads fine and fits the roster row without truncating.
+  return `next ${fmtCT(n.getTime()).replace(/,\s*\d{4}/, '')}`;
 }
 // Platform-level jobs (focus.json `jobs`) — same lane schema, friendlier names.
 const JOB_META = {
@@ -306,7 +308,12 @@ function rosterCard(onChange){
       onclick: () => { openEditors.has(key) ? openEditors.delete(key) : openEditors.add(key); render(); } });
     const name = el('span', { class: 'fo-app-name' + (mono ? ' mono' : ''), text: display });
     if(hint) name.title = hint;
-    r.append(tog, name, nextEl, el('span', { class: 'sp' }), cad);
+    // Name + "next …" time stack in one identity column so the (often long)
+    // timestamp gets its own line and stays readable instead of being clipped
+    // by the controls when the panel is narrow.
+    const idCol = el('div', { class: 'fo-app-id' });
+    idCol.append(name, nextEl);
+    r.append(tog, idCol, el('span', { class: 'sp' }), cad);
     if(slicesSel) r.append(slicesSel);
     r.append(gear);
     body.append(r);

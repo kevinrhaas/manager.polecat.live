@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 93,
+    title: 'Fleet Ops roster: the next-run time and slice count are readable again',
+    kind: 'fix',
+    ts: '2026-07-24T03:43:53.699Z',
+    items: [
+      'In the Focus roster, a lane\'s app name and its "next …" run time now stack in one identity block, so the timestamp gets its own line and no longer gets clipped by the controls to its right; the year is dropped (every run is days away) to keep it short.',
+      'The "×N" slices selector is a touch wider so its value clears the dropdown arrow, and a very narrow panel now wraps the cadence/slices/details controls onto a second line instead of squeezing the row.',
+    ],
+  },
+  {
     v: 92,
     title: 'Landing backdrop settles into Manager’s own blue',
     kind: 'polish',
