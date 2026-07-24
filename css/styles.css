@@ -824,6 +824,13 @@ a.link:hover{text-decoration:underline}
 .fo-slices{max-width:66px;padding:5px 22px 5px 8px;text-align:center;flex:0 0 auto}
 .fo-slices.boosted{color:var(--brand-b);border-color:color-mix(in srgb,var(--brand-b) 55%,var(--border));
   background:color-mix(in srgb,var(--brand-b) 12%,var(--surface));font-weight:650}
+/* "slice n/m" badge on a run row — which slice of its chain a run is (esp. one
+   still running); reuses the cyan chip look of the roster's ×N badge */
+.fo-slice-badge{flex:0 0 auto;display:inline-block;font-size:10px;font-weight:650;line-height:1;
+  padding:2px 7px;margin-left:8px;border-radius:999px;white-space:nowrap;vertical-align:middle;
+  color:var(--brand-b);background:color-mix(in srgb,var(--brand-b) 14%,transparent)}
+/* "Show more" runs — reveal older history below the latest */
+.fo-show-more{margin-top:8px;align-self:flex-start}
 /* "×N" badge in the Coming-up preview when an app runs multiple slices */
 .fo-slices-badge{flex:0 0 auto;font-size:10.5px;font-weight:650;line-height:1;padding:2px 6px;border-radius:999px;
   color:var(--brand-b);background:color-mix(in srgb,var(--brand-b) 14%,transparent);
