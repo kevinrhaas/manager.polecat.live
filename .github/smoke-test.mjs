@@ -1349,7 +1349,7 @@ try {
     if (appRows > 0 && (await count('.fo-roster .fo-slices')) === 0) return false;
     return true;
   });
-  await check('lane schedule evaluator mirrors the platform semantics (cadence/offset/window/until/startAt, next-run on the :03 tick)', async () => {
+  await check('lane schedule evaluator mirrors the platform semantics (cadence/offset/window/until/startAt, next-run on the 10-min grid)', async () => {
     return await page.evaluate(async () => {
       const m = await import('/js/schedule.js');
       const at = (h) => new Date(Date.UTC(2026, 6, 16, h, 3));
@@ -1359,9 +1359,12 @@ try {
       ok.push(m.isDueAt({ enabled:true, window:[22,6] }, at(23)) && !m.isDueAt({ enabled:true, window:[22,6] }, at(12)));
       ok.push(!m.isDueAt({ enabled:true, until:'2026-07-16T20:00:00Z' }, at(21)));
       ok.push(!m.isDueAt({ enabled:true, startAt:'2026-07-17T00:00:00Z' }, at(21)));
+      // 10-min heartbeat: the next due tick after 20:30 for an even-hour lane is 21:00 (not the old :03).
       const n = m.nextRunAt({ enabled:true, everyHours:2, offset:1 }, new Date(Date.UTC(2026,6,16,20,30)));
-      ok.push(!!n && n.toISOString() === '2026-07-16T21:03:00.000Z');
-      ok.push(m.nextRunAt({ enabled:true, until:'2026-07-16T21:00:00Z' }, new Date(Date.UTC(2026,6,16,20,30))) === null);
+      ok.push(!!n && n.toISOString() === '2026-07-16T21:00:00.000Z');
+      // a "continuous" (everyHours:1) lane fires on the very next 10-min tick.
+      ok.push(m.nextRunAt({ enabled:true, everyHours:1 }, new Date(Date.UTC(2026,6,16,20,31))).toISOString() === '2026-07-16T20:40:00.000Z');
+      ok.push(m.nextRunAt({ enabled:true, until:'2026-07-16T20:35:00Z' }, new Date(Date.UTC(2026,6,16,20,30))) === null);
       ok.push(m.localInputToIso(m.isoToLocalInput('2026-07-16T21:03:00.000Z')) === '2026-07-16T21:03:00.000Z');
       // slices: default 1, clamp 1..5, and it must NOT change when a lane fires
       ok.push(m.slicesOf({}) === 1 && m.slicesOf({ slices: 3 }) === 3 && m.slicesOf({ slices: 9 }) === 5 && m.slicesOf({ slices: 0 }) === 1);

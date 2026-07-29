@@ -2,7 +2,8 @@
 // schedule evaluator (polecat-platform/.github/steward/schedule.mjs). The
 // platform file is the authority the hourly scheduler actually runs; this
 // copy powers Fleet Ops' next-run previews. KEEP THE TWO IN SYNC — they are
-// deliberately tiny.
+// deliberately tiny. The scheduler ticks every 10 min (cron */10), so a lane
+// eligible every tick advances within ~10 min of its last run finishing.
 //
 // Lane fields (focus.json, all optional beyond `enabled`):
 //   enabled     bool — master switch.
@@ -18,7 +19,7 @@
 //               runs (isDueAt/nextRunAt ignore it) — only how many units it
 //               kicks off that hour.
 
-export const TICK_MINUTE = 3;   // steward-focus.yml runs at :03 UTC
+export const TICK_MINUTES = 10;   // steward-focus.yml ticks every 10 min (cron */10 UTC)
 
 // Slices per fired tick (default 1, clamped 1..5). Mirrors platform slicesOf.
 export function slicesOf(lane){
@@ -42,16 +43,18 @@ export function isDueAt(lane, date){
   return true;
 }
 
-// The next tick (hh:TICK_MINUTE UTC) at which the lane fires, or null.
-export function nextRunAt(lane, from = new Date(), tickMinute = TICK_MINUTE){
+// The next tick (10-min UTC grid) at which the lane fires, or null. The loop's
+// heartbeat is every TICK_MINUTES, so previews advance by ticks not hours — a
+// lane eligible every tick shows its next run within ~10 min.
+export function nextRunAt(lane, from = new Date(), tick = TICK_MINUTES){
   if(!lane || !lane.enabled) return null;
-  const first = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(),
-    from.getUTCDate(), from.getUTCHours(), tickMinute, 0, 0));
-  if(first <= from) first.setUTCHours(first.getUTCHours() + 1);
-  for(let i = 0; i < 14 * 24; i++){
-    const t = new Date(first.getTime() + i * 3600000);
+  const t = new Date(from); t.setUTCSeconds(0, 0);
+  t.setUTCMinutes(t.getUTCMinutes() - (t.getUTCMinutes() % tick) + tick);
+  const steps = 14 * 24 * (60 / tick);
+  for(let i = 0; i < steps; i++){
     if(lane.until && t >= new Date(lane.until)) return null;
     if(isDueAt(lane, t)) return t;
+    t.setUTCMinutes(t.getUTCMinutes() + tick);
   }
   return null;
 }
