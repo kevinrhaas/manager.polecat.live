@@ -177,7 +177,7 @@ function connectCard(ctx, onReload){
 // Each lane carries the platform's schedule fields (see js/schedule.js and
 // the canonical evaluator in polecat-platform): cadence, offset ("runs at"),
 // an active hour window, a start moment, and an expiry ("run every X until
-// Y"). The tick is hourly at :03 UTC — that's the scheduling granularity.
+// Y"). The loop ticks every ~10 min (cron */10) — that is the granularity.
 function laneNextLabel(a){
   if(!a.enabled) return 'off';
   const n = nextRunAt(a);
@@ -197,7 +197,7 @@ function rosterCard(onChange){
   const card = el('div', { class: 'card fo-roster' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Focus roster</h2>
     <span class="sp"></span></div>
-    <p class="tiny muted" style="margin:0 0 10px">Per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform; ticks hourly at :03 UTC). Set cadence, dial the slices (<span class="mono">×N</span>) to run more units per fire, align which hours it lands on, fence it to a time window, or give it a start/stop — then commit; the next tick picks it up.</p>`;
+    <p class="tiny muted" style="margin:0 0 10px">Per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform; the loop ticks every ~10&nbsp;min). A <b>continuous</b> lane fires its next unit within ~10&nbsp;min of the last one finishing (it never overlaps itself); a coarser cadence gates it to specific hours. Dial the slices (<span class="mono">×N</span>) to chain more units back-to-back per fire, fence it to a time window, or give it a start/stop — then commit; the next tick picks it up.</p>`;
   const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loading roster…</span>` });
   card.append(body);
 
@@ -278,7 +278,7 @@ function rosterCard(onChange){
       onclick: () => { a.enabled = !a.enabled; touch(); render(); },
     }, el('span', { class: 'fo-knob' }));
     const cad = el('select', { class: 'input fo-cad', 'aria-label': `Cadence for ${display}` });
-    [[1, 'hourly'], [2, 'every 2h'], [3, 'every 3h'], [6, 'every 6h'], [12, 'every 12h'], [24, 'daily']]
+    [[1, 'continuous'], [2, 'every 2h'], [3, 'every 3h'], [6, 'every 6h'], [12, 'every 12h'], [24, 'daily']]
       .forEach(([h, t]) => cad.append(el('option', { value: h, text: t, selected: (a.everyHours || 1) === h })));
     cad.addEventListener('change', () => {
       a.everyHours = parseInt(cad.value, 10);
@@ -359,7 +359,7 @@ function rosterCard(onChange){
       const res = await putRoster(state.roster, state.sha, `fleet-ops: roster update via Manager (${on.length} lane${on.length === 1 ? '' : 's'} on)`);
       state.sha = res.content?.sha || state.sha;
       dirty = false;
-      toast('Roster committed', { kind: 'ok', body: 'Takes effect on the next hourly tick.' });
+      toast('Roster committed', { kind: 'ok', body: 'Takes effect on the next tick (~10 min).' });
     }catch(e){
       if(e.status === 409){ toast('Roster changed upstream', { kind: 'warn', body: 'Reloaded the latest — re-apply your flips.' }); clearGhCache(); load(); }
       else { toast('Commit failed', { kind: 'err', body: e.message }); save.disabled = false; }

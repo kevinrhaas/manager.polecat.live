@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 95,
+    title: 'Fleet Ops reflects the new 10-minute loop heartbeat',
+    kind: 'improvement',
+    ts: '2026-07-29T12:50:57.980Z',
+    items: [
+      'The steward loop now ticks every ~10 minutes instead of hourly, so a lane advances to its next unit within about ten minutes of the last one finishing. The roster and "Coming up" previews now show that real next-run time instead of the next hour.',
+      'A lane set to run every hour is now labeled "continuous" — it fires as fast as its runs finish (never overlapping itself); the coarser every-2h/daily cadences still gate calmer lanes.',
+    ],
+  },
+  {
     v: 94,
     title: 'Steward log: see which slice a run is on, and more history',
     kind: 'improvement',
