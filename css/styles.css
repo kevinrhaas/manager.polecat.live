@@ -263,7 +263,7 @@ body{
 .btn.danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,var(--border))}
 .btn.danger:hover{background:color-mix(in srgb,var(--danger) 14%,transparent)}
 .btn.sm{padding:5px 10px;font-size:12px}
-.btn.icon{padding:8px;width:36px;height:36px;justify-content:center}
+.btn.icon{padding:8px;width:36px;height:36px;justify-content:center;flex-shrink:0}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 
 /* ---- cards ------------------------------------------------------------- */
@@ -1079,17 +1079,34 @@ a.link:hover{text-decoration:underline}
      swallow a tightly-packed neighbor's tap. */
   .btn{min-height:44px}
   .btn.icon{width:44px;height:44px}
-  .btn.sm{min-height:44px;padding:11px 14px}
+  .btn.sm{min-height:44px;padding:11px 14px;min-width:44px}
   .filter-chip{min-height:44px;padding:14px 14px}
   .filter-chip-custom .fc-apply{padding:14px 8px 14px 14px}
   .filter-chip-custom .fc-del{padding:14px 14px 14px 8px}
   .seg button{padding:14px 16px}
-  .toggle,.fo-toggle{width:46px;height:27px}
-  .toggle::after,.fo-toggle .fo-knob{width:21px;height:21px}
-  .toggle.on::after{left:23px}
-  .fo-toggle.on .fo-knob{transform:translateX(21px)}
+  /* Toggle switches (UX sweep #23/#48 — still under 44px after the first
+     pass: growing the pill itself to 44px tall would look broken, a fat
+     capsule instead of a switch). The button becomes the real 44x44 hit
+     box — still no invisible overlay, the box IS the control — and the
+     familiar pill renders at its normal size as a centered ::before/own
+     background, flex-centered inside it; the knob's position is offset
+     to match the pill's new centered spot within that box. */
+  .toggle,.fo-toggle{width:44px;height:44px;background:none;border:none;
+    border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .toggle::before{content:'';display:block;width:38px;height:22px;border-radius:999px;
+    border:1px solid var(--border);background:var(--surface-3);transition:.15s}
+  .toggle.on::before{background:linear-gradient(135deg,var(--brand-b),var(--consensus));border-color:transparent}
+  .toggle::after{top:13px;left:5px}
+  .toggle.on::after{left:21px}
+  .fo-toggle::before{content:'';display:block;width:38px;height:21px;border-radius:999px;
+    border:1px solid var(--border);background:var(--surface-3);transition:background .15s,border-color .15s}
+  .fo-toggle.on::before{background:linear-gradient(135deg,var(--brand-b),var(--brand-a));border-color:transparent}
+  .fo-toggle .fo-knob{top:13.5px;left:5px}
   .fo-gear{width:44px;height:44px}
   .fo-expand{width:44px;height:44px}
+  /* the run row's own title button is the "row-expand toggle" — it wraps
+     tight to its text/icon content (~19px tall) with no padding of its own */
+  .fo-run-main{min-height:44px}
 }
 @media (max-width:420px){
   /* narrower horizontal footprint only — vertical padding stays at the

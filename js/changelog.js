@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 96,
+    title: 'More mobile tap targets fixed: toggle switches, Fleet Ops icons, and the Steward log row',
+    kind: 'fix',
+    ts: '2026-07-31T21:52:52.024Z',
+    items: [
+      'UX sweep #48\'s worst offenders: on mobile, the Fleet Ops lane toggles and the Settings "Simple mode" toggle were 27px tall (well under the ~44px floor), and the Steward log\'s run-title row was only 19px tall. Toggle switches now sit in a real 44×44 tap target — the pill itself stays its normal size (growing it looked like a fat capsule) while the actual clickable box grows around it — and the run row gets real height instead of hugging its text.',
+      'Also fixed: the Fleet Ops schedule-details gear, the Steward log\'s refresh and "Open on GitHub" icon buttons, and the topbar\'s icon-only "Add project" button were all shrinking below their intended 44px width inside tight flex rows (icon buttons had no `flex-shrink:0`, so the row squeezed them under load) — now held to their real size.',
+    ],
+  },
+  {
     v: 95,
     title: 'Fleet Ops reflects the new 10-minute loop heartbeat',
     kind: 'improvement',

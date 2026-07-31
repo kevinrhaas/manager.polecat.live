@@ -22,6 +22,35 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [x] **More mobile tap targets fixed: toggle switches, Fleet Ops icons, the
+      Steward log row** (shipped 2026-07-31) — UX sweep #48 finding #1, the
+      broadest carried-over problem, worst offenders first: the Fleet Ops
+      lane toggles and Settings "Simple mode" toggle were 27px tall on
+      mobile and the Steward log's run-title row was only 19px tall. Toggle
+      switches (`.toggle`/`.fo-toggle`) now get a real 44×44 hit box — the
+      pill itself stays its normal visual size (growing it outright looked
+      like a fat capsule instead of a switch) centered inside a bigger
+      invisible-but-real button, with the knob repositioned to match; no
+      overlay risk since the box IS the control. `.fo-run-main` (the
+      Steward log row's clickable title) gets a `min-height:44px` since it
+      otherwise hugs its text with no padding of its own. Root-caused a
+      second bug along the way: `.btn.icon` had no `flex-shrink:0`, so
+      inside a tight mobile flex row (Fleet Ops' per-lane gear, the Steward
+      log's refresh + "Open on GitHub" buttons) it could shrink to ~32px
+      wide even with an explicit `width:44px` set — fixed at the source for
+      every icon button, not just those three. The topbar's icon-only "Add
+      project" button (text hidden via `.hide-sm` on mobile) also needed an
+      explicit `min-width:44px` since nothing but content size was
+      constraining it. Verified with real bounding-box measurements at
+      390×780, not just eyeballing. Still open from #48: the systemic
+      Projects-table controls (row-select checkboxes, pin/unpin, edit icon,
+      sortable headers — needs table-specific space, a bigger unit), the
+      rail's "polecat.live" back-link (lives in vendored `shell.js` —
+      needs a platform-side fix, not an app-local one), and the minor
+      What's-New/Settings sub-44 controls (search input height, filter
+      chips, theme-picker buttons ~1px under). Also open: #48 finding #2,
+      the permanent `solution-engineering` 404 with no degradation message.
+
 - [x] **Fleet Ops tells apart a rate-limited repo from a permanently-private
       one** (shipped 2026-07-22) — UX sweep #23 finding #6: "Open steward
       work across the fleet" counted every unreachable repo into one
