@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 100,
+    title: 'LATEST_VERSION now matches the fleet changelog contract exactly',
+    kind: 'fix',
+    ts: '2026-07-31T23:16:36.875Z',
+    items: [
+      'Tech sweep #49 finding #3: this file (the fleet\'s reference implementation for the changelog contract) computed `LATEST_VERSION` via a reduce/max instead of SHELL-API.md\'s literal `CHANGELOG[0].v` form. Functionally identical today since entries are already strictly newest-first, but other apps copy this file as a template, so it\'s now aligned to the documented contract exactly.',
+    ],
+  },
+  {
     v: 99,
     title: 'More mobile tap targets: theme picker, What\'s-New search/filters, the rail\'s "polecat.live" link',
     kind: 'fix',
@@ -1072,4 +1081,4 @@ export const CHANGELOG = [
   },
 ];
 
-export const LATEST_VERSION = CHANGELOG.reduce((m,e)=>Math.max(m,e.v),0);
+export const LATEST_VERSION = CHANGELOG[0].v;
