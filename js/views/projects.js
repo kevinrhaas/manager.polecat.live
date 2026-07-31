@@ -525,7 +525,7 @@ function buildList(ctx, renderBulk){
     tb.querySelectorAll('input.lib-sel[data-pid]').forEach(cb=>{ cb.checked=selAll.checked; });
     renderBulk();
   });
-  thead.append(el('th',{class:'lib-sel-th'},selAll));
+  thead.append(el('th',{class:'lib-sel-th'},el('label',{class:'lib-sel-wrap'},selAll)));
   cols.forEach(([label,key])=>{
     const th=el('th',{class:s.sort===key?'sorted':''});
     th.innerHTML=`${escapeHtml(label)}${['name','status','version','activity'].includes(key)?` <span class="caret">${s.dir==='asc'?'▲':'▼'}</span>`:''}`;
@@ -567,7 +567,7 @@ function projectRow(p, ctx, onSelectionChange){
   const selTd=el('td',{class:'lib-sel-td'});
   const cb=el('input',{type:'checkbox', class:'lib-sel', 'data-pid':p.id, checked:selected.has(p.id), 'aria-label':`Select ${p.name}`});
   cb.addEventListener('change',()=>{ if(cb.checked) selected.add(p.id); else selected.delete(p.id); onSelectionChange(); });
-  selTd.append(cb);
+  selTd.append(el('label',{class:'lib-sel-wrap'},cb));
   // pin
   const pinTd=el('td');
   pinTd.append(el('button',{class:'pin-btn rowbtn'+(p.pinned?' on':''), title:p.pinned?'Unpin':'Pin', 'aria-label':p.pinned?'Unpin project':'Pin project',

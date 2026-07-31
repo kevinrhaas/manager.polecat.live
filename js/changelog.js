@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 98,
+    title: 'Projects table: bigger tap targets for select, pin, and sort on mobile',
+    kind: 'fix',
+    ts: '2026-07-31T22:38:40.225Z',
+    items: [
+      'UX sweep #48\'s last carried Projects-table finding: on mobile the row-select checkboxes (16×16), the pin/unpin button (24×24), and — as a side effect of the select column growing — the sortable column headers were all under the ~44px tap-target floor. The checkbox and pin icon stay their normal visual size; each now sits inside a real 44×44 clickable box (a `<label>` for the checkbox, so anywhere in the box toggles it — no invisible overlay).',
+    ],
+  },
+  {
     v: 97,
     title: 'Stop repeatedly hitting the GitHub API for the one private fleet repo',
     kind: 'fix',

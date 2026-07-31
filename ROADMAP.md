@@ -45,6 +45,26 @@ with new, ambitious, fun ideas.
       console errors, identical on-screen messaging before/after. Closes
       #48 finding #4 for good.
 
+- [x] **Projects table: bigger tap targets for select, pin, and sort on
+      mobile** (shipped 2026-07-31) — the last carried Projects-table item
+      from UX sweep #48 finding #1: row-select checkboxes (16×16) and the
+      pin/unpin button (24×24) were both well under the 44px floor (the edit
+      icon turned out already fixed, as a side effect of the earlier
+      `.btn.icon` flex-shrink fix). Same "box IS the control" rule as the
+      other mobile tap-target fixes: the checkbox and pin icon keep their
+      normal visual size, each now sitting inside a real 44×44 hit box — the
+      checkbox's is a `<label>` wrapping the input (native label-click-
+      toggles-input behavior, so the whole box is genuinely clickable, not an
+      invisible overlay). Verified live: a corner-click on the 44×44 box (not
+      the 16px visual center) actually toggles both controls. Because every
+      cell in a table row shares that row's tallest cell's height, widening
+      the select column also lifted the sortable column headers' click
+      target well past 44px for free — no separate header rule needed. Closes
+      #48 finding #1 for good; still open from #48: the rail's "polecat.live"
+      back-link (lives in vendored `shell.js` — needs a platform-side fix,
+      not an app-local one) and the minor What's-New/Settings sub-44 controls
+      (search input height, filter chips, theme-picker buttons ~1px under).
+
 - [x] **More mobile tap targets fixed: toggle switches, Fleet Ops icons, the
       Steward log row** (shipped 2026-07-31) — UX sweep #48 finding #1, the
       broadest carried-over problem, worst offenders first: the Fleet Ops
