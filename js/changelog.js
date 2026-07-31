@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 99,
+    title: 'More mobile tap targets: theme picker, What\'s-New search/filters, the rail\'s "polecat.live" link',
+    kind: 'fix',
+    ts: '2026-07-31T23:05:36.120Z',
+    items: [
+      'UX sweep #48\'s last carried touch-target items, verified live at 390×780: the Settings theme picker\'s Dark/Light/System buttons were 1px under the ~44px floor (43px tall), the What\'s-New panel\'s search input was 35px tall and its "All"/"Fix" kind chips were as narrow as 39px, and the rail\'s "polecat.live" back-link was a bare 63×16 target. All four are now real 44px-tall (or wider) tap targets — same "box IS the control" approach as the earlier rounds, visual size unchanged.',
+      'The What\'s-New panel and the rail link are owned by vendor/polecat-shell (read-only here), so these are app-local CSS compensations over the vendored controls, same pattern as the rail focus-ring fix before it was upstreamed — worth folding into shell.css directly in a future platform PR.',
+    ],
+  },
+  {
     v: 98,
     title: 'Projects table: bigger tap targets for select, pin, and sort on mobile',
     kind: 'fix',

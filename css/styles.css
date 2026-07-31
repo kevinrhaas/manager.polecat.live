@@ -1055,6 +1055,16 @@ a.link:hover{text-decoration:underline}
   .ps-rail .rail-src-txt{opacity:1;transform:none}
   .rail-source,.ps-rail:not(.open) .rail-source{margin:4px 8px 12px;justify-content:flex-start;
     padding:8px 10px;width:calc(100% - 16px)}
+
+  /* the rail's "polecat.live" back-link (UX sweep #48 finding #1's last
+     carried item) was a bare 63×16 inline link in the drawer — under the
+     44px floor. The control lives in vendor/polecat-shell/shell.js/.css
+     (READ-ONLY here), so this is an app-local compensation, same pattern
+     already used for the rail focus-ring override before it was upstreamed
+     — delete once shell.css grows an equivalent fix. Real box growth (flex
+     row, not an invisible overlay); the label stays its normal small size,
+     just vertically centered in a taller, genuinely tappable row. */
+  .ps-rail-suite{display:flex;align-items:center;min-height:44px;margin:0 0 0 49px}
 }
 @media (max-width:720px){
   .ps-topbar{padding:11px 14px;gap:8px}
@@ -1086,7 +1096,7 @@ a.link:hover{text-decoration:underline}
   .filter-chip{min-height:44px;padding:14px 14px}
   .filter-chip-custom .fc-apply{padding:14px 8px 14px 14px}
   .filter-chip-custom .fc-del{padding:14px 14px 14px 8px}
-  .seg button{padding:14px 16px}
+  .seg button{padding:14px 16px;min-height:44px}
   /* Toggle switches (UX sweep #23/#48 — still under 44px after the first
      pass: growing the pill itself to 44px tall would look broken, a fat
      capsule instead of a switch). The button becomes the real 44x44 hit
@@ -1110,6 +1120,16 @@ a.link:hover{text-decoration:underline}
   /* the run row's own title button is the "row-expand toggle" — it wraps
      tight to its text/icon content (~19px tall) with no padding of its own */
   .fo-run-main{min-height:44px}
+
+  /* What's-New panel (UX sweep #48 finding #3, last carried item): the
+     search input sat at ~35px tall and the "All"/"Fix" kind chips were
+     ~39-41px wide (their short labels don't reach 44px even with the
+     .filter-chip mobile padding above). Both controls live in vendor/
+     polecat-shell (whatsnew.js/shell.css, READ-ONLY here) — app-local
+     compensation, same pattern as the rail-suite fix above; delete once
+     shell.css grows an equivalent fix upstream. */
+  .wn-search .input{min-height:44px}
+  .wn-kinds .filter-chip{min-width:44px;justify-content:center}
 
   /* Projects library table (UX sweep #23/#48, carried — "needs table-
      specific space, a bigger unit"): row-select checkboxes, pin/unpin, and
