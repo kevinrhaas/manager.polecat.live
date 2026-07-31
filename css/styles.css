@@ -501,6 +501,9 @@ table.data tbody tr[role="button"]:focus-visible{outline:2px solid var(--brand-b
 .lib-sel-th,.lib-sel-td{width:34px}
 .lib-sel-th{cursor:default}
 input.lib-sel{width:16px;height:16px;accent-color:var(--brand-b);cursor:pointer;vertical-align:-3px}
+/* the label is the real click target — sized up on mobile (below) so a
+   16px checkbox still gets a 44px hit box, without an invisible overlay */
+.lib-sel-wrap{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .bulkbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;
   padding:9px 12px;border-radius:var(--radius);border:1px solid color-mix(in srgb,var(--brand-b) 32%,var(--border));
   background:color-mix(in srgb,var(--brand-b) 10%,var(--surface-2))}
@@ -1107,6 +1110,21 @@ a.link:hover{text-decoration:underline}
   /* the run row's own title button is the "row-expand toggle" — it wraps
      tight to its text/icon content (~19px tall) with no padding of its own */
   .fo-run-main{min-height:44px}
+
+  /* Projects library table (UX sweep #23/#48, carried — "needs table-
+     specific space, a bigger unit"): row-select checkboxes, pin/unpin, and
+     the sortable column headers were all well under the 44px floor. The
+     select column and pin button follow the same "box IS the control" rule
+     as the toggles above — the checkbox itself stays visually 16px inside a
+     real 44x44 <label> hit box (native label-click-toggles-input behavior,
+     not an invisible overlay); the pin icon stays 16px inside a bigger
+     button. Every cell in a table row shares that row's tallest cell's
+     height, so growing the select column to 44px also lifts every sortable
+     header (and every data row) well past the 44px floor for free — no
+     separate header-padding rule needed. */
+  .lib-sel-th,.lib-sel-td{width:44px}
+  .lib-sel-wrap{width:44px;height:44px}
+  .pin-btn{width:44px;height:44px;padding:0;display:flex;align-items:center;justify-content:center}
 }
 @media (max-width:420px){
   /* narrower horizontal footprint only — vertical padding stays at the
