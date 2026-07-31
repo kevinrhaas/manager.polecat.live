@@ -22,6 +22,26 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [x] **Last of UX sweep #48's touch targets: theme picker, What's-New
+      search/filters, the rail's "polecat.live" link** (shipped 2026-07-31) —
+      closes finding #1 and finding #3 for good, verified live at 390×780
+      before and after each fix: the Settings theme picker's Dark/Light/System
+      buttons were 43px tall (1px under the ~44px floor), the What's-New
+      panel's search input was 35px tall, its "All"/"Fix" kind chips were as
+      narrow as 39px, and the rail's "polecat.live" back-link was a bare
+      63×16 target. Same "box IS the control" approach as every earlier round
+      — real box growth, visual size unchanged. The What's-New panel and the
+      rail link are owned by `vendor/polecat-shell` (READ-ONLY here), so
+      those two are app-local CSS compensations layered over the vendored
+      controls in `css/styles.css` (same pattern as the rail focus-ring
+      override before it was upstreamed in shell v0.2.0) — worth folding into
+      `shell.css` directly in a future platform PR, at which point these
+      overrides can be deleted. Closes #48 findings #1 and #3 for good (#48
+      finding #4, the `solution-engineering` 404, was already closed above).
+      Verified with real Playwright bounding-box measurements at 390×780, not
+      just eyeballing; desktop (1280×800) confirmed unaffected (these are all
+      inside the existing mobile-only touch-target media queries).
+
 - [x] **`solution-engineering`'s permanent 404 no longer fires a network call**
       (shipped 2026-07-31) — UX sweep #48 finding #4 (carried from #23):
       solution-engineering is a genuinely private repo, so every
