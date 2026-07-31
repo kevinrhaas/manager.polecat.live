@@ -1165,7 +1165,7 @@ function seed(db){
       description:'The Polecat application — multi-model consensus, free demo.',
       assessment:'The Polecat application itself: one prompt to every model, one synthesized answer, with a free no-key demo. Where the product actually lives.' },
     { id:'solution-engineering', name:'Solution Engineering', repo:'kevinrhaas/solution-engineering', site:'',
-      status:'active', icon:'layers', pinned:false, cadence:'manual',
+      status:'active', icon:'layers', pinned:false, cadence:'manual', private:true,
       tags:['workspace','analytics','ai'],
       description:'A mixed Pentaho solution-engineering workspace.',
       assessment:'A mixed engineering workspace: Pentaho solution-engineering assets, analytics and data-catalog content, AI/agentic experiments, demos, and automation. Many self-contained projects, not one deployed site.' },

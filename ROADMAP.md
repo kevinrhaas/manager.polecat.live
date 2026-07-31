@@ -22,6 +22,29 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [x] **`solution-engineering`'s permanent 404 no longer fires a network call**
+      (shipped 2026-07-31) — UX sweep #48 finding #4 (carried from #23):
+      solution-engineering is a genuinely private repo, so every
+      unauthenticated `pulls`/`issues` lookup against it (Fleet Ops' "Open
+      steward work" card, the project detail page's Steward card, the
+      background steward-signals sweep) was guaranteed to 404 — wasting a
+      slice of the shared ~60/hour anonymous GitHub budget and logging a
+      failed resource load on every visit, forever. Investigated live (real
+      admin token, real browser) before touching code: both the fleet-wide
+      card and the per-project card already rendered a clear message
+      ("1 private — needs a token to ever read" / "GitHub 404: not found
+      (private repo needs a token)") — the UX/messaging half of this finding
+      was already fixed 2026-07-22. What was still open was the doomed
+      network call itself. Fix: the project now carries `private:true` in
+      its Store row; `js/github.js`'s `stewardPRs`/`sweepIssues` short-circuit
+      to the identical synthetic 404 error *without* a fetch when no token is
+      connected (a connected token still attempts the real call, since it
+      might have read access) — every caller's existing error handling is
+      untouched, only the wasted round trip is gone. Verified with a live
+      Playwright probe: zero `api.github.com` calls for the repo, zero
+      console errors, identical on-screen messaging before/after. Closes
+      #48 finding #4 for good.
+
 - [x] **More mobile tap targets fixed: toggle switches, Fleet Ops icons, the
       Steward log row** (shipped 2026-07-31) — UX sweep #48 finding #1, the
       broadest carried-over problem, worst offenders first: the Fleet Ops
@@ -48,8 +71,8 @@ with new, ambitious, fun ideas.
       rail's "polecat.live" back-link (lives in vendored `shell.js` —
       needs a platform-side fix, not an app-local one), and the minor
       What's-New/Settings sub-44 controls (search input height, filter
-      chips, theme-picker buttons ~1px under). Also open: #48 finding #2,
-      the permanent `solution-engineering` 404 with no degradation message.
+      chips, theme-picker buttons ~1px under). #48 finding #4 (the permanent
+      `solution-engineering` 404) is DONE, see above.
 
 - [x] **Fleet Ops tells apart a rate-limited repo from a permanently-private
       one** (shipped 2026-07-22) — UX sweep #23 finding #6: "Open steward

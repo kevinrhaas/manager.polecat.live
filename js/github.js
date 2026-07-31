@@ -201,12 +201,33 @@ export async function checkState(repo, sha){
   return runs.every(r => ['success', 'neutral', 'skipped'].includes(r.conclusion)) ? 'success' : 'none';
 }
 
+// A project can be flagged `private:true` in its Store row (e.g. a repo that
+// is genuinely GitHub-private, not just unreached). Without a token, a call
+// against it is guaranteed to 404 — so short-circuit to the same shaped error
+// `gh()` would throw, WITHOUT the network round trip. This spares the shared
+// ~60/hour anonymous budget and stops a permanently-doomed request from
+// showing up as a failed resource load on every visit; callers (workCard,
+// projectStewardCard, steward-signals) already handle this error shape and
+// need no change. A connected token still attempts the real call, since it
+// might actually have read access.
+function knownPrivateRepos(){
+  return new Set(Store.projects().filter(p => p.private && p.repo).map(p => p.repo));
+}
+function assertReachable(repo){
+  if(ghToken() || !knownPrivateRepos().has(repo)) return;
+  const err = new Error('GitHub 404: not found (private repo needs a token)');
+  err.status = 404;
+  throw err;
+}
+
 export async function stewardPRs(repo){
+  assertReachable(repo);
   const prs = await gh(`/repos/${repo}/pulls?state=open&per_page=30`);
   return (prs || []).filter(p => /^(steward|chore)\//.test(p.head?.ref || '') || /^chore: polecat-shell/.test(p.title || ''));
 }
 
 export async function sweepIssues(repo){
+  assertReachable(repo);
   const issues = await gh(`/repos/${repo}/issues?state=open&per_page=30`);
   return (issues || []).filter(i => !i.pull_request && /sweep/i.test(i.title || ''));
 }

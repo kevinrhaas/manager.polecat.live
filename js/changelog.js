@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 97,
+    title: 'Stop repeatedly hitting the GitHub API for the one private fleet repo',
+    kind: 'fix',
+    ts: '2026-07-31T22:19:24.364Z',
+    items: [
+      'Solution Engineering is a genuinely private repo, so an unauthenticated steward lookup against it (Fleet Ops, a project page, the background steward-signals sweep) always 404s — every one of those spots already showed a clear "needs a token" message, but the doomed request itself still fired every time, spending shared GitHub rate-limit budget for nothing. It now short-circuits to the same message without a network call when no token is connected.',
+    ],
+  },
+  {
     v: 96,
     title: 'More mobile tap targets fixed: toggle switches, Fleet Ops icons, and the Steward log row',
     kind: 'fix',
