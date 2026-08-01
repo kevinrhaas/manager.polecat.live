@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 103,
+    title: 'Vendored shell caught up to v0.6.1 (was v0.5.4)',
+    kind: 'fix',
+    ts: '2026-08-01T18:30:36.805Z',
+    items: [
+      'Tech sweep #49\'s vendor-skew finding: `vendor/polecat-shell/` was 7 minor releases behind polecat-platform\'s `lib/`. Brings in the mobile drawer\'s new close button (the topbar hamburger couldn\'t close the drawer it opened — a stacking-order bug fixed upstream in shell v0.6.1), a fix for the filter dropdown popover re-opening on a second click instead of toggling shut, the pinned `@supabase/supabase-js` CDN version, and the optional self-hosted Hanken Grotesk font files (not yet linked from Manager\'s pages — a separate follow-up).',
+      'Caught a real regression before shipping it: shell v0.6.1\'s rail-logo CSS dropped the white icon color and rounded-square shape in favor of a new "ring badge" look (accent-colored ring, accent-colored glyph) as part of retiring gradient tiles fleet-wide. Manager\'s rail mark is the catalog\'s accent-gradient tile (set inline by shell.js) and only overrode background/shadow, so the glyph would have gone invisible — its new accent-colored icon blending into the same-toned gradient behind it. Verified with a live before/after screenshot, then added a compensating override in `css/styles.css` (`color:#fff; border:none; border-radius:11px`) restoring the original look; re-verified after the fix.',
+      'Verified live at 390×780 and 1280×800: zero pageerrors, rail brand mark renders correctly (white glyph, gradient tile, no stray ring), and the new mobile drawer close button opens/closes the rail as expected.',
+    ],
+  },
+  {
     v: 102,
     title: '⌘K no longer opens on top of an already-open dialog or panel',
     kind: 'fix',

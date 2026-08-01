@@ -1,0 +1,45 @@
+/* -----------------------------------------------------------------------
+   fonts.css — Hanken Grotesk, the fleet's brand face, self-hosted.
+   Optional: pages that want the brand face link this file BEFORE tokens.css
+   (or any sheet that reads --font). Pages that don't link it keep rendering
+   on the system stack — first paint is never blocked either way, because
+   every face is font-display: swap and the stacks in tokens.css /
+   site-chrome.css keep the system fallback right behind it.
+
+   Weights shipped (the ones the design system actually uses):
+     400 regular · 500 medium · 600 semibold (controls, rail items)
+     700 bold · 800 extrabold (THE brand weight: headings, wordmark,
+     kickers, stat numbers, app names) · 400 italic.
+   Source TTFs live in the design-system skill; these are woff2 (~33 KB each).
+   ----------------------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('fonts/HankenGrotesk-Regular.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('fonts/HankenGrotesk-Italic.woff2') format('woff2');
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('fonts/HankenGrotesk-Medium.woff2') format('woff2');
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('fonts/HankenGrotesk-SemiBold.woff2') format('woff2');
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('fonts/HankenGrotesk-Bold.woff2') format('woff2');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('fonts/HankenGrotesk-ExtraBold.woff2') format('woff2');
+  font-weight: 800; font-style: normal; font-display: swap;
+}

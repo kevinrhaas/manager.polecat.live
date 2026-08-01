@@ -63,7 +63,10 @@ export function multiselectDropdown({ label, options = [], selected = [], counts
   }
   paintChip();
 
+  let openPanel = null;   // { close } while the popover is up
+
   btn.addEventListener('click', ()=>{
+    if(openPanel){ openPanel.close(); return; }   // second click toggles shut
     const panel = el('div', { class: 'filter-pop', role: 'dialog', 'aria-label': label });
     const group = el('div', { class: 'fp-group' });
     options.forEach(opt=>{
@@ -90,7 +93,8 @@ export function multiselectDropdown({ label, options = [], selected = [], counts
       } }),
       el('button', { class: 'btn sm', text: 'Done', onclick: ()=>close() }),
     ]));
-    const { close } = anchoredPopover(btn, panel);
+    const { close } = anchoredPopover(btn, panel, { onClose: ()=>{ openPanel = null; } });
+    openPanel = { close };
   });
   return btn;
 }

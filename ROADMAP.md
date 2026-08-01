@@ -22,6 +22,30 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [x] **Vendored shell caught up to v0.6.1** (shipped 2026-08-01) — closes tech
+      sweep #49's vendor-skew finding (`vendor/polecat-shell/` had drifted 7
+      minor releases behind, v0.5.4 → v0.6.1). Brought in: the mobile drawer's
+      new close button (the hamburger that opens it couldn't close it — a
+      stacking-order bug), the filter-dropdown popover now toggling shut on a
+      second click instead of re-opening, the pinned `@supabase/supabase-js`
+      CDN version, and the optional self-hosted Hanken Grotesk font files
+      (`fonts.css`/`fonts/` — not yet linked from any Manager page; linking it
+      is a separate follow-up, see below). Caught a real regression before
+      shipping: v0.6.1 dropped `.ps-rail-logo`'s white icon color and rounded
+      shape for a new accent-colored "ring badge" (gradient tiles retired
+      fleet-wide) — Manager's rail mark is the catalog's accent-gradient tile
+      (set inline by shell.js) and only compensated background/shadow, so the
+      glyph would've gone invisible into the same-toned ring. Verified with a
+      live before/after screenshot, added a compensating override in
+      `css/styles.css`, re-verified after. Follow-up queued below: link
+      `fonts.css` to adopt Hanken Grotesk (currently falls through to the
+      system font stack).
+- [ ] Link `vendor/polecat-shell/fonts.css` (self-hosted Hanken Grotesk,
+      arrived in shell v0.6.0/v0.6.1) from Manager's pages to adopt the brand
+      face — currently `--font` falls through to the system stack since
+      nothing links the stylesheet. Low-risk, additive; worth its own small
+      slice since it touches every page's `<head>`.
+
 - [x] **Data sources: found and fixed a real data-loss bug validating the
       Supabase adapter against a live project** (shipped 2026-08-01) — first
       slice of the queued "(a) validate the live remote adapters end to end
