@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 102,
+    title: '⌘K no longer opens on top of an already-open dialog or panel',
+    kind: 'fix',
+    ts: '2026-08-01T15:26:22.533Z',
+    items: [
+      'Found live: open Notifications (the bell), then press ⌘K — the command palette rendered right on top of the still-open popover, two competing floating surfaces at once (and the same for the "Add project" modal and the What\'s-New right panel). The palette\'s keyboard shortcut was the one path into it that skipped the "is something already open?" check every other opener already gets for free via the outside-click listener.',
+      'The app already had this exact guard selector for background renders (`.modal-back.in, .cmdk.show, .ps-rpanel.in, .tour-pop.show`) — pulled it into a shared `OVERLAY_OPEN_SEL` constant, added the notifications popover to it (the one surface it was missing), and now the ⌘K handler bails instead of opening when any of those are already up.',
+      'Verified live against all three cases (notifications, the project editor modal, the What\'s-New panel): ⌘K is now a no-op while any is open, and opens normally the moment it\'s closed. A new smoke check pins the notifications case.',
+    ],
+  },
+  {
     v: 101,
     title: 'Data sources: fixed a real data-loss bug found validating Supabase against a live project',
     kind: 'fix',
