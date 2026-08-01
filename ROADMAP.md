@@ -585,6 +585,20 @@ with new, ambitious, fun ideas.
 
 ## Done
 
+- [x] **⌘K no longer opens on top of an already-open dialog or panel** _(2026-08-01)_:
+      found live (not from a filed sweep): open the Notifications popover, then
+      press ⌘K — the command palette rendered right over it, two floating
+      surfaces open at once (same for the "Add project" modal and the
+      What's-New right panel). Every other opener already gets an
+      "is something already open?" check for free via the outside-click
+      listener each overlay wires up; ⌘K's keyboard shortcut was the one path
+      in that skipped it. Fix: the background-render guard selector
+      (`.modal-back.in, .cmdk.show, .ps-rpanel.in, .tour-pop.show`), already
+      used twice in `js/app.js`, became a shared `OVERLAY_OPEN_SEL` constant
+      with the notifications popover added (the one surface missing from it),
+      and the ⌘K handler now bails instead of opening while any of those are
+      up. Verified live against all three cases; a new smoke check pins the
+      notifications case.
 - [x] **Pluggable data sources — connect a real database** _(2026-07-08)_:
       the whole workspace can now live in a remote database instead of only
       this browser, so the same data is reachable from anywhere and can back

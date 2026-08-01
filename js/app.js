@@ -27,6 +27,11 @@ import { CHANGELOG } from './changelog.js';
 import { initSync, onSync, syncState, pushNow } from './sync.js';
 import { startStewardSignals } from './steward-signals.js';
 
+// Any floating UI that owns its own focus/Escape handling — background work
+// (a render, an auto-sync refresh, a keyboard shortcut) must never step on
+// one of these while it's open.
+const OVERLAY_OPEN_SEL = '.modal-back.in, .cmdk.show, .ps-rpanel.in, .tour-pop.show, .notif-pop.show';
+
 const TITLES = { home:'Dashboard', projects:'Projects', project:'Project', releases:'Releases', activity:'Activity', fleetops:'Fleet Ops',
   stewardlog:'Steward log', credentials:'Credentials', docs:'Docs', admin:'Admin', settings:'Settings' };
 const RENDERERS = { home:renderHome, projects:renderProjects, project:renderProject, releases:renderReleases, activity:renderActivity,
@@ -80,7 +85,7 @@ async function boot(){
   // and re-render the current view once a remote load swaps the workspace.
   onSync((st)=>{ window.__rail?.setSource?.(st); });
   window.__rail?.setSource?.(syncState());
-  Store.on('replaced', ()=>{ if(!document.querySelector('.modal-back.in, .cmdk.show, .ps-rpanel.in, .tour-pop.show')) render(); });
+  Store.on('replaced', ()=>{ if(!document.querySelector(OVERLAY_OPEN_SEL)) render(); });
   initSync().then(st=>{ window.__rail?.setSource?.(st); });
   // steward state (red PRs / sweep findings) → the Needs-attention pipeline
   startStewardSignals();
@@ -129,7 +134,7 @@ function tickAutoSync(){
     if(!res || (!res.added && !res.updated)) return;
     toast('Auto-synced the fleet', { kind:'ok', body:`${res.added} new, ${res.updated} updated across ${res.ok} project${res.ok===1?'':'s'}.` });
     // refresh the current view, but never yank the ground out from under an open dialog
-    if(!document.querySelector('.modal-back.in, .cmdk.show, .ps-rpanel.in, .tour-pop.show')) render();
+    if(!document.querySelector(OVERLAY_OPEN_SEL)) render();
   }).catch(()=>{});
 }
 
@@ -318,7 +323,11 @@ function wireEvents(){
   });
   window.addEventListener('keydown',e=>{
     const mod=e.metaKey||e.ctrlKey;
-    if(mod && e.key.toLowerCase()==='k'){ e.preventDefault(); openPalette(); }
+    // Guard against stacking on top of a dialog/panel that's already open —
+    // its own Escape/focus-trap wiring doesn't know about the palette, so
+    // without this both stayed open at once (found live: open Notifications,
+    // then ⌘K, and the palette rendered right over it).
+    if(mod && e.key.toLowerCase()==='k'){ e.preventDefault(); if(!document.querySelector(OVERLAY_OPEN_SEL)) openPalette(); }
     else if(mod && e.key.toLowerCase()==='z' && !e.shiftKey && !/input|textarea/i.test(e.target.tagName) && !e.target.isContentEditable){ e.preventDefault(); doUndo(); }
   });
 }

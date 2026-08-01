@@ -2091,6 +2091,16 @@ try {
     await page.keyboard.press('Enter'); await page.waitForTimeout(350);
     return /project\/games/.test(await page.evaluate(() => location.hash));
   });
+  await check('⌘K does not stack on top of an already-open overlay (regression: notifications popover)', async () => {
+    await openSec('home');
+    await page.click('.notif-btn'); await page.waitForTimeout(300);
+    if (!(await $('.notif-pop.show'))) return false;
+    await page.keyboard.down('Control'); await page.keyboard.press('KeyK'); await page.keyboard.up('Control');
+    await page.waitForTimeout(300);
+    const stillJustNotif = (await count('.notif-pop.show')) === 1 && (await count('.cmdk.show')) === 0;
+    await page.click('.notif-btn'); await page.waitForTimeout(250); // clean up
+    return stillJustNotif;
+  });
 
   // ---------- Accessibility: focus trap + restore on every overlay ----------
   // All four "floats above the page" surfaces (modal, ⌘K palette, What's-new
