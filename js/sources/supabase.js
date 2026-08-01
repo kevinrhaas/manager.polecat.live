@@ -65,6 +65,17 @@ export const supabaseSource = {
     const meta = await res.json().catch(()=>[]);
     const app = meta.find?.(m=>m.key==='app')?.value;
     const schemaVersion = Number(meta.find?.(m=>m.key==='schema_version')?.value) || null;
+    if(!app){
+      // The marker table exists but never got its identity row — an
+      // interrupted provision, or someone else's table of the same name.
+      // Don't trust it as "ours": the comment above promised "absent → not
+      // yet provisioned" but the code fell through to state:'polecat' with
+      // app:undefined, which the connect wizard treats as a real Manager
+      // workspace safe to load — silently replacing local data with an
+      // empty snapshot. Surfacing 'foreign' forces the explicit "drop
+      // everything & set up here" confirm instead.
+      return { state:'foreign', tables:[{ name:META_TABLE, count:0 }] };
+    }
     const tables = [];
     for(const t of TABLE_NAMES){
       try{

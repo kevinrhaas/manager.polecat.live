@@ -22,6 +22,36 @@ with new, ambitious, fun ideas.
 
 ## Next (discovered / queued)
 
+- [x] **Data sources: found and fixed a real data-loss bug validating the
+      Supabase adapter against a live project** (shipped 2026-08-01) — first
+      slice of the queued "(a) validate the live remote adapters end to end
+      against real databases" item (see below), now unblocked by real
+      Supabase credentials becoming available in this environment. A live
+      test project's `polecat_meta` marker table existed without its `app`
+      identity row (an interrupted provision, or a leftover same-named
+      table) — `sources/supabase.js`'s `probe()` returned `state:'polecat'`
+      anyway (its own comment promised "absent → not yet provisioned" but the
+      code never checked), so the connect wizard would have offered "Connect
+      & load this workspace" and `load()` silently returned an empty
+      snapshot — replacing local data with nothing, no error surfaced. Fixed
+      in `sources/supabase.js` and the identically-shaped `sources/turso.js`:
+      both now require a real `app` value before trusting the marker table,
+      otherwise reporting `state:'foreign'` (routes through the wizard's
+      explicit "drop everything & set up here" confirm instead of a silent
+      load). Verified against the real, live project (not simulated) both
+      before the fix (reproduced the bad classification) and after (confirms
+      `foreign`); a new smoke check pins the regression going forward.
+      Firebase's adapter already guarded this correctly (its `markerOk` check
+      requires the doc to actually parse), which is what the fix pattern
+      matches. Still open: full DDL-based provisioning couldn't be validated
+      end to end — this sandbox has no route to Postgres (direct `db.<ref>`
+      IPv6 host unreachable; the IPv4 session pooler didn't recognize the
+      project's tenant in any region tried) — so the generated `CREATE TABLE`
+      script's real execution, and the full load/save round trip once tables
+      exist, remain unverified. No Turso or Firebase credentials were
+      available this run, so their adapters (Turso's identical fix included)
+      still want a live validation pass of their own.
+
 - [x] **Last of UX sweep #48's touch targets: theme picker, What's-New
       search/filters, the rail's "polecat.live" link** (shipped 2026-07-31) —
       closes finding #1 and finding #3 for good, verified live at 390×780
@@ -218,7 +248,12 @@ with new, ambitious, fun ideas.
 - [ ] Data sources (see Done, 2026-07-08) — the follow-on queue, roughly in
       value order: (a) **validate the live remote adapters** end to end against
       real Turso/Supabase/Firebase projects and fix whatever the specs got
-      subtly wrong (this build couldn't reach a real DB); (b) **per-row
+      subtly wrong — IN PROGRESS (see Done, 2026-08-01): a real Supabase
+      project surfaced and fixed a genuine data-loss bug in the classify
+      step; DDL provisioning and the full load/save round trip still want a
+      live pass once this sandbox (or a future one) can reach Postgres, and
+      Turso/Firebase still want their own live credentials to validate
+      against; (b) **per-row
       delta sync** instead of the current full-snapshot write-through — fine
       for a metadata-sized fleet today, but a real cost once a workspace grows
       or two browsers write concurrently (needs updatedAt-based merge +

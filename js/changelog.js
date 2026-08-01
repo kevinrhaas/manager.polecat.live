@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 101,
+    title: 'Data sources: fixed a real data-loss bug found validating Supabase against a live project',
+    kind: 'fix',
+    ts: '2026-08-01T00:00:40.329Z',
+    items: [
+      'Roadmap follow-up on "validate the live remote adapters end to end against real databases": tested the Supabase adapter against a real, credentialed project for the first time. Found a genuine bug — a database whose `polecat_meta` marker table exists but never got its identity row (an interrupted provision, or a leftover table of the same name) probed as `state:\'polecat\'` anyway, so the connect wizard offered "Connect & load this workspace", and `load()` silently returned an empty snapshot with no error — replacing local data with nothing.',
+      'Both `sources/supabase.js` and the same-shaped `sources/turso.js` now require the marker table to actually carry an `app` identity row before trusting it as a Manager workspace; otherwise they report `state:\'foreign\'`, which routes the connect wizard through its explicit "drop everything & set up here" confirm instead of a silent load.',
+      'Verified against the real project: the exact bad state (an unidentified `polecat_meta`) now reports `foreign`, not `polecat`. A new smoke check pins the fix. Full DDL-based provisioning still could not be validated end to end (no reachable Postgres connection from this environment — direct and pooler hosts alike), so that slice of the roadmap item stays open.',
+    ],
+  },
+  {
     v: 100,
     title: 'LATEST_VERSION now matches the fleet changelog contract exactly',
     kind: 'fix',
