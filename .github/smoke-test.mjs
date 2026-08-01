@@ -2556,6 +2556,30 @@ try {
     return r.plainBefore && r.remoteCiphertext && r.localStillReadable && r.locked && r.wrongRejected && r.unlocked;
   });
 
+  await check('Supabase adapter: a marker table with no identity row probes as foreign, not a loadable workspace', async () => {
+    // Regression for a real bug found validating against a live Supabase
+    // project: an interrupted provision (or someone else's same-named table)
+    // left `polecat_meta` present but empty. probe() returned state:'polecat'
+    // with app:undefined anyway, so the connect wizard offered "Connect &
+    // load this workspace" — and load() silently returned an all-empty
+    // snapshot, replacing local data with nothing. It must classify as
+    // 'foreign' so the wizard requires an explicit drop-and-recreate instead.
+    return await page.evaluate(async () => {
+      const { supabaseSource } = await import('/js/sources/supabase.js');
+      const realFetch = window.fetch;
+      window.fetch = async (url, opts) => {
+        if (String(url).includes('/polecat_meta')) {
+          return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+      };
+      let probe;
+      try { probe = await supabaseSource.probe({ url: 'https://fake.supabase.co', key: 'fake' }); }
+      finally { window.fetch = realFetch; }
+      return probe.state === 'foreign';
+    });
+  });
+
   if (errors.length) { console.error('\nConsole/page errors:\n' + errors.join('\n')); failed = true; }
 } catch (e) {
   console.error('SUITE CRASH: ' + e.message); failed = true;

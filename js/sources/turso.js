@@ -109,6 +109,17 @@ export const tursoSource = {
         const { rows } = await query(cfg, `SELECT key, value FROM "${META_TABLE}" WHERE key IN ('app','schema_version')`);
         rows.forEach(([k,v])=>{ if(k==='app') app=v; if(k==='schema_version') schemaVersion=Number(v); });
       }catch{}
+      if(!app){
+        // The marker table exists but never got its identity row (an
+        // interrupted provision) — don't trust it as a real Manager
+        // workspace (see the same fix in sources/supabase.js). Surfacing
+        // 'foreign' forces the connect wizard's explicit drop-and-recreate
+        // confirm instead of a silent "load" that could wipe local data
+        // with an empty snapshot.
+        const tables = [];
+        for(const t of names) if(t!==META_TABLE) tables.push({ name:t, count: await countRows(cfg, t) });
+        return { state:'foreign', tables:[{ name:META_TABLE, count:0 }, ...tables] };
+      }
       const tables = [];
       for(const t of TABLE_NAMES) if(names.includes(t)) tables.push({ name:t, count: await countRows(cfg, t) });
       return { state:'polecat', app, schemaVersion, tables };
