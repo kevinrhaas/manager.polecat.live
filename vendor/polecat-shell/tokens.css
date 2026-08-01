@@ -33,7 +33,10 @@
   /* geometry + type — shared across every palette */
   --radius:14px; --radius-sm:9px; --radius-lg:20px;
   --ring:0 0 0 3px color-mix(in srgb, var(--brand) 40%, transparent);
-  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  /* Brand face. The @font-face set lives in fonts.css — pages that link it
+     get Hanken Grotesk; pages that don't fall straight through to the system
+     stack (first paint never blocks either way). */
+  --font:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
   --mono:'SF Mono','Fira Code',ui-monospace,'JetBrains Mono',monospace;
   --font-display:var(--font);   /* apps opt in to display faces per-app */
   --rail-w:66px; --rail-w-open:232px;

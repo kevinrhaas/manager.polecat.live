@@ -88,7 +88,9 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
 .ps-rail-brand{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:12px 14px 10px;width:100%}
 .ps-rail-home{display:flex;align-items:center;gap:11px;padding:4px 0;background:none;border:none;cursor:pointer;color:var(--text);width:100%}
 .ps-rail-home:focus-visible{outline:none;box-shadow:var(--ring);border-radius:9px}
-.ps-rail-logo{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:11px;background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;box-shadow:var(--shadow-sm)}
+/* round single-color ring badge (ring ≈7.5% of size, 10% wash) — gradient
+   tiles are retired across the mark system; see docs/BRAND.md */
+.ps-rail-logo{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--rail-accent) 10%,transparent);color:var(--rail-accent);border:3px solid var(--rail-accent)}
 .ps-rail-logo svg,.ps-rail-logo img{width:22px;height:22px}
 .ps-rail-home .bt{display:flex;flex-direction:column;line-height:1.15;opacity:0;transition:opacity .2s;text-align:left;white-space:nowrap}
 .ps-rail.open .ps-rail-home .bt{opacity:1}
@@ -120,6 +122,7 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
 .ps-rail-resize{position:absolute;top:0;right:0;width:6px;height:100%;cursor:col-resize;z-index:5}
 .ps-rail-resize:hover,.ps-rail.dragging .ps-rail-resize{background:color-mix(in srgb,var(--rail-accent) 40%,transparent)}
 .ps-rail-backdrop{display:none}
+.ps-rail-close{display:none}
 
 .ps-main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;isolation:isolate}
 .ps-topbar{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);
@@ -222,7 +225,7 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
   .ps-rail.open{transform:none}
   .ps-rail-backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s;z-index:25}
   .ps-rail.open ~ .ps-rail-backdrop{opacity:1;pointer-events:auto}
-  .ps-rail-toggle,.ps-rail-resize{display:none}
+  .ps-rail-resize{display:none}
   .ps-topbar-menu{display:grid}
   .ps-view{padding:16px 14px}
   /* touch targets: ~44px minimum (WCAG 2.5.5) below the drawer breakpoint;
@@ -230,6 +233,24 @@ select.input{cursor:pointer;appearance:none;background-image:url("data:image/svg
   .btn:not(.icon){min-height:44px}
   .btn.icon{width:44px;height:44px}
   .ps-rail-item{min-height:44px}
+  /* .ps-rail-toggle stays visible here (unlike desktop, where it collapses
+     the rail to icons): its existing toggle logic + aria-expanded wiring
+     already work unchanged; only its size and visibility change here. */
+  .ps-rail-toggle{width:44px;height:44px}
+  /* The topbar hamburger (.ps-topbar-menu) that opens the drawer can't also
+     close it: it's a non-positioned element, so once the drawer is open it
+     paints *below* both the positioned .ps-rail (z-index:30) and its
+     .ps-rail-backdrop (z-index:25) regardless of any z-index given to the
+     button itself — CSS always stacks positioned boxes above static ones.
+     .ps-rail-close is a real, visible, top-corner close affordance rendered
+     *inside* .ps-rail so it inherits that same z-index:30 and is always
+     reachable while the drawer is open (fixes the fleet's oldest UX-sweep
+     finding: #10/#31/#33/#39/#54 on autoselector — the hamburger tapped a
+     second time silently hit the rail's own home-logo icon instead). */
+  .ps-rail-close{display:grid;place-items:center;position:absolute;top:8px;right:8px;
+    width:44px;height:44px;border-radius:10px;border:1px solid var(--border);
+    background:var(--surface-2);color:var(--text-2);cursor:pointer}
+  .ps-rail-close:focus-visible{outline:none;box-shadow:var(--ring)}
 }
 @media (max-width:520px){
   .ps-topbar h1{display:none}

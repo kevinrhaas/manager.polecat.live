@@ -130,8 +130,13 @@ body{
   backdrop-filter:blur(12px);
 }
 /* (rail brand/toggle focus rings + badge tones come from the shell as of
-   v0.2.0 — Manager only keeps the active-item combination below) */
-.ps-rail-logo{background:none;box-shadow:none}
+   v0.2.0 — Manager only keeps the active-item combination below.) shell
+   v0.6.1's retired-gradient ring badge (border-radius:50%, a colored
+   border, and icon color:var(--rail-accent)) isn't what Manager wants: the
+   brand mark here is the catalog's accent-gradient tile (set inline by
+   shell.js), so the glyph needs to stay white for contrast against it, in
+   its original rounded-square shape with no extra ring. */
+.ps-rail-logo{background:none;box-shadow:none;border:none;border-radius:11px;color:#fff}
 .ps-rail-logo img{width:32px;height:32px;
   filter:drop-shadow(0 3px 10px rgba(34,211,238,.4))}
 .ps-rail-brand b{font-size:14.5px;font-weight:680;letter-spacing:.2px}

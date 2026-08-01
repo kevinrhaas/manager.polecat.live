@@ -17,7 +17,7 @@
 
 import { registerAuthSource } from './schema.js';
 
-const SUPABASE_ESM = 'https://esm.sh/@supabase/supabase-js@2';
+const SUPABASE_ESM = 'https://esm.sh/@supabase/supabase-js@2.110.9';
 
 let client = null;
 

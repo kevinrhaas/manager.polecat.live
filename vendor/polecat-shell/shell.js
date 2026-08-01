@@ -132,6 +132,13 @@ export function initShell({
       rel:'noopener', text:'polecat.live', title:'Back to polecat.live'}),
   );
   rail.append(railBrand);
+  // Mobile-only close affordance, top-right of the drawer. Once the drawer is
+  // open it sits (in stacking order) above both the topbar's hamburger and
+  // the backdrop, so it's the one control that's always reachable to close
+  // it — see the .ps-rail-close comment in shell.css for why the hamburger
+  // itself can't be reused for this.
+  rail.append(h('button',{class:'ps-rail-close', 'aria-label':'Close navigation',
+    html:GLYPH.close, onclick:()=>setOpen(false, false)}));
 
   const scroll = h('div',{class:'ps-rail-scroll'});
   let pendingGroup = null;   // group labels append lazily — an all-filtered group leaves no orphan header
