@@ -238,3 +238,47 @@ export function fleetRepos(){
   if(!repos.includes(PLATFORM_REPO)) repos.push(PLATFORM_REPO);
   return [...new Set(repos)];
 }
+
+// ---- promotion pipeline (dev → qa → prod) ----------------------------------
+// Generic per-repo primitives for the staged-delivery pilot (jobtracker's
+// docs/PIPELINE.md). Same client, same vault token, same error shapes — the
+// Pipeline view composes these; nothing here is jobtracker-specific.
+
+export const getBranch = (repo, name) =>
+  gh(`/repos/${repo}/branches/${encodeURIComponent(name)}`);
+
+// GitHub's compare is directional: base...head → how far head is AHEAD of base.
+export const compareRefs = (repo, base, head) =>
+  gh(`/repos/${repo}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`);
+
+export async function listTags(repo, limit = 15){
+  const tags = await gh(`/repos/${repo}/tags?per_page=${limit}`);
+  return tags || [];
+}
+
+// dispatchWorkflow (above) is pinned to the platform repo for the steward;
+// promotions dispatch into each APP repo, so the repo is a parameter here.
+export function dispatchRepoWorkflow(repo, file, inputs){
+  return gh(`/repos/${repo}/actions/workflows/${file}/dispatches`, {
+    method: 'POST', body: { ref: 'main', inputs: inputs || {} },
+  });
+}
+
+export async function workflowRuns(repo, file, limit = 5, fresh = false){
+  const j = await gh(`/repos/${repo}/actions/workflows/${file}/runs?per_page=${limit}`, { fresh });
+  return j.workflow_runs || [];
+}
+
+// Contents-API JSON read/write with the roster's compare-and-swap contract:
+// the sha makes a concurrent edit 409 instead of being clobbered. pipeline.json
+// carries the same "data file — direct commits sanctioned" _doc as focus.json.
+export async function getRepoJson(repo, path, ref = 'main'){
+  const f = await gh(`/repos/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`);
+  return { json: JSON.parse(b64decode(f.content)), sha: f.sha };
+}
+export function putRepoJson(repo, path, value, sha, message){
+  return gh(`/repos/${repo}/contents/${encodeURIComponent(path)}`, {
+    method: 'PUT',
+    body: { message, content: b64encode(JSON.stringify(value, null, 2) + '\n'), sha, branch: 'main' },
+  });
+}
