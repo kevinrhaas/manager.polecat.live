@@ -918,6 +918,23 @@ a.link:hover{text-decoration:underline}
 .fo-repo-name{color:var(--text-3);margin-bottom:2px}
 @media (max-width:900px){ .fo-grid{grid-template-columns:1fr} }
 
+/* ---- Pipeline (release console: dev → qa → prod stage cards) ---- */
+.pl-stages{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.pl-stage{display:grid;grid-template-columns:110px 64px 1fr auto auto;gap:10px;align-items:baseline;
+  padding:7px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)}
+.pl-stage-name{font-weight:600;display:flex;flex-direction:column;line-height:1.2}
+.pl-stage-name a{color:var(--brand-b);text-decoration:none}
+.pl-stage-name a:hover{text-decoration:underline}
+.pl-subject{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;color:var(--text-2)}
+.pl-ahead{font-size:11px;font-weight:700;color:var(--warning);border:1px solid currentColor;
+  border-radius:999px;padding:1px 8px;white-space:nowrap}
+.pl-qa{margin:4px 0 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pl-actions{gap:8px;flex-wrap:wrap}
+.pl-sched{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)}
+.input-sm{padding:4px 8px;font-size:12px;max-width:140px}
+@media (max-width:700px){ .pl-stage{grid-template-columns:90px 1fr auto;grid-auto-rows:auto}
+  .pl-stage code,.pl-subject{grid-column:2/-1} }
+
 /* ---- what's new ---------------------------------------------------------
    The feed itself renders in the shell's right panel with the shell's wn-*
    styles (vendor/polecat-shell/shell.css); only Manager extras live here. */

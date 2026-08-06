@@ -20,6 +20,19 @@ with new, ambitious, fun ideas.
       of the fleet-wide **Tags manager**, the keyboard-focus-ring audit, and
       the public "recent activity" ticker (all Done, 2026-07-04).
 
+## Done (recent)
+
+- [x] **Pipeline section — the release console** (2026-08-06): stage cards for
+      every repo carrying `.github/pipeline.json` (dev/qa/prod SHAs +
+      ahead-counts, last qa-promotion verdict, live-run indicator), the three
+      release verbs (promote dev→qa, ship qa→prod, roll back prod) as guarded
+      workflow dispatches, and an in-place editor for the pausable dev→qa
+      schedule (sha compare-and-swap, roster-style). Reuses the Fleet Ops
+      vault token; github.js gained generic per-repo primitives (getBranch,
+      compareRefs, listTags, dispatchRepoWorkflow, workflowRuns,
+      getRepoJson/putRepoJson). Pilot repo: jobtracker (its docs/PIPELINE.md
+      is the runbook); any repo that adopts the pipeline appears automatically.
+
 ## Next (discovered / queued)
 
 - [x] **Vendored shell caught up to v0.6.1** (shipped 2026-08-01) — closes tech

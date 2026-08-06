@@ -1415,6 +1415,24 @@ try {
     const warned = await page.evaluate(() => [...document.querySelectorAll('.toast')].some((t) => /token/i.test(t.textContent)));
     return warned;
   });
+  // ---------- Pipeline (release console) ----------
+  // Same offline discipline as Fleet Ops: GitHub may be unreachable, so the
+  // repo probe must settle into cards or the honest "no pipeline repos yet"
+  // empty state — never a spinner forever, never a pageerror.
+  await check('pipeline section renders and settles: title, auth note, and repo probe resolve without errors', async () => {
+    if (!(await openSec('pipeline'))) return false;
+    if (!/Pipeline/.test(await page.$eval('#view .section-title h2', (n) => n.textContent).catch(() => ''))) return false;
+    for (let i = 0; i < 24; i++) {
+      await page.waitForTimeout(500);
+      const t = await page.evaluate(() => document.querySelector('#view .fo-grid')?.textContent || '');
+      if (t && !/Finding pipeline-enabled repos/.test(t)) {
+        // settled: either real stage cards or the empty state
+        return /No pipeline repos yet/.test(t) || (await count('#view .pl-card')) > 0;
+      }
+    }
+    return false;
+  });
+
   await check('steward signals flow into Needs attention: bell + rail badge + dashboard chips, and dismissal clears them', async () => {
     // deterministic: inject signals directly (the live fetcher is offline in CI)
     const before = await store(`(S)=>S.needsAttentionActive().length`);

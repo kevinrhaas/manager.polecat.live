@@ -9,6 +9,19 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 104,
+    title: 'Pipeline: a release console for staged dev → qa → prod delivery',
+    kind: 'feature',
+    ts: '2026-08-06T22:35:40.913Z',
+    date: '',
+    items: [
+      'A new Pipeline section shows every fleet app that has adopted the staged-delivery pipeline (the jobtracker pilot today) as a live stage card: where dev, qa and production sit, how many commits are waiting to promote, and how the last qa promotion concluded.',
+      'The three release verbs run right from the card — promote dev→qa (full suite, auto-rollback on red), ship qa→prod (tagged + snapshotted), and roll back production — each behind a confirm that tells you exactly what will happen.',
+      'The pausable dev→qa schedule is editable in place: on/paused/off and cadence write back to the repo’s pipeline.json with the same compare-and-swap safety as the steward roster.',
+      'Repos appear automatically once they carry a .github/pipeline.json — adopting the pipeline needs zero Manager changes.',
+    ],
+  },
+  {
     v: 103,
     title: 'Vendored shell caught up to v0.6.1 (was v0.5.4)',
     kind: 'fix',
