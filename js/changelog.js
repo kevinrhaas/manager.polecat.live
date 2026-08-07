@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 106,
+    title: 'Fleet Ops: pick the model each improve lane runs on',
+    kind: 'feature',
+    ts: '2026-08-07T00:45:10.848Z',
+    date: '',
+    items: [
+      'Every app lane in the Focus roster gets a compact model selector next to the cadence — auto (the platform default), sonnet, opus or haiku — and a pinned lane lights up cyan the way a ×N slice boost does.',
+      'The pick commits with the roster to focus.json, and the platform scheduler passes it straight through to each run, so a lane can grind on a faster model while another keeps the default.',
+    ],
+  },
+  {
     v: 105,
     title: 'Pipeline speaks plainly: dev, stage, main',
     kind: 'polish',

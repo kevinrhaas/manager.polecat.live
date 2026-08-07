@@ -285,6 +285,22 @@ function rosterCard(onChange){
       if(a.offset != null) a.offset = a.offset % Math.max(1, a.everyHours);
       touch(); render();   // re-render: the align options depend on cadence
     });
+    // Model pin (apps only): which Claude model the lane's runs use. '' = the
+    // Claude Code CLI default. steward-focus passes it through to each run's
+    // --model (focus.json lane `model`). Pinned lanes light up like ×N does.
+    let modelSel = null;
+    if(isApp){
+      modelSel = el('select', { class: 'input fo-cad fo-model' + (a.model ? ' pinned' : ''),
+        'aria-label': `Model for ${display}`,
+        title: 'Model — which Claude model this lane’s improve runs use. “auto” is the CLI default.' });
+      [['', 'auto'], ['claude-sonnet-5', 'sonnet'], ['claude-opus-5', 'opus'], ['claude-haiku-4-5', 'haiku']]
+        .forEach(([v, t]) => modelSel.append(el('option', { value: v, text: t, selected: (a.model || '') === v })));
+      modelSel.addEventListener('change', () => {
+        if(modelSel.value) a.model = modelSel.value; else delete a.model;
+        modelSel.classList.toggle('pinned', !!modelSel.value);
+        touch();
+      });
+    }
     // Slices per run (apps only): fire N independent improve runs each time the
     // lane is due — each a full unit of work (its own PR + smoke gate), run
     // back-to-back. Default 1; >1 lights up so a boosted app reads at a glance.
@@ -314,6 +330,7 @@ function rosterCard(onChange){
     const idCol = el('div', { class: 'fo-app-id' });
     idCol.append(name, nextEl);
     r.append(tog, idCol, el('span', { class: 'sp' }), cad);
+    if(modelSel) r.append(modelSel);
     if(slicesSel) r.append(slicesSel);
     r.append(gear);
     body.append(r);
@@ -354,6 +371,7 @@ function rosterCard(onChange){
       if(!a.until) delete a.until;
       if(!Array.isArray(a.window) || a.window.length !== 2) delete a.window;
       if(!(a.slices > 1)) delete a.slices; else a.slices = Math.min(5, Math.max(2, Math.floor(a.slices)));
+      if(!a.model) delete a.model;
     });
     try{
       const res = await putRoster(state.roster, state.sha, `fleet-ops: roster update via Manager (${on.length} lane${on.length === 1 ? '' : 's'} on)`);
