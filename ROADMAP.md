@@ -23,10 +23,10 @@ with new, ambitious, fun ideas.
 ## Done (recent)
 
 - [x] **Pipeline section — the release console** (2026-08-06): stage cards for
-      every repo carrying `.github/pipeline.json` (dev/qa/prod SHAs +
-      ahead-counts, last qa-promotion verdict, live-run indicator), the three
-      release verbs (promote dev→qa, ship qa→prod, roll back prod) as guarded
-      workflow dispatches, and an in-place editor for the pausable dev→qa
+      every repo carrying `.github/pipeline.json` (dev/stage/prod SHAs +
+      ahead-counts, last stage-promotion verdict, live-run indicator), the three
+      release verbs (promote dev→stage, ship stage→prod, roll back prod) as guarded
+      workflow dispatches, and an in-place editor for the pausable dev→stage
       schedule (sha compare-and-swap, roster-style). Reuses the Fleet Ops
       vault token; github.js gained generic per-repo primitives (getBranch,
       compareRefs, listTags, dispatchRepoWorkflow, workflowRuns,
@@ -201,7 +201,7 @@ with new, ambitious, fun ideas.
 - [x] **Stat cards get a pointer cursor on hover** (shipped 2026-07-22) — UX
       sweep #23 finding #3: the Dashboard/Releases stat tiles have been
       clickable + keyboard-navigable since v74 (#22), but `.card.stat` never
-      picked up `cursor:pointer` the way `.qa`/`.tile` (the app's other
+      picked up `cursor:pointer` the way `.stage`/`.tile` (the app's other
       clickable-card families) already had on their base class — so a mouse
       user got no visual affordance that the number was a link. One-line CSS
       fix, scoped to `.card.stat.hover` (only the actually-clickable stat

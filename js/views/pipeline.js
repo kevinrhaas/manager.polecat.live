@@ -1,11 +1,11 @@
-// pipeline.js — the release console for the dev → qa → prod promotion
+// pipeline.js — the release console for the dev → stage → prod promotion
 // pipeline (pilot: jobtracker — see its docs/PIPELINE.md).
 //
 // Fleet Ops is the STEWARD console (schedules the improvement loop); this is
-// the RELEASE console: per-app stage cards showing where dev/qa/prod sit,
-// what the last qa promotion concluded, and the three verbs — promote to qa,
+// the RELEASE console: per-app stage cards showing where dev/stage/prod sit,
+// what the last stage promotion concluded, and the three verbs — promote to stage,
 // promote to prod, roll back prod — each a workflow_dispatch into the app's
-// own repo. The pausable dev→qa schedule lives in the repo's
+// own repo. The pausable dev→stage schedule lives in the repo's
 // .github/pipeline.json (a focus.json-style data file); the editor here
 // writes it back through the contents API with sha compare-and-swap.
 //
@@ -24,7 +24,7 @@ import {
 const PIPELINE_PATH = '.github/pipeline.json';
 const STAGES = [
   { branch: 'dev',  label: 'Dev',  sub: 'integration',  path: '/dev/' },
-  { branch: 'qa',   label: 'QA',   sub: 'candidate',    path: '/qa/'  },
+  { branch: 'stage', label: 'Stage', sub: 'candidate',   path: '/stage/' },
   { branch: 'main', label: 'Prod', sub: 'production',   path: '/'     },
 ];
 
@@ -36,7 +36,7 @@ export function renderPipeline(root, ctx){
 
   const title = el('div', { class: 'section-title', style: 'margin-top:0' });
   title.innerHTML = `<span style="color:var(--brand-b);display:inline-flex">${icon('branch')}</span><h2>Pipeline</h2>
-    <span class="muted tiny">staged releases: dev → qa → prod</span>`;
+    <span class="muted tiny">staged releases: dev → stage → prod</span>`;
   wrap.append(title);
 
   // Same vault token as Fleet Ops; reads are fine without it, writes are not.
@@ -93,14 +93,14 @@ function repoCard(repo, cfgLoaded){
     <a class="tiny muted" href="https://github.com/${escapeHtml(repo)}" target="_blank" rel="noopener">${icon('external')} repo</a></div>`;
 
   const stagesBox = el('div', { class: 'pl-stages' });
-  const qaBox = el('div', { class: 'pl-qa tiny muted', html: `${icon('refresh')} Loading…` });
+  const stageBox = el('div', { class: 'pl-stage-status tiny muted', html: `${icon('refresh')} Loading…` });
   const btnRow = el('div', { class: 'fo-row pl-actions' });
   const schedBox = el('div', { class: 'pl-sched' });
-  card.append(stagesBox, qaBox, btnRow, schedBox);
+  card.append(stagesBox, stageBox, btnRow, schedBox);
 
-  const reload = () => { clearGhCache(); fillStages(stagesBox, repo, site); fillQa(qaBox, repo); };
+  const reload = () => { clearGhCache(); fillStages(stagesBox, repo, site); fillStage(stageBox, repo); };
   fillStages(stagesBox, repo, site);
-  fillQa(qaBox, repo);
+  fillStage(stageBox, repo);
   fillActions(btnRow, repo, reload);
   fillSchedule(schedBox, repo, cfgLoaded, reload);
   return card;
@@ -110,15 +110,15 @@ function repoCard(repo, cfgLoaded){
 async function fillStages(box, repo, site){
   box.innerHTML = `<span class="tiny muted">${icon('refresh')} Reading branches…</span>`;
   try{
-    const [dev, qa, main] = await Promise.all(STAGES.map(s => getBranch(repo, s.branch).catch(() => null)));
-    const by = { dev, qa, main };
+    const [dev, stg, main] = await Promise.all(STAGES.map(s => getBranch(repo, s.branch).catch(() => null)));
+    const by = { dev, stage: stg, main };
     // Ahead counts, each independently fault-tolerant (a missing branch or a
     // rate-limited compare must not blank the whole card).
-    const [devAhead, qaAhead] = await Promise.all([
-      dev && qa ? compareRefs(repo, 'qa', 'dev').then(c => c.ahead_by).catch(() => null) : null,
-      qa && main ? compareRefs(repo, 'main', 'qa').then(c => c.ahead_by).catch(() => null) : null,
+    const [devAhead, stageAhead] = await Promise.all([
+      dev && stg ? compareRefs(repo, 'stage', 'dev').then(c => c.ahead_by).catch(() => null) : null,
+      stg && main ? compareRefs(repo, 'main', 'stage').then(c => c.ahead_by).catch(() => null) : null,
     ]);
-    const ahead = { dev: devAhead, qa: qaAhead, main: null };
+    const ahead = { dev: devAhead, stage: stageAhead, main: null };
     box.innerHTML = '';
     STAGES.forEach(s => {
       const b = by[s.branch];
@@ -145,24 +145,24 @@ async function fillStages(box, repo, site){
   }
 }
 
-// ---- last qa promotion = the qa status record -------------------------------
-async function fillQa(box, repo){
+// ---- last stage promotion = the stage status record -------------------------------
+async function fillStage(box, repo){
   try{
-    const runs = await workflowRuns(repo, 'promote-to-qa.yml', 5);
+    const runs = await workflowRuns(repo, 'promote-to-stage.yml', 5);
     // The newest COMPLETED run is the verdict; an in-flight one shows as live.
     const live = runs.find(r => r.status !== 'completed');
     const done = runs.find(r => r.status === 'completed');
-    if(!live && !done){ box.innerHTML = `<span class="tiny muted">No qa promotions yet.</span>`; return; }
+    if(!live && !done){ box.innerHTML = `<span class="tiny muted">No stage promotions yet.</span>`; return; }
     const bits = [];
     if(live) bits.push(`<span class="fo-dot live"></span> promotion running <a href="${escapeHtml(live.html_url)}" target="_blank" rel="noopener">${icon('external')}</a>`);
     if(done){
       const ok = done.conclusion === 'success';
-      bits.push(`<span class="fo-dot ${ok ? 'ok' : 'err'}"></span> last qa promotion <b>${escapeHtml(done.conclusion)}</b>
+      bits.push(`<span class="fo-dot ${ok ? 'ok' : 'err'}"></span> last stage promotion <b>${escapeHtml(done.conclusion)}</b>
         · ${ago(new Date(done.updated_at).getTime())}
         <a href="${escapeHtml(done.html_url)}" target="_blank" rel="noopener">${icon('external')}</a>`);
     }
     box.innerHTML = bits.join(' &nbsp; ');
-    box.dataset.qaGreen = done && done.conclusion === 'success' ? '1' : '';
+    box.dataset.stageGreen = done && done.conclusion === 'success' ? '1' : '';
   }catch(e){
     box.innerHTML = errNote(e);
   }
@@ -178,36 +178,36 @@ function needToken(){
 function fillActions(row, repo, reload){
   const name = repo.split('/')[1] || repo;
 
-  const promoteQa = el('button', { class: 'btn sm', html: `${icon('play')} Promote dev → qa` });
+  const promoteQa = el('button', { class: 'btn sm', html: `${icon('play')} Promote dev → stage` });
   promoteQa.onclick = async () => {
     if(needToken()) return;
     const ok = await confirmDialog({
-      title: `Promote dev → qa on ${name}?`,
-      message: 'Back-merges main into dev, merges dev into qa, and runs the FULL suite against the staged /qa/ build. A red suite rolls qa back automatically and files an issue.',
+      title: `Promote dev → stage on ${name}?`,
+      message: 'Back-merges main into dev, merges dev into stage, and runs the FULL suite against the staged /stage/ build. A red suite rolls stage back automatically and files an issue.',
       okText: 'Promote', danger: false,
     });
     if(!ok) return;
     try{
-      await dispatchRepoWorkflow(repo, 'promote-to-qa.yml', { reason: 'Dispatched from Manager (Pipeline view)' });
-      toast('qa promotion dispatched', { kind: 'ok', body: 'The run is the status record — this card refreshes shortly.' });
+      await dispatchRepoWorkflow(repo, 'promote-to-stage.yml', { reason: 'Dispatched from Manager (Pipeline view)' });
+      toast('stage promotion dispatched', { kind: 'ok', body: 'The run is the status record — this card refreshes shortly.' });
       setTimeout(reload, 4000);
     }catch(e){ toast('GitHub call failed', { kind: 'err', body: e.message }); }
   };
 
-  const promoteProd = el('button', { class: 'btn sm primary', html: `${icon('rocket')} Promote qa → prod` });
+  const promoteProd = el('button', { class: 'btn sm primary', html: `${icon('rocket')} Promote stage → prod` });
   promoteProd.onclick = async () => {
     if(needToken()) return;
-    const qaGreen = promoteProd.closest('.pl-card')?.querySelector('.pl-qa')?.dataset.qaGreen === '1';
+    const stageGreen = promoteProd.closest('.pl-card')?.querySelector('.pl-stage-status')?.dataset.stageGreen === '1';
     const ok = await confirmDialog({
       title: `Ship ${name} to production?`,
-      message: qaGreen
-        ? 'Merges qa into main, tags release-vNNN, freezes a /v/ snapshot, and publishes. The workflow re-checks that the latest qa promotion is green before merging.'
-        : 'The latest qa promotion is NOT green — the workflow will refuse unless forced. Dispatching anyway sends force=true. Are you sure?',
-      okText: qaGreen ? 'Ship it' : 'Force-ship anyway', danger: !qaGreen,
+      message: stageGreen
+        ? 'Merges stage into main, tags release-vNNN, freezes a /v/ snapshot, and publishes. The workflow re-checks that the latest stage promotion is green before merging.'
+        : 'The latest stage promotion is NOT green — the workflow will refuse unless forced. Dispatching anyway sends force=true. Are you sure?',
+      okText: stageGreen ? 'Ship it' : 'Force-ship anyway', danger: !stageGreen,
     });
     if(!ok) return;
     try{
-      await dispatchRepoWorkflow(repo, 'promote-to-prod.yml', qaGreen ? {} : { force: 'true' });
+      await dispatchRepoWorkflow(repo, 'promote-to-prod.yml', stageGreen ? {} : { force: 'true' });
       toast('prod promotion dispatched', { kind: 'ok', body: 'It tags the release and archives a /v/ snapshot.' });
       setTimeout(reload, 4000);
     }catch(e){ toast('GitHub call failed', { kind: 'err', body: e.message }); }
@@ -216,7 +216,7 @@ function fillActions(row, repo, reload){
   const rollback = el('button', { class: 'btn ghost sm', html: `${icon('undo')} Roll back prod` });
   rollback.onclick = async () => {
     if(needToken()) return;
-    let tagTxt = 'the most recent "Promote qa→prod" merge';
+    let tagTxt = 'the most recent "Promote stage→prod" merge';
     try{
       const tags = await listTags(repo, 5);
       const rel = tags.filter(t => /^release-v/.test(t.name)).map(t => t.name);
@@ -238,16 +238,16 @@ function fillActions(row, repo, reload){
   row.append(promoteQa, promoteProd, rollback);
 }
 
-// ---- the pausable dev→qa schedule (pipeline.json, sha CAS) ------------------
+// ---- the pausable dev→stage schedule (pipeline.json, sha CAS) ------------------
 function fillSchedule(box, repo, loaded, reload){
   let { json: cfg, sha } = loaded;
-  const p = cfg.promoteToQa || {};
+  const p = cfg.promoteToStage || {};
 
   const render = () => {
     box.innerHTML = '';
     const row = el('div', { class: 'fo-row tiny' });
     const state = p.enabled === false ? 'off' : p.paused ? 'paused' : 'on';
-    row.append(el('span', { class: 'muted', html: `${icon('clock')} Scheduled dev→qa:` }));
+    row.append(el('span', { class: 'muted', html: `${icon('clock')} Scheduled dev→stage:` }));
 
     const stateSel = el('select', { class: 'input input-sm' });
     [['on', 'On'], ['paused', 'Paused'], ['off', 'Off']].forEach(([v, t]) =>
@@ -264,20 +264,20 @@ function fillSchedule(box, repo, loaded, reload){
     save.onclick = async () => {
       if(needToken()) return;
       const v = stateSel.value;
-      const next = { ...cfg, promoteToQa: { ...p,
+      const next = { ...cfg, promoteToStage: { ...p,
         enabled: v !== 'off', paused: v === 'paused', everyHours: parseInt(cadSel.value, 10) } };
       try{
         await putRepoJson(repo, PIPELINE_PATH, next, sha,
           `pipeline: schedule ${v}${v !== 'off' ? `, every ${cadSel.value}h` : ''} (via Manager)`);
         toast('Schedule saved', { kind: 'ok', body: 'Takes effect on the next hourly tick.' });
         ({ json: cfg, sha } = await getRepoJson(repo, PIPELINE_PATH));
-        Object.assign(p, cfg.promoteToQa || {});
+        Object.assign(p, cfg.promoteToStage || {});
         render(); reload();
       }catch(e){
         if(e.status === 409){
           // CAS lost: someone else edited pipeline.json — reload, never clobber.
           toast('pipeline.json changed upstream', { kind: 'warn', body: 'Reloaded the latest — re-apply your change.' });
-          try{ ({ json: cfg, sha } = await getRepoJson(repo, PIPELINE_PATH)); Object.assign(p, cfg.promoteToQa || {}); render(); }catch{}
+          try{ ({ json: cfg, sha } = await getRepoJson(repo, PIPELINE_PATH)); Object.assign(p, cfg.promoteToStage || {}); render(); }catch{}
         }else toast('GitHub call failed', { kind: 'err', body: e.message });
       }
     };
