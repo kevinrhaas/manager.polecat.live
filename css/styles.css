@@ -829,7 +829,7 @@ a.link:hover{text-decoration:underline}
 .fo-next{max-width:100%;line-height:1.3}
 /* model-pin selector — compact, sits between cadence and slices; lights up
    when a lane pins a model (like ×N does) so a pinned lane reads at a glance */
-.fo-model{max-width:88px;padding:5px 22px 5px 8px;flex:0 0 auto}
+.fo-model{max-width:112px;padding:5px 22px 5px 8px;flex:0 0 auto}
 .fo-model.pinned{color:var(--brand-b);border-color:color-mix(in srgb,var(--brand-b) 55%,var(--border));
   background:color-mix(in srgb,var(--brand-b) 12%,var(--surface));font-weight:650}
 /* slices-per-run selector — compact, sits between cadence and the gear; wide
