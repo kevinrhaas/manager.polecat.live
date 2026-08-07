@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 105,
+    title: 'Pipeline speaks plainly: dev, stage, main',
+    kind: 'polish',
+    ts: '2026-08-07T00:18:32.558Z',
+    date: '',
+    items: [
+      'The release console now matches the fleet\u2019s renamed pipeline: the middle step is called stage (not qa) \u2014 stage cards, promote buttons, schedule config and preview links all follow, and the hosted previews live at /stage/.',
+    ],
+  },
+  {
     v: 104,
     title: 'Pipeline: a release console for staged dev → qa → prod delivery',
     kind: 'feature',
