@@ -1,0 +1,11 @@
+# The changelog is append-at-the-top, so two branches that each ship an entry
+# insert at the same line and collide — every time, whatever the content.
+# union keeps BOTH insertions instead of raising a conflict; the repo's stamp
+# tool then assigns the version numbers (authors write `v: null`).
+# See polecat-platform docs/SHELL-API.md § the fleet changelog contract.
+#
+# Hazard, accepted knowingly: two branches editing the SAME EXISTING entry
+# differently would keep both copies rather than conflict. The contract check
+# catches that — versions must be strictly decreasing — and editing a shipped
+# entry is rare, while prepending happens every run.
+js/changelog.js merge=union

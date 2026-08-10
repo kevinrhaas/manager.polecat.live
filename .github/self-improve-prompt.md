@@ -48,7 +48,8 @@ first.
 - **Update `ROADMAP.md`**: move what you did to Done with today's date; add any
   follow-ups you discovered to Next.
 - **Add a `CHANGELOG` entry** in `js/changelog.js` for anything user-visible: a
-  new object at the TOP of the array with a bumped `v`, a short `title`, `ts: ''`
+  new object at the TOP of the array with `v: null` (the stamper assigns the
+  number — guessing "top + 1" collides with a concurrent run), a short `title`, `ts: ''`
   (an EMPTY string — the workflow stamps the real ship time; never write a date
   yourself), and 1–4 plain-language `items`. This feeds the in-app "What's new".
 

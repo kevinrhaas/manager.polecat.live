@@ -63,8 +63,11 @@ js/access.js          ECDSA invite/admin gate (UX gating, not security)
   fleet-wide; the rules below are Manager's local restatement.
 - **The changelog contract is sacred** (platform SHELL-API.md § contract):
   `js/changelog.js` stays fleet-format and parseable — Manager's own ingest and
-  the polecat.live launcher read it live. New entries go on TOP with `ts: ''`;
-  stamp with `node .github/stamp-changelog.mjs` before merge.
+  the polecat.live launcher read it live. New entries go on TOP with `ts: ''`
+  AND `v: null` — the stamper assigns the number, because two branches that
+  each guess "top + 1" both get it wrong. Stamp with
+  `node .github/stamp-changelog.mjs` before merge; `.gitattributes` keeps the
+  merge itself conflict-free (polecat-platform docs/SHELL-API.md).
 - **Smoke before ship**: `PW_EXECUTABLE=… node .github/smoke-test.mjs` —
   Playwright drives the real app, desktop + mobile widths, zero pageerrors.
   Mobile is a release gate. Smoke is ADVISORY in CI — never a deploy gate;

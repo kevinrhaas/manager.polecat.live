@@ -30,6 +30,42 @@ src = src.replace(/ts:\s*'([^']*)'/, (m, val) => {
   return m;
 });
 
+
+// ---- version assignment (fleet contract, 2026-08-10) ----------------------
+// Authors write `v: null`; the number is assigned HERE, after any merge, where
+// the real answer is knowable. Two branches that each prepend an entry both
+// compute the same "top + 1", and whichever merges second is silently wrong.
+// See polecat-platform docs/SHELL-API.md, and the `merge=union` half of the fix
+// in .gitattributes — deriving the number alone does not stop the conflict.
+//
+// Numbered by POSITION, top being newest, because this tool patches text rather
+// than parsing entries: re-serialising the file to sort by ts would reformat
+// entries it did not author. Entries that already have a version are never
+// touched — Manager keys release rows on `v` and every reader's "seen" marker
+// compares against it, so renumbering history would re-notify everyone.
+{
+  const nulls = [...src.matchAll(/v:\s*null/g)];
+  if (nulls.length) {
+    const firstNumbered = src.match(/v:\s*(\d+)/);
+    const base = firstNumbered ? Number(firstNumbered[1]) : 0;
+    for (let i = nulls.length - 1, n = base; i >= 0; i--) {
+      const m = nulls[i];
+      src = src.slice(0, m.index) + `v: ${++n}` + src.slice(m.index + m[0].length);
+    }
+    console.log(`Assigned ${nulls.length} changelog version(s) from v${base}.`);
+  }
+  // A stamper that emits a duplicate version is worse than one that stops: the
+  // duplicate ships and the contract check only catches it later, if at all.
+  const vs = [...src.matchAll(/v:\s*(\d+)/g)].map((m) => Number(m[1]));
+  for (let i = 1; i < vs.length; i++) {
+    if (vs[i - 1] <= vs[i]) {
+      console.error(`changelog: versions not strictly decreasing (v${vs[i - 1]} then `
+        + `v${vs[i]}) — refusing to write.`);
+      process.exit(1);
+    }
+  }
+}
+
 await writeFile(FILE, src);
 console.log(changed
   ? `Stamped top changelog entry: ${nowIso}`
