@@ -2608,6 +2608,51 @@ try {
     });
   });
 
+  // ---------- Fleet project top-up ----------
+  // LAST on purpose: it reloads the page twice and rewrites the workspace, so
+  // it must not run in front of a check that assumes the current view.
+  console.log('Fleet projects');
+  await check('a workspace seeded before a fleet project existed picks it up on next load, and a project you deleted stays deleted', async () => {
+    // seed() only runs against a BLANK database, so a project added to
+    // fleetProjects() used to reach new workspaces only. topUpFleetProjects()
+    // closes that, and the one thing it must never do is resurrect a row the
+    // user deliberately deleted — hence both halves here.
+    const LS = 'manager.workspace.v1';
+    const has = () => page.evaluate(async () => {
+      const { Store } = await import('/js/store.js');
+      return Store.projects().some((p) => p.id === 'chicago-4d');
+    });
+    const reload = async () => { await page.reload({ waitUntil: 'domcontentloaded' }); await page.waitForTimeout(500); };
+    const original = await page.evaluate((k) => localStorage.getItem(k), LS);
+    try {
+      // Rewind to a pre-top-up workspace: no meta.seededProjects, row absent.
+      await page.evaluate((k) => {
+        const db = JSON.parse(localStorage.getItem(k));
+        delete db.meta.seededProjects;
+        delete db.projects['chicago-4d'];
+        localStorage.setItem(k, JSON.stringify(db));
+      }, LS);
+      await reload();
+      const addedOnce = await has();
+      const recorded = await page.evaluate((k) =>
+        (JSON.parse(localStorage.getItem(k)).meta.seededProjects || []).includes('chicago-4d'), LS);
+
+      // Now delete it the way a user would, and load again.
+      await page.evaluate((k) => {
+        const db = JSON.parse(localStorage.getItem(k));
+        delete db.projects['chicago-4d'];
+        localStorage.setItem(k, JSON.stringify(db));
+      }, LS);
+      await reload();
+      const stayedDeleted = !(await has());
+
+      return addedOnce && recorded && stayedDeleted;
+    } finally {
+      await page.evaluate(([k, v]) => { if (v) localStorage.setItem(k, v); }, [LS, original]);
+      await reload();
+    }
+  });
+
   if (errors.length) { console.error('\nConsole/page errors:\n' + errors.join('\n')); failed = true; }
 } catch (e) {
   console.error('SUITE CRASH: ' + e.message); failed = true;

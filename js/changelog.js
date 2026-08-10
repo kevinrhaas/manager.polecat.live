@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 107,
+    title: 'Chicago 4D joins the fleet',
+    kind: 'feature',
+    ts: '2026-08-10T01:19:36.998Z',
+    date: '',
+    items: [
+      'A new project tile: Chicago 4D, a walkable, source-cited 3D reconstruction of downtown Chicago in the summer of 1835 — every building generated from a record whose attributes are tagged documented, inferred or conjectural.',
+      'It runs on its own continuous steward lane (hourly, scoped to the chicago/4d subtree of the custom repo), so its releases, health and steward PRs now show up alongside every other project.',
+      'Fleet projects added after you first opened Manager now appear on their own instead of only reaching brand-new workspaces — and a project you deleted stays deleted.',
+    ],
+  },
+  {
     v: 106,
     title: 'Fleet Ops: pick the model each improve lane runs on',
     kind: 'feature',

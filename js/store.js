@@ -152,6 +152,13 @@ export const Store = new (class {
         raw.settings = { ...DEFAULT_SETTINGS, ...(raw.settings||{}) };
         TABLES.forEach(t=>raw[t]=raw[t]||{});
         raw.meta = raw.meta||{};
+        // Fleet projects added since this workspace was seeded. Persist right
+        // here rather than waiting for the next write — the top-up is
+        // idempotent, but leaving it unsaved would re-run (and re-insert a
+        // deleted row) on every load until something else happened to save.
+        if(topUpFleetProjects(raw)){
+          try{ localStorage.setItem(LS_KEY, JSON.stringify(raw)); }catch{}
+        }
         return raw;
       }
     }catch{}
@@ -1132,13 +1139,19 @@ export const Store = new (class {
 })();
 
 // ---- seed ----------------------------------------------------------------
-// The fleet we're actually connecting to — the six repos in scope, INCLUDING
-// Manager itself. Assessments are qualitative summaries (editable); we never
-// fabricate version numbers or ship times for other projects.
-function seed(db){
-  const now = Date.now();
-  db.meta.seededAt = now;
-  const P = [
+// The fleet we're actually connecting to, INCLUDING Manager itself. Assessments
+// are qualitative summaries (editable); we never fabricate version numbers or
+// ship times for other projects.
+//
+// This list is also what topUpFleetProjects() reconciles an already-seeded
+// workspace against, so adding a row here reaches existing users too — see
+// below for why that needs care.
+//
+// A hoisted function, NOT a const: `Store` is constructed at module-evaluation
+// time near the top of this file and its _load() reaches down here, so a const
+// declared at this point in the file would still be in its temporal dead zone
+// and throw on boot. Same reason for seedRow/topUpFleetProjects below.
+function fleetProjects(){ return [
     { id:'manager', name:'Manager', repo:'kevinrhaas/manager.polecat.live', site:'https://manager.polecat.live',
       status:'live', icon:'gauge', pinned:true, cadence:'GitHub Action · hourly',
       tags:['console','tooling','static'],
@@ -1169,8 +1182,51 @@ function seed(db){
       tags:['workspace','analytics','ai'],
       description:'A mixed Pentaho solution-engineering workspace.',
       assessment:'A mixed engineering workspace: Pentaho solution-engineering assets, analytics and data-catalog content, AI/agentic experiments, demos, and automation. Many self-contained projects, not one deployed site.' },
-  ];
-  P.forEach(p=>{ db.projects[p.id] = { slug:p.id, sessionUrl:'', fields:{}, createdAt:now, updatedAt:now, ...p }; });
+    { id:'chicago-4d', name:'Chicago 4D', repo:'kevinrhaas/custom', site:'https://kevinrhaas.github.io/custom/chicago/4d/',
+      status:'building', icon:'history', pinned:false, cadence:'GitHub Action · hourly',
+      tags:['3d','history','research','static'],
+      description:'A walkable, source-cited 3D reconstruction of 1835 Chicago.',
+      assessment:'A walkable reconstruction of downtown Chicago in the summer of 1835, built as a research dataset with renderers attached: every building is generated from a record whose every attribute is tagged documented, inferred or conjectural, and the walkthrough can shade the whole town by how much of it is actually known. Lives in the `custom` monorepo under chicago/4d; the steward lane is scoped to that subtree.' },
+]; }
+
+// The ids the ORIGINAL seed shipped, frozen. topUpFleetProjects() uses this to
+// decide what an already-seeded workspace has "already been offered" — it must
+// stay a literal, never be derived from fleetProjects(), or every future
+// addition would look pre-offered and never reach anyone.
+function legacySeedIds(){ return ['manager','relay','games','polecat','polecat-app','solution-engineering']; }
+
+function seedRow(p, now){ return { slug:p.id, sessionUrl:'', fields:{}, createdAt:now, updatedAt:now, ...p }; }
+
+// Give an EXISTING workspace the fleet projects added since it was seeded.
+// seed() only ever runs against a blank database, so before this a new row in
+// fleetProjects() reached nobody who already had Manager open — the fleet would
+// steward a project the console didn't know existed (and fleetRepos(), which is
+// derived from the projects table, wouldn't scan its steward PRs).
+//
+// A delete must stay deleted, so this tracks ids OFFERED rather than ids
+// present: once an id is in meta.seededProjects it is never inserted again,
+// whatever the user did with it afterwards.
+function topUpFleetProjects(db){
+  const meta = db.meta;
+  if(!Array.isArray(meta.seededProjects)) meta.seededProjects = legacySeedIds();
+  const offered = new Set(meta.seededProjects);
+  const now = Date.now();
+  let changed = false;
+  fleetProjects().forEach(p=>{
+    if(offered.has(p.id)) return;
+    meta.seededProjects.push(p.id);
+    if(!db.projects[p.id]) db.projects[p.id] = seedRow(p, now);
+    changed = true;
+  });
+  return changed;
+}
+
+function seed(db){
+  const now = Date.now();
+  const P = fleetProjects();
+  db.meta.seededAt = now;
+  db.meta.seededProjects = P.map(p=>p.id);
+  P.forEach(p=>{ db.projects[p.id] = seedRow(p, now); });
 
   const rel = (projectId, v, title, ts, items, kind='feature')=>{
     const id = uuid();

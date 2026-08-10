@@ -22,6 +22,20 @@ with new, ambitious, fun ideas.
 
 ## Done (recent)
 
+- [x] **Chicago 4D joins the fleet** (2026-08-10): a seventh project row —
+      a walkable, source-cited 3D reconstruction of downtown Chicago in the
+      summer of 1835, living in the `custom` monorepo under `chicago/4d` and
+      running its own continuous steward lane (hourly, opus, scoped to that
+      subtree). Because `fleetRepos()` is derived from the projects table,
+      registering it is also what makes Manager scan its steward PRs.
+      Uncovered and fixed a latent gap while doing it: `seed()` only ever runs
+      against a BLANK database, so any project added to the fleet list reached
+      new workspaces only — existing ones would have stewarded a project the
+      console never showed. `topUpFleetProjects()` now reconciles on load,
+      tracking ids **offered** rather than ids present so a project the user
+      deleted is never resurrected. Covered by a new smoke check that rewinds
+      a workspace to its pre-top-up shape and asserts both halves.
+
 - [x] **Pipeline section — the release console** (2026-08-06): stage cards for
       every repo carrying `.github/pipeline.json` (dev/stage/prod SHAs +
       ahead-counts, last stage-promotion verdict, live-run indicator), the three
