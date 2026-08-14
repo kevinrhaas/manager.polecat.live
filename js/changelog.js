@@ -9,6 +9,19 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 108,
+    title: 'The release console stopped assuming every pipeline looks like the pilot',
+    kind: 'feature',
+    ts: '2026-08-14T05:19:16.194Z',
+    date: '',
+    items: [
+      'Pipeline drew every card as the three-tier pilot: dev, stage, prod, at the domain root, behind workflows named promote-to-stage.yml and friends. That was the only shape that existed when the section was built, and it was quietly load-bearing — a project shaped differently got a card full of wrong branches and buttons that dispatched workflows it does not contain.',
+      'A repo now declares its own shape in the .github/pipeline.json the console was already reading: which tiers it has and in what order, where each one publishes, and what its workflows are actually called. Anything it does not say still falls back to the pilot, so the existing cards are unchanged.',
+      'Ahead-counts follow from the declaration rather than from hardcoded pairs, so a two-tier project reads "dev is N ahead of prod" instead of comparing against a stage branch that was never created. A verb the repo does not have draws no button at all, the status line reports whichever promotion is the gated one, and the schedule editor stays hidden where nothing is scheduled — an empty cadence box invites someone to set a number no workflow will ever read.',
+      'First one through: Chicago 4D, which ships two tiers out of one subtree of a monorepo of unrelated projects, at a path rather than a domain root, behind workflow names prefixed to keep out of the other tenants’ way. It needed no Manager change beyond this one, which was the point.',
+    ],
+  },
+  {
     v: 107,
     title: 'Chicago 4D joins the fleet',
     kind: 'feature',

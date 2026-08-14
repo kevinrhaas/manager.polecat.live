@@ -47,6 +47,22 @@ with new, ambitious, fun ideas.
       getRepoJson/putRepoJson). Pilot repo: jobtracker (its docs/PIPELINE.md
       is the runbook); any repo that adopts the pipeline appears automatically.
 
+- [x] **Pipeline cards read their shape from the repo** (2026-08-14): the
+      three-tier pilot shape was hardcoded and quietly load-bearing — a repo
+      shaped differently got the wrong branches on its rows and buttons that
+      dispatched workflows it does not contain. `pipeline.json` may now declare
+      `tiers` (which branches, in what order), `paths` (where each publishes,
+      for a tenant that is not at a domain root), `workflows` (the dispatch
+      targets, `null` for a verb the repo lacks) and `label`; everything absent
+      still falls back to the pilot, so jobtracker and analytics are unchanged.
+      Ahead-counts derive from the declared order rather than fixed pairs, the
+      status line falls back to the prod promotion where there is no stage one,
+      and the schedule editor is hidden where nothing is scheduled. First
+      adopter: `kevinrhaas/custom` → chicago/4d, two tiers, at a subpath,
+      `chicago-4d-`-prefixed workflows — no per-repo Manager change.
+      (Also fixed here: `repoCard` was handed `getRepoJson`'s `{json, sha}`
+      envelope and would have read the shape off the wrapper.)
+
 ## Next (discovered / queued)
 
 - [x] **Vendored shell caught up to v0.6.1** (shipped 2026-08-01) — closes tech

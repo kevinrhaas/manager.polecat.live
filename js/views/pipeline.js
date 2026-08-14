@@ -22,11 +22,47 @@ import {
 } from '../github.js';
 
 const PIPELINE_PATH = '.github/pipeline.json';
-const STAGES = [
+
+// The THREE-tier pilot's shape (jobtracker, analytics). It is the default, not
+// the law: a repo declares its own shape in .github/pipeline.json and this view
+// honours the declaration. That keeps the "adopting the pipeline lights up a
+// card with zero Manager changes" property while letting a repo that is not
+// shaped like the pilot say so — kevinrhaas/custom runs a TWO-tier dev → main
+// pipeline for one subtree of a monorepo, at a subpath, with its own workflow
+// names, and none of that needed a special case here.
+const DEFAULT_STAGES = [
   { branch: 'dev',  label: 'Dev',  sub: 'integration',  path: '/dev/' },
   { branch: 'stage', label: 'Stage', sub: 'candidate',   path: '/stage/' },
   { branch: 'main', label: 'Prod', sub: 'production',   path: '/'     },
 ];
+const DEFAULT_WORKFLOWS = {
+  promoteToStage: 'promote-to-stage.yml',
+  promoteToProd: 'promote-to-prod.yml',
+  rollbackProd: 'rollback-prod.yml',
+};
+
+/**
+ * The card's shape for one repo, from its own pipeline.json.
+ *
+ * `tiers` names which branches appear and in what order; `paths` overrides where
+ * each one publishes (a monorepo tenant lives under a prefix, not at the root);
+ * `workflows` names the dispatch targets, and a NULL entry means that verb does
+ * not exist here and its button is not drawn. `label` renames the card, because
+ * "custom" is a monorepo of unrelated projects and the pipeline covers exactly
+ * one subtree of it.
+ */
+function shapeOf(cfg){
+  const declared = Array.isArray(cfg?.tiers) && cfg.tiers.length ? cfg.tiers : null;
+  const stages = (declared ? declared : DEFAULT_STAGES.map(s => s.branch))
+    .map(branch => DEFAULT_STAGES.find(s => s.branch === branch)
+      ?? { branch, label: branch, sub: '', path: `/${branch}/` })
+    .map(s => ({ ...s, path: cfg?.paths?.[s.branch] ?? s.path }));
+  const workflows = { ...DEFAULT_WORKFLOWS, ...(cfg?.workflows || {}) };
+  // A repo with no stage tier has no stage promotion to run or report on,
+  // whatever the workflow map happens to say.
+  if(!stages.some(s => s.branch === 'stage')) workflows.promoteToStage = null;
+  return { stages, workflows, label: cfg?.label || null };
+}
 
 const errNote = (e) => `<span class="${/rate.?limit/i.test(e.message) ? 'fo-warn' : 'fo-err'} tiny">${icon('warning')} ${escapeHtml(e.message)}</span>`;
 
@@ -86,7 +122,10 @@ function siteFor(repo){
 
 function repoCard(repo, cfgLoaded){
   const card = el('div', { class: 'card pl-card' });
-  const name = repo.split('/')[1] || repo;
+  // cfgLoaded is getRepoJson's `{ json, sha }` envelope — the sha is what
+  // fillSchedule's compare-and-swap write needs — so the CONFIG is `.json`.
+  const shape = shapeOf(cfgLoaded?.json);
+  const name = shape.label || repo.split('/')[1] || repo;
   const site = siteFor(repo);
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">${escapeHtml(name)}</h2>
     <span class="sp"></span>
@@ -98,27 +137,34 @@ function repoCard(repo, cfgLoaded){
   const schedBox = el('div', { class: 'pl-sched' });
   card.append(stagesBox, stageBox, btnRow, schedBox);
 
-  const reload = () => { clearGhCache(); fillStages(stagesBox, repo, site); fillStage(stageBox, repo); };
-  fillStages(stagesBox, repo, site);
-  fillStage(stageBox, repo);
-  fillActions(btnRow, repo, reload);
-  fillSchedule(schedBox, repo, cfgLoaded, reload);
+  const reload = () => { clearGhCache(); fillStages(stagesBox, repo, site, shape); fillStage(stageBox, repo, shape); };
+  fillStages(stagesBox, repo, site, shape);
+  fillStage(stageBox, repo, shape);
+  fillActions(btnRow, repo, reload, shape, name);
+  // No scheduled promotion means no schedule editor — an empty one invites
+  // someone to set a cadence that nothing reads.
+  if(shape.workflows.promoteToStage) fillSchedule(schedBox, repo, cfgLoaded, reload);
   return card;
 }
 
 // ---- stage rows: sha + subject + ahead-of-next badge ------------------------
-async function fillStages(box, repo, site){
+async function fillStages(box, repo, site, shape){
+  const STAGES = shape.stages;
   box.innerHTML = `<span class="tiny muted">${icon('refresh')} Reading branches…</span>`;
   try{
-    const [dev, stg, main] = await Promise.all(STAGES.map(s => getBranch(repo, s.branch).catch(() => null)));
-    const by = { dev, stage: stg, main };
+    const heads = await Promise.all(STAGES.map(s => getBranch(repo, s.branch).catch(() => null)));
+    const by = Object.fromEntries(STAGES.map((s, i) => [s.branch, heads[i]]));
     // Ahead counts, each independently fault-tolerant (a missing branch or a
-    // rate-limited compare must not blank the whole card).
-    const [devAhead, stageAhead] = await Promise.all([
-      dev && stg ? compareRefs(repo, 'stage', 'dev').then(c => c.ahead_by).catch(() => null) : null,
-      stg && main ? compareRefs(repo, 'main', 'stage').then(c => c.ahead_by).catch(() => null) : null,
-    ]);
-    const ahead = { dev: devAhead, stage: stageAhead, main: null };
+    // rate-limited compare must not blank the whole card). Each tier is measured
+    // against the NEXT one in the declared order, so a two-tier pipeline asks
+    // "how far is dev ahead of main" and a three-tier one still asks about stage.
+    const aheadPairs = await Promise.all(STAGES.map(async (s, i) => {
+      const next = STAGES[i + 1];
+      if(!next || !by[s.branch] || !by[next.branch]) return [s.branch, null];
+      return [s.branch, await compareRefs(repo, next.branch, s.branch)
+        .then(c => c.ahead_by).catch(() => null)];
+    }));
+    const ahead = Object.fromEntries(aheadPairs);
     box.innerHTML = '';
     STAGES.forEach(s => {
       const b = by[s.branch];
@@ -146,18 +192,23 @@ async function fillStages(box, repo, site){
 }
 
 // ---- last stage promotion = the stage status record -------------------------------
-async function fillStage(box, repo){
+async function fillStage(box, repo, shape){
+  // A two-tier pipeline has no stage promotion; its status record is the PROD
+  // promotion, which is the only gated step it has.
+  const wf = shape.workflows.promoteToStage || shape.workflows.promoteToProd;
+  const noun = shape.workflows.promoteToStage ? 'stage promotion' : 'promotion';
+  if(!wf){ box.innerHTML = ''; return; }
   try{
-    const runs = await workflowRuns(repo, 'promote-to-stage.yml', 5);
+    const runs = await workflowRuns(repo, wf, 5);
     // The newest COMPLETED run is the verdict; an in-flight one shows as live.
     const live = runs.find(r => r.status !== 'completed');
     const done = runs.find(r => r.status === 'completed');
-    if(!live && !done){ box.innerHTML = `<span class="tiny muted">No stage promotions yet.</span>`; return; }
+    if(!live && !done){ box.innerHTML = `<span class="tiny muted">No ${noun}s yet.</span>`; return; }
     const bits = [];
     if(live) bits.push(`<span class="fo-dot live"></span> promotion running <a href="${escapeHtml(live.html_url)}" target="_blank" rel="noopener">${icon('external')}</a>`);
     if(done){
       const ok = done.conclusion === 'success';
-      bits.push(`<span class="fo-dot ${ok ? 'ok' : 'err'}"></span> last stage promotion <b>${escapeHtml(done.conclusion)}</b>
+      bits.push(`<span class="fo-dot ${ok ? 'ok' : 'err'}"></span> last ${noun} <b>${escapeHtml(done.conclusion)}</b>
         · ${ago(new Date(done.updated_at).getTime())}
         <a href="${escapeHtml(done.html_url)}" target="_blank" rel="noopener">${icon('external')}</a>`);
     }
@@ -175,8 +226,9 @@ function needToken(){
   return true;
 }
 
-function fillActions(row, repo, reload){
-  const name = repo.split('/')[1] || repo;
+function fillActions(row, repo, reload, shape, cardName){
+  const name = cardName || repo.split('/')[1] || repo;
+  const WF = shape.workflows;
 
   const promoteQa = el('button', { class: 'btn sm', html: `${icon('play')} Promote dev → stage` });
   promoteQa.onclick = async () => {
@@ -188,27 +240,35 @@ function fillActions(row, repo, reload){
     });
     if(!ok) return;
     try{
-      await dispatchRepoWorkflow(repo, 'promote-to-stage.yml', { reason: 'Dispatched from Manager (Pipeline view)' });
+      await dispatchRepoWorkflow(repo, WF.promoteToStage, { reason: 'Dispatched from Manager (Pipeline view)' });
       toast('stage promotion dispatched', { kind: 'ok', body: 'The run is the status record — this card refreshes shortly.' });
       setTimeout(reload, 4000);
     }catch(e){ toast('GitHub call failed', { kind: 'err', body: e.message }); }
   };
 
-  const promoteProd = el('button', { class: 'btn sm primary', html: `${icon('rocket')} Promote stage → prod` });
+  const fromTier = WF.promoteToStage ? 'stage' : 'dev';
+  const promoteProd = el('button', { class: 'btn sm primary', html: `${icon('rocket')} Promote ${fromTier} → prod` });
   promoteProd.onclick = async () => {
     if(needToken()) return;
     const stageGreen = promoteProd.closest('.pl-card')?.querySelector('.pl-stage-status')?.dataset.stageGreen === '1';
     const ok = await confirmDialog({
       title: `Ship ${name} to production?`,
-      message: stageGreen
-        ? 'Merges stage into main, tags release-vNNN, freezes a /v/ snapshot, and publishes. The workflow re-checks that the latest stage promotion is green before merging.'
-        : 'The latest stage promotion is NOT green — the workflow will refuse unless forced. Dispatching anyway sends force=true. Are you sure?',
-      okText: stageGreen ? 'Ship it' : 'Force-ship anyway', danger: !stageGreen,
+      // A two-tier repo has no stage to be green or red, so the three-tier
+      // warning would be describing a gate it does not have.
+      message: !WF.promoteToStage
+        ? `Back-merges main into ${fromTier} (so a hotfix is never lost), merges ${fromTier} into main with --no-ff, re-checks the changelog contract after both merges, and publishes.`
+        : stageGreen
+          ? 'Merges stage into main, tags release-vNNN, freezes a /v/ snapshot, and publishes. The workflow re-checks that the latest stage promotion is green before merging.'
+          : 'The latest stage promotion is NOT green — the workflow will refuse unless forced. Dispatching anyway sends force=true. Are you sure?',
+      okText: (stageGreen || !WF.promoteToStage) ? 'Ship it' : 'Force-ship anyway',
+      danger: !!WF.promoteToStage && !stageGreen,
     });
     if(!ok) return;
     try{
-      await dispatchRepoWorkflow(repo, 'promote-to-prod.yml', stageGreen ? {} : { force: 'true' });
-      toast('prod promotion dispatched', { kind: 'ok', body: 'It tags the release and archives a /v/ snapshot.' });
+      await dispatchRepoWorkflow(repo, WF.promoteToProd, stageGreen || !WF.promoteToStage ? {} : { force: 'true' });
+      toast('prod promotion dispatched', { kind: 'ok',
+        body: WF.promoteToStage ? 'It tags the release and archives a /v/ snapshot.'
+          : 'The run is the status record — this card refreshes shortly.' });
       setTimeout(reload, 4000);
     }catch(e){ toast('GitHub call failed', { kind: 'err', body: e.message }); }
   };
@@ -229,13 +289,17 @@ function fillActions(row, repo, reload){
     });
     if(!ok) return;
     try{
-      await dispatchRepoWorkflow(repo, 'rollback-prod.yml', {});
+      await dispatchRepoWorkflow(repo, WF.rollbackProd, {});
       toast('Rollback dispatched', { kind: 'ok', body: 'main gets a revert commit and redeploys.' });
       setTimeout(reload, 4000);
     }catch(e){ toast('GitHub call failed', { kind: 'err', body: e.message }); }
   };
 
-  row.append(promoteQa, promoteProd, rollback);
+  // Only the verbs this repo actually has. A button that dispatches a workflow
+  // the repo does not contain fails with a 404 the user cannot act on.
+  if(WF.promoteToStage) row.append(promoteQa);
+  if(WF.promoteToProd) row.append(promoteProd);
+  if(WF.rollbackProd) row.append(rollback);
 }
 
 // ---- the pausable dev→stage schedule (pipeline.json, sha CAS) ------------------
