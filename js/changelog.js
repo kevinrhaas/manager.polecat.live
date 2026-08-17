@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 109,
+    title: '4D Board: roomier layout, real up/down arrows, and click-through detail',
+    kind: 'polish',
+    ts: '2026-08-17T21:48:34.990Z',
+    items: [
+      'The queue now fills the width as a grid of larger, easier-to-read cards — each numbered by its priority — with the In progress / Blocked / Done columns tucked into a compact side rail instead of leaving most of the screen empty.',
+      'The reorder controls are proper up/down arrows now (they were rendering sideways), and clicking any card opens the full ticket — its fields plus the ticket’s own write-up, pulled straight from the repo, with a link to it on GitHub.',
+    ],
+  },
+  {
     v: 108,
     title: 'New: a 4D Chicago ticket board you can reorder',
     kind: 'feature',
