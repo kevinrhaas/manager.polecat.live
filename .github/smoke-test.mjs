@@ -1346,7 +1346,7 @@ try {
     for (let i = 0; i < 16; i++) {
       await page.waitForTimeout(400);
       const settled = await page.evaluate(() =>
-        !![...document.querySelectorAll('#view .bd-board, #view .card')].find((n) => !/Loading tickets/.test(n.textContent)));
+        !![...document.querySelectorAll('#view .bd-layout, #view .card')].find((n) => !/Loading tickets/.test(n.textContent)));
       if (settled) return true;
     }
     return false;

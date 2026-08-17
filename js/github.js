@@ -291,6 +291,13 @@ export async function getRepoText(repo, path, ref = 'main'){
   const f = await gh(`/repos/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`);
   return { text: b64decode(f.content), sha: f.sha };
 }
+// List a repo directory (contents API returns an array for a dir) — the board
+// uses it to resolve a ticket id to its `T-NNNN-<slug>.md` file, whose slug is
+// truncated and not reconstructable from the title alone.
+export async function getRepoDir(repo, path, ref = 'main'){
+  const arr = await gh(`/repos/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`);
+  return Array.isArray(arr) ? arr : [];
+}
 export function putRepoText(repo, path, text, sha, { message, branch = 'main' } = {}){
   return gh(`/repos/${repo}/contents/${encodeURIComponent(path)}`, {
     method: 'PUT',

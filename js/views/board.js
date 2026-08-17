@@ -9,14 +9,16 @@
 //   • QUEUE.md      — the priority order, top = next. **The owner orders this
 //                     file** (agents only append/remove). This is the one file
 //                     Manager writes: reordering the queue rewrites it.
+//   • T-NNNN-*.md   — one file per ticket: front matter + the ask/acceptance.
 //
-// So this view READS tickets.json to draw the board (grouped by state), and the
-// Queue column is reorderable — moving a ticket up/down and committing rewrites
-// QUEUE.md on `dev` via the contents API (sha compare-and-swap, vault token).
-// (This is ticket T-0030, "A queue card in Manager reading tickets.json".)
-import { el, escapeHtml, toast, confirmDialog } from '../ui.js';
+// This view READS tickets.json to draw the board (a wide, numbered Queue plus
+// compact In-progress / Blocked / Done columns), opens a ticket's full detail
+// on click (fetching its .md), and lets the owner reorder the Queue — moving a
+// ticket and committing rewrites QUEUE.md on `dev` via the contents API (sha
+// compare-and-swap, vault token). (This is ticket T-0030.)
+import { el, escapeHtml, toast, confirmDialog, modal, mdToHtml } from '../ui.js';
 import { icon } from '../icons.js';
-import { ghToken, whoami, getRepoJson, getRepoText, putRepoText, clearGhCache } from '../github.js';
+import { ghToken, getRepoJson, getRepoText, getRepoDir, putRepoText, clearGhCache } from '../github.js';
 
 const TICKETS = {
   repo: 'kevinrhaas/custom',
@@ -24,20 +26,28 @@ const TICKETS = {
   label: '4D Chicago',
   jsonPath: 'chicago/4d/tickets/tickets.json',
   queuePath: 'chicago/4d/tickets/QUEUE.md',
+  dirPath: 'chicago/4d/tickets',
   dirUrl: 'https://github.com/kevinrhaas/custom/tree/dev/chicago/4d/tickets',
 };
 
-// state → board column. `open` tickets are the reorderable queue; everything
-// else is a read-only status column. `withdrawn` is hidden.
-const COLUMNS = [
-  { key: 'queue',    title: 'Queue',        states: ['open'],                       hint: 'top = next · reorder to reprioritise' },
-  { key: 'progress', title: 'In progress',  states: ['claimed', 'review'],          hint: 'claimed or in review' },
-  { key: 'blocked',  title: 'Blocked',      states: ['blocked-owner', 'blocked-tech'], hint: 'waiting on a decision or a fix' },
-  { key: 'done',     title: 'Done',         states: ['done'],                       hint: 'shipped' },
+// The read-only status columns (the Queue is rendered separately). `withdrawn`
+// is hidden.
+const STATUS_COLS = [
+  { key: 'progress', title: 'In progress', states: ['claimed', 'review'],             hint: 'claimed or in review' },
+  { key: 'blocked',  title: 'Blocked',     states: ['blocked-owner', 'blocked-tech'], hint: 'waiting on a decision or a fix' },
+  { key: 'done',     title: 'Done',        states: ['done'],                          hint: 'shipped' },
 ];
-const colFor = (state) => (COLUMNS.find(c => c.states.includes(state)) || {}).key;
 
 const errNote = (e) => `<span class="${/rate.?limit/i.test(e.message) ? 'fo-warn' : 'fo-err'} tiny">${icon('warning')} ${escapeHtml(e.message)}</span>`;
+
+function stripFrontMatter(text){
+  const s = String(text || '');
+  if(s.startsWith('---')){
+    const end = s.indexOf('\n---', 3);
+    if(end !== -1){ const nl = s.indexOf('\n', end + 1); return s.slice(nl + 1).trim(); }
+  }
+  return s.trim();
+}
 
 export function renderBoard(root, ctx){
   root.innerHTML = '';
@@ -47,38 +57,41 @@ export function renderBoard(root, ctx){
   title.innerHTML = `<span style="color:var(--brand-b);display:inline-flex">${icon('board')}</span><h2>4D Board</h2>
     <span class="muted tiny">${escapeHtml(TICKETS.label)} — the reconstruction ticket queue</span>`;
   title.append(el('span', { class: 'sp' }));
-  const refresh = el('button', { class: 'btn ghost sm', html: `${icon('refresh')} Refresh`, title: 'Reload tickets from GitHub',
-    onclick: () => load(true) });
-  const ghLink = el('a', { class: 'btn ghost sm', href: TICKETS.dirUrl, target: '_blank', rel: 'noopener',
-    html: `${icon('external')} GitHub`, title: 'Open the tickets folder on GitHub' });
-  title.append(refresh, ghLink);
+  title.append(
+    el('button', { class: 'btn ghost sm', html: `${icon('refresh')} Refresh`, title: 'Reload tickets from GitHub', onclick: () => load(true) }),
+    el('a', { class: 'btn ghost sm', href: TICKETS.dirUrl, target: '_blank', rel: 'noopener', html: `${icon('external')} GitHub`, title: 'Open the tickets folder on GitHub' }));
   wrap.append(title);
 
   const intro = el('p', { class: 'tiny muted', style: 'margin:0 0 12px' });
-  intro.innerHTML = `The board reads <span class="mono">${escapeHtml(TICKETS.jsonPath)}</span> on <span class="mono">${escapeHtml(TICKETS.branch)}</span>. The <b>Queue</b> is owner-ordered — drag priorities with the arrows, then <b>Commit order</b> to rewrite <span class="mono">QUEUE.md</span>. A vault token (Fleet Ops) is needed to commit.`;
+  intro.innerHTML = `The board reads <span class="mono">${escapeHtml(TICKETS.jsonPath)}</span> on <span class="mono">${escapeHtml(TICKETS.branch)}</span>. Click a card for its full ticket. The <b>Queue</b> is owner-ordered — reorder with the arrows, then <b>Commit order</b> to rewrite <span class="mono">QUEUE.md</span> (a vault token is needed to commit).`;
   wrap.append(intro);
 
   const body = el('div', { html: `<div class="card"><span class="tiny muted">Loading tickets…</span></div>` });
   wrap.append(body);
   root.append(wrap);
 
-  // working state: the current queue order (array of open-ticket ids), the raw
-  // tickets, and the QUEUE.md sha for a safe write.
   let tickets = [];
   let queueOrder = [];      // ids of open tickets, in the order shown
-  let queueSha = null, queueText = '';
+  let queueSha = null;
   let dirty = false;
+  let fileById = new Map(); // id → { name, path } for the ticket .md files
+
+  const byId = (id) => tickets.find(t => t.id === id);
 
   const load = async (fresh = false) => {
+    if(fresh) clearGhCache();
     body.innerHTML = '';
     body.append(el('div', { class: 'card', html: `<span class="tiny muted">Loading tickets…</span>` }));
     try{
-      const [{ json }, q] = await Promise.all([
+      const [{ json }, q, dir] = await Promise.all([
         getRepoJson(TICKETS.repo, TICKETS.jsonPath, TICKETS.branch),
-        getRepoText(TICKETS.repo, TICKETS.queuePath, TICKETS.branch).catch(() => ({ text: '', sha: null })),
+        getRepoText(TICKETS.repo, TICKETS.queuePath, TICKETS.branch).catch(() => ({ sha: null })),
+        getRepoDir(TICKETS.repo, TICKETS.dirPath, TICKETS.branch).catch(() => []),
       ]);
       tickets = Array.isArray(json?.tickets) ? json.tickets : [];
-      queueText = q.text; queueSha = q.sha;
+      queueSha = q.sha;
+      fileById = new Map();
+      for(const e of dir){ const m = (e.name || '').match(/^(T-\d+)-.*\.md$/); if(m) fileById.set(m[1], { name: e.name, path: e.path }); }
       queueOrder = tickets.filter(t => t.state === 'open')
         .sort((a, b) => (a.queue_rank ?? 1e9) - (b.queue_rank ?? 1e9))
         .map(t => t.id);
@@ -92,8 +105,6 @@ export function renderBoard(root, ctx){
       body.append(card);
     }
   };
-
-  const byId = (id) => tickets.find(t => t.id === id);
 
   const move = (id, dir) => {
     const i = queueOrder.indexOf(id);
@@ -110,8 +121,7 @@ export function renderBoard(root, ctx){
       message: `This rewrites ${TICKETS.queuePath} on ${TICKETS.branch} so the top of the queue is what the loop picks up next.`, okText: 'Commit to ' + TICKETS.branch });
     if(!ok) return;
     try{
-      // fresh sha right before writing (someone may have edited it since load)
-      const q = await getRepoText(TICKETS.repo, TICKETS.queuePath, TICKETS.branch);
+      const q = await getRepoText(TICKETS.repo, TICKETS.queuePath, TICKETS.branch);   // fresh sha
       const next = rewriteQueue(q.text, queueOrder, byId);
       if(next === q.text){ dirty = false; toast('Queue already in this order', { kind: 'ok' }); render(); return; }
       await putRepoText(TICKETS.repo, TICKETS.queuePath, next, q.sha, {
@@ -129,45 +139,71 @@ export function renderBoard(root, ctx){
     body.innerHTML = '';
     if(!tickets.length){ body.append(el('div', { class: 'card', html: '<span class="tiny muted">No tickets.</span>' })); return; }
 
-    // commit bar (only when the queue order changed)
+    // commit bar
     const bar = el('div', { class: 'bd-commitbar' + (dirty ? ' on' : '') });
-    bar.append(el('span', { class: 'tiny muted', text: dirty ? 'Queue order changed — not yet on GitHub.' : '' }),
-      el('span', { class: 'sp' }));
-    const commitBtn = el('button', { class: 'btn sm primary', html: `${icon('check')} Commit order`, disabled: !dirty, onclick: commit });
-    const resetBtn = el('button', { class: 'btn ghost sm', html: `${icon('refresh')} Reset`, disabled: !dirty, onclick: () => load(false) });
-    bar.append(resetBtn, commitBtn);
+    bar.append(el('span', { class: 'tiny muted', text: dirty ? 'Queue order changed — not yet on GitHub.' : '' }), el('span', { class: 'sp' }));
+    bar.append(
+      el('button', { class: 'btn ghost sm', html: `${icon('refresh')} Reset`, disabled: !dirty, onclick: () => load(false) }),
+      el('button', { class: 'btn sm primary', html: `${icon('check')} Commit order`, disabled: !dirty, onclick: commit }));
     body.append(bar);
 
-    const board = el('div', { class: 'bd-board' });
-    for(const col of COLUMNS){
-      const items = col.key === 'queue'
-        ? queueOrder.map(byId).filter(Boolean)
-        : tickets.filter(t => col.states.includes(t.state));
-      const column = el('div', { class: 'bd-col bd-col-' + col.key });
+    const layout = el('div', { class: 'bd-layout' });
+
+    // --- the Queue: a wide, numbered card grid ---------------------------
+    const queueTickets = queueOrder.map(byId).filter(Boolean);
+    const qcol = el('div', { class: 'bd-queue' });
+    const qhead = el('div', { class: 'bd-col-head' });
+    qhead.innerHTML = `<h3>Queue <span class="bd-count">${queueTickets.length}</span></h3><span class="tiny muted">top = next · reorder to reprioritise</span>`;
+    qcol.append(qhead);
+    const grid = el('div', { class: 'bd-qgrid' });
+    if(!queueTickets.length) grid.append(el('div', { class: 'tiny muted', text: 'Queue is empty.' }));
+    queueTickets.forEach((t, idx) => grid.append(queueCard(t, idx, queueTickets.length)));
+    qcol.append(grid);
+    layout.append(qcol);
+
+    // --- the status columns: compact sidebar -----------------------------
+    const side = el('div', { class: 'bd-side' });
+    for(const col of STATUS_COLS){
+      const items = tickets.filter(t => col.states.includes(t.state));
+      const c = el('div', { class: 'bd-col bd-col-' + col.key });
       const head = el('div', { class: 'bd-col-head' });
       head.innerHTML = `<h3>${escapeHtml(col.title)} <span class="bd-count">${items.length}</span></h3><span class="tiny muted">${escapeHtml(col.hint)}</span>`;
-      column.append(head);
+      c.append(head);
       const list = el('div', { class: 'bd-cards' });
-      if(!items.length){ list.append(el('div', { class: 'tiny muted bd-empty', text: '—' })); }
-      items.forEach((t, idx) => list.append(ticketCard(t, col.key, idx, items.length)));
-      column.append(list);
-      board.append(column);
+      if(!items.length) list.append(el('div', { class: 'tiny muted bd-empty', text: '—' }));
+      items.forEach(t => list.append(statusCard(t)));
+      c.append(list);
+      side.append(c);
     }
-    body.append(board);
+    layout.append(side);
+    body.append(layout);
   }
 
-  const ticketCard = (t, colKey, idx, n) => {
-    const card = el('div', { class: 'bd-card' + (t.requested_by === 'owner' ? ' is-owner' : '') });
-    // reorder controls (queue column only)
-    if(colKey === 'queue'){
-      const ctrls = el('div', { class: 'bd-move' });
-      ctrls.append(
-        el('button', { class: 'btn ghost icon xs bd-up', title: 'Move up', 'aria-label': `Move ${t.id} up`, disabled: idx === 0,
-          html: icon('chevron'), onclick: () => move(t.id, -1) }),
-        el('button', { class: 'btn ghost icon xs bd-down', title: 'Move down', 'aria-label': `Move ${t.id} down`, disabled: idx === n - 1,
-          html: icon('chevron'), onclick: () => move(t.id, +1) }));
-      card.append(ctrls);
-    }
+  // one queue card: rank number + up/down + the ticket, click opens detail
+  const queueCard = (t, idx, n) => {
+    const card = el('div', { class: 'bd-card is-click' + (t.requested_by === 'owner' ? ' is-owner' : ''),
+      role: 'button', tabindex: '0', onclick: () => openDetail(t),
+      onkeydown: (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openDetail(t); } } });
+    const gutter = el('div', { class: 'bd-gutter' });
+    gutter.append(el('span', { class: 'bd-rank mono', text: String(idx + 1) }));
+    const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
+    gutter.append(el('div', { class: 'bd-move' }, [
+      el('button', { class: 'btn ghost icon xs', title: 'Higher priority (up)', 'aria-label': `Move ${t.id} up`, disabled: idx === 0, html: icon('chev-up'), onclick: stop(() => move(t.id, -1)) }),
+      el('button', { class: 'btn ghost icon xs', title: 'Lower priority (down)', 'aria-label': `Move ${t.id} down`, disabled: idx === n - 1, html: icon('chev-down'), onclick: stop(() => move(t.id, +1)) }),
+    ]));
+    card.append(gutter, cardMain(t));
+    return card;
+  };
+
+  const statusCard = (t) => {
+    const card = el('div', { class: 'bd-card is-click' + (t.requested_by === 'owner' ? ' is-owner' : ''),
+      role: 'button', tabindex: '0', onclick: () => openDetail(t),
+      onkeydown: (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openDetail(t); } } });
+    card.append(cardMain(t));
+    return card;
+  };
+
+  const cardMain = (t) => {
     const main = el('div', { class: 'bd-card-main' });
     const idRow = el('div', { class: 'bd-card-id' });
     idRow.append(el('span', { class: 'bd-tid mono', text: t.id }));
@@ -183,9 +219,44 @@ export function renderBoard(root, ctx){
     if(t.pr) chips.append(el('span', { class: 'bd-chip', text: 'PR #' + t.pr }));
     if(t.legacy_id) chips.append(el('span', { class: 'bd-chip ghost', title: 'previous id', text: t.legacy_id }));
     if(chips.children.length) main.append(chips);
-    card.append(main);
-    return card;
+    return main;
   };
+
+  // ticket detail: the fields from tickets.json + the ticket's own .md body,
+  // fetched lazily and rendered as markdown.
+  async function openDetail(t){
+    const file = fileById.get(t.id);
+    const box = el('div', { class: 'bd-detail' });
+
+    const meta = el('div', { class: 'bd-detail-meta' });
+    const field = (k, v) => { if(v == null || v === '' || v === false) return;
+      meta.append(el('div', { class: 'bd-detail-row', html: `<span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(String(v))}</span>` })); };
+    field('State', t.state); field('Epic', t.epic); field('Requested by', t.requested_by);
+    field('Effort', t.effort); if(t.needs_bake) field('Needs bake', 'yes'); if(t.seen) field('Seen', 'yes');
+    field('Opened', t.opened); field('Closed', t.closed); field('PR', t.pr ? '#' + t.pr : '');
+    field('Claimed by', t.claimed_by); field('Blocked on', t.blocked_on); field('Legacy id', t.legacy_id);
+    box.append(meta);
+
+    const bodyEl = el('div', { class: 'bd-detail-body', html: `<span class="tiny muted">Loading ticket…</span>` });
+    box.append(bodyEl);
+
+    const foot = [];
+    if(file) foot.push(el('a', { class: 'btn ghost sm', href: `https://github.com/${TICKETS.repo}/blob/${TICKETS.branch}/${file.path}`, target: '_blank', rel: 'noopener', html: `${icon('external')} GitHub` }));
+    const closeBtn = el('button', { class: 'btn primary', text: 'Close' });
+    foot.push(closeBtn);
+    const { hide } = modal({ title: `${t.id} — ${t.title || ''}`, icon: icon('board'), body: box, foot });
+    closeBtn.onclick = () => hide();
+
+    if(!file){ bodyEl.innerHTML = `<span class="tiny muted">No ticket file found for ${escapeHtml(t.id)} in the listing.</span>`; return; }
+    try{
+      const { text } = await getRepoText(TICKETS.repo, file.path, TICKETS.branch);
+      const md = stripFrontMatter(text);
+      bodyEl.innerHTML = '';
+      bodyEl.append(el('div', { class: 'notes-md', html: mdToHtml(md) || '<span class="tiny muted">No description in the ticket.</span>' }));
+    }catch(e){
+      bodyEl.innerHTML = `<span class="tiny muted">Couldn’t load the ticket body.</span>`;
+    }
+  }
 
   load();
 }
