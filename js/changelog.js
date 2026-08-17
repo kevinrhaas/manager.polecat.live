@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 108,
+    title: 'New: a 4D Chicago ticket board you can reorder',
+    kind: 'feature',
+    ts: '2026-08-17T21:07:30.894Z',
+    items: [
+      'A new 4D Board section reads the 4D Chicago project’s tickets (from kevinrhaas/custom) and lays them out by state — Queue, In progress, Blocked, Done — each card showing its epic and owner/seen/needs-bake flags.',
+      'The Queue is the owner-ordered priority list: move a ticket up or down with the arrows and Commit order, and Manager rewrites the project’s QUEUE.md on GitHub (a safe compare-and-swap write). Reordering needs the Fleet Ops vault token; without one the board is read-only.',
+    ],
+  },
+  {
     v: 107,
     title: 'Chicago 4D joins the fleet',
     kind: 'feature',

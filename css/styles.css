@@ -1184,6 +1184,42 @@ a.link:hover{text-decoration:underline}
   .filter-chip-custom .fc-del{padding:14px 8px 14px 3px}
 }
 
+/* ---- 4D board (chicago/4d ticket queue) --------------------------------- */
+.bd-commitbar{display:flex;align-items:center;gap:8px;margin:0 0 12px;min-height:30px}
+.bd-commitbar:not(.on){opacity:.7}
+.bd-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
+.bd-col{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;min-width:0}
+.bd-col-head h3{margin:0;font-size:13px;display:flex;align-items:center;gap:8px}
+.bd-count{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text-2);
+  background:var(--surface-3);border-radius:999px;padding:1px 8px}
+.bd-col-head .tiny{display:block;margin-top:2px}
+.bd-col-queue{border-color:color-mix(in srgb,var(--brand-b) 40%,var(--border))}
+.bd-cards{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.bd-empty{padding:6px 2px}
+.bd-card{display:flex;gap:8px;align-items:flex-start;padding:9px 10px;border:1px solid var(--border);
+  border-radius:10px;background:var(--surface-2);min-width:0}
+.bd-card.is-owner{border-color:color-mix(in srgb,var(--brand-b) 45%,var(--border));
+  background:color-mix(in srgb,var(--brand-b) 7%,var(--surface-2))}
+.bd-move{display:flex;flex-direction:column;gap:2px;flex:0 0 auto}
+.btn.icon.xs{width:22px;height:22px;padding:0;border-radius:6px}
+.btn.icon.xs svg{width:13px;height:13px}
+.bd-up svg{transform:rotate(180deg)}
+.bd-card-main{min-width:0;flex:1}
+.bd-card-id{display:flex;align-items:center;gap:7px}
+.bd-tid{font-size:11px;font-weight:700;color:var(--brand-b)}
+.bd-epic{font-size:9.5px;font-weight:650;letter-spacing:.04em;color:var(--text-3);
+  border:1px solid var(--border);border-radius:5px;padding:1px 5px;text-transform:uppercase}
+.bd-card-title{font-size:12.5px;line-height:1.35;margin-top:3px;overflow-wrap:anywhere}
+.bd-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.bd-chip{font-size:9.5px;font-weight:650;line-height:1;padding:2px 6px;border-radius:5px;
+  color:var(--text-2);background:var(--surface-3)}
+.bd-chip.owner{color:var(--brand-b);background:color-mix(in srgb,var(--brand-b) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--brand-b) 34%,transparent)}
+.bd-chip.warn{color:var(--warning);background:color-mix(in srgb,var(--warning) 14%,transparent)}
+.bd-chip.ghost{color:var(--text-3);background:transparent;border:1px solid var(--border)}
+@media (max-width:900px){ .bd-board{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:560px){ .bd-board{grid-template-columns:1fr} }
+
 @media (prefers-reduced-motion: reduce){
   *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
