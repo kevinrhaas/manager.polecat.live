@@ -282,3 +282,18 @@ export function putRepoJson(repo, path, value, sha, message){
     body: { message, content: b64encode(JSON.stringify(value, null, 2) + '\n'), sha, branch: 'main' },
   });
 }
+
+// Generic text file read/write over the contents API (branch-aware) — used by
+// the 4D Chicago ticket board, which reads tickets.json (via getRepoJson) and
+// rewrites the owner-ordered QUEUE.md on the project's working branch. Writes
+// carry the file's sha so a concurrent edit 409s instead of clobbering.
+export async function getRepoText(repo, path, ref = 'main'){
+  const f = await gh(`/repos/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`);
+  return { text: b64decode(f.content), sha: f.sha };
+}
+export function putRepoText(repo, path, text, sha, { message, branch = 'main' } = {}){
+  return gh(`/repos/${repo}/contents/${encodeURIComponent(path)}`, {
+    method: 'PUT',
+    body: { message, content: b64encode(text), sha, branch },
+  });
+}

@@ -15,6 +15,7 @@ import { renderProject } from './views/project.js';
 import { renderReleases, unreadReleasesCount, markReleasesSeen } from './views/releases.js';
 import { renderActivity } from './views/activity.js';
 import { renderFleetOps, renderStewardLog } from './views/fleetops.js';
+import { renderBoard } from './views/board.js';
 import { renderPipeline } from './views/pipeline.js';
 import { renderCredentials } from './views/credentials.js';
 import { renderDocs } from './views/docs.js';
@@ -36,7 +37,7 @@ const OVERLAY_OPEN_SEL = '.modal-back.in, .cmdk.show, .ps-rpanel.in, .tour-pop.s
 const TITLES = { home:'Dashboard', projects:'Projects', project:'Project', releases:'Releases', activity:'Activity', fleetops:'Fleet Ops',
   pipeline:'Pipeline', stewardlog:'Steward log', credentials:'Credentials', docs:'Docs', admin:'Admin', settings:'Settings' };
 const RENDERERS = { home:renderHome, projects:renderProjects, project:renderProject, releases:renderReleases, activity:renderActivity,
-  fleetops:renderFleetOps, pipeline:renderPipeline, stewardlog:renderStewardLog, credentials:renderCredentials, docs:renderDocs, admin:renderAdmin, settings:renderSettings };
+  fleetops:renderFleetOps, pipeline:renderPipeline, stewardlog:renderStewardLog, board:renderBoard, credentials:renderCredentials, docs:renderDocs, admin:renderAdmin, settings:renderSettings };
 
 // Rail sections (shell format): `minMode:'standard'` items hide in Simple
 // mode; `admin` items appear only when the Admin area is unlocked.
@@ -49,6 +50,7 @@ const SECTIONS = [
   { key:'fleetops',    label:'Fleet Ops',   icon:'rocket',   minMode:'standard' },
   { key:'pipeline',    label:'Pipeline',    icon:'branch',   minMode:'standard' },
   { key:'stewardlog',  label:'Steward log', icon:'clock',    minMode:'standard' },
+  { key:'board',       label:'4D Board',    icon:'board',    minMode:'standard' },
   { group:'Setup' },
   { key:'credentials', label:'Credentials', icon:'key',      minMode:'standard' },
   { key:'docs',        label:'Docs',        icon:'book' },

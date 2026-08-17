@@ -1338,6 +1338,43 @@ try {
     if ((await count('#view .card')) < 3) return false;
     return foBodiesSettle();
   });
+  await check('4D board section renders and settles (tickets read from GitHub, degrades to an inline note offline)', async () => {
+    if (!(await openSec('board'))) return false;
+    // the board's own chrome must render regardless of whether GitHub is reachable
+    if (!(await page.$eval('#view .section-title h2', (n) => /4D Board/i.test(n.textContent)).catch(() => false))) return false;
+    // it settles into either the board grid (data) or an inline card (offline/404) — never a stuck spinner or a pageerror
+    for (let i = 0; i < 16; i++) {
+      await page.waitForTimeout(400);
+      const settled = await page.evaluate(() =>
+        !![...document.querySelectorAll('#view .bd-board, #view .card')].find((n) => !/Loading tickets/.test(n.textContent)));
+      if (settled) return true;
+    }
+    return false;
+  });
+  await check('4D board: rewriteQueue reorders QUEUE.md by id while preserving header, labels, and every line', async () => {
+    return await page.evaluate(async () => {
+      const m = await import('/js/views/board.js');
+      const text = [
+        '# QUEUE — top is next. THE OWNER ORDERS THIS FILE.',
+        '# Reorder by moving lines.',
+        'T-0001 — First ticket',
+        'T-0002 — Second ticket',
+        'T-0003 — Third ticket',
+      ].join('\n');
+      const out = m.rewriteQueue(text, ['T-0003', 'T-0001', 'T-0002'], (id) => ({ title: 'fallback' }));
+      const ids = out.split('\n').map((l) => (l.match(/^(T-\d+)\b/) || [])[1]).filter(Boolean);
+      const okOrder = ids.join(',') === 'T-0003,T-0001,T-0002';
+      const okHeader = out.startsWith('# QUEUE') && out.includes('# Reorder by moving lines.');
+      const okLabels = out.includes('T-0001 — First ticket') && out.includes('T-0003 — Third ticket');
+      // an id present in the order but missing from the file falls back to "id — title"
+      const out2 = m.rewriteQueue(text, ['T-0009', 'T-0001', 'T-0002', 'T-0003'], (id) => ({ title: 'new one' }));
+      const okFallback = out2.includes('T-0009 — new one');
+      // an id in the file but not in the order is never dropped
+      const out3 = m.rewriteQueue(text, ['T-0002'], () => ({}));
+      const kept = out3.split('\n').filter((l) => /^T-/.test(l)).length === 3;
+      return okOrder && okHeader && okLabels && okFallback && kept;
+    });
+  });
   await check('fleet ops control room renders: connect, roster, dispatch, and coming-up cards settle without errors', async () => {
     if (!(await openSec('fleetops'))) return false;
     if (!(await $('.fo-connect'))) return false;
