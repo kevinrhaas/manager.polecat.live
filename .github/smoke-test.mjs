@@ -1361,6 +1361,9 @@ try {
         'T-0002 — Second ticket',
         'T-0003 — Third ticket',
       ].join('\n');
+      // queue order comes from QUEUE.md, in file order (not tickets.json queue_rank)
+      const pids = m.parseQueueIds(['# QUEUE — header', '# note', 'T-0046 — a', 'T-0049 — b', 'T-0004 — c'].join('\n'));
+      if(pids.join(',') !== 'T-0046,T-0049,T-0004') return false;
       const out = m.rewriteQueue(text, ['T-0003', 'T-0001', 'T-0002'], (id) => ({ title: 'fallback' }));
       const ids = out.split('\n').map((l) => (l.match(/^(T-\d+)\b/) || [])[1]).filter(Boolean);
       const okOrder = ids.join(',') === 'T-0003,T-0001,T-0002';
