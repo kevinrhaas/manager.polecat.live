@@ -63,7 +63,7 @@ export function renderBoard(root, ctx){
   wrap.append(title);
 
   const intro = el('p', { class: 'tiny muted', style: 'margin:0 0 12px' });
-  intro.innerHTML = `The board reads <span class="mono">${escapeHtml(TICKETS.jsonPath)}</span> on <span class="mono">${escapeHtml(TICKETS.branch)}</span>. Click a card for its full ticket. The <b>Queue</b> is owner-ordered — reorder with the arrows, then <b>Commit order</b> to rewrite <span class="mono">QUEUE.md</span> (a vault token is needed to commit).`;
+  intro.innerHTML = `Ticket data from <span class="mono">${escapeHtml(TICKETS.jsonPath)}</span>, queue order from <span class="mono">QUEUE.md</span> (the file the loop reads), both on <span class="mono">${escapeHtml(TICKETS.branch)}</span>. Click a card for its full ticket. Reorder the <b>Queue</b> with the arrows, then <b>Commit order</b> to rewrite <span class="mono">QUEUE.md</span> (a vault token is needed to commit).`;
   wrap.append(intro);
 
   const body = el('div', { html: `<div class="card"><span class="tiny muted">Loading tickets…</span></div>` });
@@ -92,9 +92,17 @@ export function renderBoard(root, ctx){
       queueSha = q.sha;
       fileById = new Map();
       for(const e of dir){ const m = (e.name || '').match(/^(T-\d+)-.*\.md$/); if(m) fileById.set(m[1], { name: e.name, path: e.path }); }
-      queueOrder = tickets.filter(t => t.state === 'open')
-        .sort((a, b) => (a.queue_rank ?? 1e9) - (b.queue_rank ?? 1e9))
-        .map(t => t.id);
+      // ORDER comes from QUEUE.md — it is the file the owner reorders and the
+      // loop reads, and it is authoritative the moment it is committed. Do NOT
+      // order by tickets.json's queue_rank: that field is regenerated from
+      // QUEUE.md by the project's `ticket.mjs board` run, so between a reorder
+      // and that regeneration it is stale — which made the board disagree with
+      // the file and look like reordering "didn't take". Fall back to queue_rank
+      // only if QUEUE.md couldn't be read.
+      const qIds = parseQueueIds(q.text || '');
+      queueOrder = qIds.length
+        ? qIds.filter(id => byId(id))
+        : tickets.filter(t => t.state === 'open').sort((a, b) => (a.queue_rank ?? 1e9) - (b.queue_rank ?? 1e9)).map(t => t.id);
       dirty = false;
       render();
     }catch(e){
@@ -162,9 +170,12 @@ export function renderBoard(root, ctx){
     layout.append(qcol);
 
     // --- the status columns: compact sidebar -----------------------------
+    // Anything in QUEUE.md belongs to the Queue (the file is the source of
+    // truth); the status columns show tickets by state that are NOT queued.
+    const queueSet = new Set(queueOrder);
     const side = el('div', { class: 'bd-side' });
     for(const col of STATUS_COLS){
-      const items = tickets.filter(t => col.states.includes(t.state));
+      const items = tickets.filter(t => col.states.includes(t.state) && !queueSet.has(t.id));
       const c = el('div', { class: 'bd-col bd-col-' + col.key });
       const head = el('div', { class: 'bd-col-head' });
       head.innerHTML = `<h3>${escapeHtml(col.title)} <span class="bd-count">${items.length}</span></h3><span class="tiny muted">${escapeHtml(col.hint)}</span>`;
@@ -259,6 +270,16 @@ export function renderBoard(root, ctx){
   }
 
   load();
+}
+
+// The ticket ids in QUEUE.md, in file order — the authoritative queue order.
+export function parseQueueIds(text){
+  const ids = [];
+  for(const line of String(text || '').split('\n')){
+    const m = line.match(/^(T-\d+)\b/);
+    if(m) ids.push(m[1]);
+  }
+  return ids;
 }
 
 // Rewrite QUEUE.md so its ticket lines follow `order` (an array of ids). Leading

@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 111,
+    title: '4D Board: the queue now always matches QUEUE.md',
+    kind: 'fix',
+    ts: '2026-08-19T16:08:57.007Z',
+    items: [
+      'The board was ordering the queue by a field in tickets.json that the project only regenerates on its own schedule — so right after you reordered and committed, it could snap back to the old order and look out of sync with the actual QUEUE.md.',
+      'It now takes the queue order straight from QUEUE.md — the file you’re editing and the loop reads — so a commit is reflected immediately and the board always matches the file.',
+    ],
+  },
+  {
     v: 110,
     title: 'Fleet Ops: Fable is now a schedulable model',
     kind: 'feature',
