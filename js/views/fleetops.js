@@ -293,7 +293,7 @@ function rosterCard(onChange){
       modelSel = el('select', { class: 'input fo-cad fo-model' + (a.model ? ' pinned' : ''),
         'aria-label': `Model for ${display}`,
         title: 'Model — which Claude model this lane’s improve runs use. “auto” is the fleet default: opus.' });
-      [['', 'auto (opus)'], ['claude-sonnet-5', 'sonnet'], ['claude-opus-5', 'opus'], ['claude-haiku-4-5', 'haiku']]
+      [['', 'auto (opus)'], ['claude-fable-5', 'fable'], ['claude-sonnet-5', 'sonnet'], ['claude-opus-5', 'opus'], ['claude-haiku-4-5', 'haiku']]
         .forEach(([v, t]) => modelSel.append(el('option', { value: v, text: t, selected: (a.model || '') === v })));
       modelSel.addEventListener('change', () => {
         if(modelSel.value) a.model = modelSel.value; else delete a.model;
