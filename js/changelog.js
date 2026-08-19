@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 110,
+    title: 'Fleet Ops: Fable is now a schedulable model',
+    kind: 'feature',
+    ts: '2026-08-19T12:05:03.637Z',
+    items: [
+      'The per-app model picker in the Focus roster now offers Fable alongside auto, Sonnet, Opus, and Haiku — pin a lane to it and its scheduled runs use that model.',
+    ],
+  },
+  {
     v: 109,
     title: '4D Board: roomier layout, real up/down arrows, and click-through detail',
     kind: 'polish',
