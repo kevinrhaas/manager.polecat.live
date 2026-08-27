@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 114,
+    title: 'Fleet Ops stops rate-limiting itself while you watch a run',
+    kind: 'fix',
+    ts: '2026-08-27T18:52:43.142Z',
+    items: [
+      'Leaving a running steward job expanded in Fleet Ops used to fire three GitHub Search queries every thirty seconds, for as long as you left it open. GitHub allows about thirty of those a minute across everything you do, so two or three expanded runs — plus the loop doing its own work — was enough to start getting refused, and the panel would show periodic errors that cleared up on their own and then came back.',
+      'The job and step breakdown still refreshes every thirty seconds, because that is the part you are actually watching. The slower-moving list of what the run has produced is now held for five minutes instead, which is about nine tenths less searching for the same picture.',
+    ],
+  },
+  {
     v: 113,
     title: 'Slices go up to ×10',
     kind: 'polish',
