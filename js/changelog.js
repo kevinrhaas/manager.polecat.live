@@ -9,6 +9,15 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 113,
+    title: 'Slices go up to ×10',
+    kind: 'polish',
+    ts: '2026-08-27T15:56:56.243Z',
+    items: [
+      'The per-app slices picker in the Focus roster now goes to ×10, up from ×5 — so a lane you want to push hard can run ten agents in parallel each time it fires. The platform\u2019s own cap was raised to match.',
+    ],
+  },
+  {
     v: 112,
     title: 'Slices now run in parallel, not one after another',
     kind: 'feature',
