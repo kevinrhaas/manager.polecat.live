@@ -475,8 +475,27 @@ const RUNS_POLL_MS = 30000;
 // because the runs card re-renders every RUNS_POLL_MS: without the cache, every
 // expanded run re-fired ~5 calls per poll INCLUDING the Search API (which has a
 // far tighter ~30/min secondary limit), which could exhaust the budget and 403
-// the whole panel. In-progress runs skip the cache (their results still grow).
+// the whole panel.
+//
+// THE IN-PROGRESS EXEMPTION WAS THE HOLE IN THAT. Skipping the cache entirely
+// for a running run is right for the job/step breakdown — that is what you are
+// watching it for — but it also re-fired the three `/search/issues` calls every
+// 30 s, for as long as the row stayed expanded. Per expanded run that is
+// 6 Search calls a minute against a limit of about 30, so two or three of them
+// plus anything else on the account crosses it, and the panel starts taking
+// periodic 403s. Reported by Kevin 2026-08-27; it is also the best candidate
+// for the secondary-limit 403 steward-improve run 1140 took at 16:05:30Z with
+// 5,000 core calls still on the clock (chicago/4d T-0234).
+//
+// So the two halves are cached differently, by what actually changes:
+//   • journal + jobs — one cheap REST call each, and they DO change as a run
+//     progresses. Refetched every poll, as before.
+//   • the three Search calls — a running run's "production" window grows, but
+//     not meaningfully twice a minute. Held for LIVE_WORK_TTL_MS.
+// Search cost per expanded in-progress run: 360/hour -> 36/hour.
 const _runDetailCache = new Map();
+const _liveWorkCache = new Map();
+const LIVE_WORK_TTL_MS = 300000;   // 5 min
 function runDetail(r){
   const d = el('div', { class: 'fo-run-detail' });
   d.innerHTML = `<span class="tiny muted">Loading run details…</span>`;
@@ -488,15 +507,30 @@ function runDetail(r){
       const isJanitor = /janitor/i.test(r.name || '');
       let data = done ? _runDetailCache.get(r.id) : null;
       if(!data){
-        const [journal, jobs, issues, prs, merged] = await Promise.all([
+        // Cheap and genuinely live — always refetched.
+        const [journal, jobs] = await Promise.all([
           journalFor(r.id).catch(() => null),
           runJobs(r.id).catch(() => []),
-          issuesCreatedBetween(start, end).catch(() => []),
-          prsCreatedBetween(start, end).catch(() => []),
-          isJanitor ? prsMergedBetween(start, end).catch(() => []) : Promise.resolve([]),
         ]);
-        data = { journal, jobs, issues, prs, merged };
-        if(done) _runDetailCache.set(r.id, data);   // immutable once completed — cache forever
+        // Expensive and slow-moving. A completed run's window is closed, so it
+        // rides the permanent cache below; a running one is held for a TTL
+        // rather than refired every poll.
+        let work = done ? null : _liveWorkCache.get(r.id);
+        if(work && Date.now() - work.at > LIVE_WORK_TTL_MS) work = null;
+        if(!work){
+          const [issues, prs, merged] = await Promise.all([
+            issuesCreatedBetween(start, end).catch(() => []),
+            prsCreatedBetween(start, end).catch(() => []),
+            isJanitor ? prsMergedBetween(start, end).catch(() => []) : Promise.resolve([]),
+          ]);
+          work = { at: Date.now(), issues, prs, merged };
+          if(!done) _liveWorkCache.set(r.id, work);
+        }
+        data = { journal, jobs, issues: work.issues, prs: work.prs, merged: work.merged };
+        if(done){
+          _runDetailCache.set(r.id, data);   // immutable once completed — cache forever
+          _liveWorkCache.delete(r.id);       // it finished; drop the interim copy
+        }
       }
       const { journal, jobs, issues, prs, merged } = data;
       d.innerHTML = '';
