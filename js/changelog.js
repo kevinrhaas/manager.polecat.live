@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 112,
+    title: 'Slices now run in parallel, not one after another',
+    kind: 'feature',
+    ts: '2026-08-27T14:17:01.055Z',
+    items: [
+      'Setting a lane to ×3 used to mean three units of work one after another — each waiting for the last to finish. It now means three runs at the same time: three agent lanes on that app at once, each with its own pull request. Hourly and ×5 fires all five when the hour comes round.',
+      'They pick different work by construction: each run is told which of the batch it is and takes that position from the app\u2019s queue, so parallel runs don\u2019t build the same thing. The lane waits for the whole batch to finish before starting the next one.',
+    ],
+  },
+  {
     v: 111,
     title: '4D Board: the queue now always matches QUEUE.md',
     kind: 'fix',
