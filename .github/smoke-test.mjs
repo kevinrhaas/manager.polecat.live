@@ -1407,7 +1407,7 @@ try {
       ok.push(m.nextRunAt({ enabled:true, until:'2026-07-16T20:35:00Z' }, new Date(Date.UTC(2026,6,16,20,30))) === null);
       ok.push(m.localInputToIso(m.isoToLocalInput('2026-07-16T21:03:00.000Z')) === '2026-07-16T21:03:00.000Z');
       // slices: default 1, clamp 1..5, and it must NOT change when a lane fires
-      ok.push(m.slicesOf({}) === 1 && m.slicesOf({ slices: 3 }) === 3 && m.slicesOf({ slices: 9 }) === 5 && m.slicesOf({ slices: 0 }) === 1);
+      ok.push(m.slicesOf({}) === 1 && m.slicesOf({ slices: 3 }) === 3 && m.slicesOf({ slices: 9 }) === 9 && m.slicesOf({ slices: 10 }) === 10 && m.slicesOf({ slices: 11 }) === 10 && m.slicesOf({ slices: 0 }) === 1);
       ok.push(m.isDueAt({ enabled:true, everyHours:1, slices:3 }, at(21)) === m.isDueAt({ enabled:true, everyHours:1 }, at(21)));
       return ok.every(Boolean);
     });

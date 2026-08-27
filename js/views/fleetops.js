@@ -312,7 +312,7 @@ function rosterCard(onChange){
       slicesSel = el('select', { class: 'input fo-cad fo-slices' + (cur > 1 ? ' boosted' : ''),
         'aria-label': `Slices per run for ${display}`,
         title: 'Slices per run — how many improve runs to fire each time this lane is due. Each is a separate unit of work with its own PR.' });
-      for(let s = 1; s <= 5; s++) slicesSel.append(el('option', { value: s, text: '×' + s, selected: cur === s }));
+      for(let s = 1; s <= 10; s++) slicesSel.append(el('option', { value: s, text: '×' + s, selected: cur === s }));
       slicesSel.addEventListener('change', () => {
         const v = parseInt(slicesSel.value, 10);
         if(v > 1) a.slices = v; else delete a.slices;
@@ -372,7 +372,7 @@ function rosterCard(onChange){
       if(!a.startAt) delete a.startAt;
       if(!a.until) delete a.until;
       if(!Array.isArray(a.window) || a.window.length !== 2) delete a.window;
-      if(!(a.slices > 1)) delete a.slices; else a.slices = Math.min(5, Math.max(2, Math.floor(a.slices)));
+      if(!(a.slices > 1)) delete a.slices; else a.slices = Math.min(10, Math.max(2, Math.floor(a.slices)));
       if(!a.model) delete a.model;
     });
     try{
