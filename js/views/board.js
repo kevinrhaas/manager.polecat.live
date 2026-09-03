@@ -16,9 +16,10 @@
 // on click (fetching its .md), and lets the owner reorder the Queue — moving a
 // ticket and committing rewrites QUEUE.md on `dev` via the contents API (sha
 // compare-and-swap, vault token). (This is ticket T-0030.)
-import { el, escapeHtml, toast, confirmDialog, modal, mdToHtml, fmtCT } from '../ui.js';
+import { el, escapeHtml, toast, confirmDialog, modal, mdToHtml, fmtCT, ago } from '../ui.js';
 import { icon } from '../icons.js';
-import { ghToken, getRepoJson, getRepoText, getRepoDir, putRepoText, clearGhCache } from '../github.js';
+import { ghToken, getRepoJson, getRepoText, getRepoDir, putRepoText, clearGhCache,
+  stewardPRs, listBranches, branchTip } from '../github.js';
 
 const TICKETS = {
   repo: 'kevinrhaas/custom',
@@ -30,10 +31,46 @@ const TICKETS = {
   dirUrl: 'https://github.com/kevinrhaas/custom/tree/dev/chicago/4d/tickets',
 };
 
+/**
+ * WHY "IN PROGRESS" CANNOT BE READ FROM tickets.json ALONE.
+ *
+ * A run claims its ticket in its FIRST commit, on its own branch — and that
+ * commit only reaches `dev` when the run's PR merges, at the very end. So for
+ * the hour or two a run is actually working, `dev` still says its ticket is
+ * `open`, and a board reading `dev` shows an empty In-progress column while
+ * five runs are mid-flight. (That is deliberate in the ticket contract: "a claim
+ * is only real once its PR merges", so two runs cannot both believe they hold
+ * one ticket. It is right for the loop and useless for watching it.)
+ *
+ * The live signal is the one the project's own `ticket.mjs inflight` uses: a
+ * REMOTE BRANCH carrying a ticket number. This view reads three sources and
+ * says which is which, because they mean different things:
+ *
+ *   claim merged   the ticket itself says claimed/review on dev
+ *   PR open        an open steward PR whose head branch carries the number
+ *   branch pushed  a branch carrying the number, pushed within the run window,
+ *                  with no PR yet — a run mid-flight, or one that died holding it
+ *
+ * Branch age is what separates the third from the graveyard: this repo carries
+ * hundreds of old steward branches, twenty of them on tickets that are still
+ * open. Only the tips pushed inside RUN_HOURS count, and only the top of the
+ * queue is dated at all — the loop takes from the top, so that is where a live
+ * branch is.
+ */
+const RUN_HOURS = 3;
+const DATE_BUDGET = 12;
+
+/** The same test `ticket.mjs branchCarries` uses: padding and separator
+ *  optional, and T-0062 must not fire on `t-0620`. */
+export function branchCarries(branch, id){
+  const n = Number(String(id).replace(/^T-/, ''));
+  if(!Number.isFinite(n)) return false;
+  return new RegExp(`(?:^|[^0-9a-z])t-?0*${n}(?![0-9])`, 'i').test(branch || '');
+}
+
 // The read-only status columns (the Queue is rendered separately). `withdrawn`
 // is hidden.
 const STATUS_COLS = [
-  { key: 'progress', title: 'In progress', states: ['claimed', 'review'],             hint: 'claimed or in review' },
   { key: 'blocked',  title: 'Blocked',     states: ['blocked-owner', 'blocked-tech'], hint: 'waiting on a decision or a fix' },
 ];
 
@@ -102,6 +139,8 @@ export function renderBoard(root, ctx){
   let queueSha = null;
   let dirty = false;
   let fileById = new Map(); // id → { name, path } for the ticket .md files
+  let inflight = [];        // [{ ticket, kind, branch, pr, when }] — live work, see the note above
+  let inflightNote = '';    // why the list is what it is, when it needs saying
 
   const byId = (id) => tickets.find(t => t.id === id);
 
@@ -132,6 +171,10 @@ export function renderBoard(root, ctx){
         : tickets.filter(t => t.state === 'open').sort((a, b) => (a.queue_rank ?? 1e9) - (b.queue_rank ?? 1e9)).map(t => t.id);
       dirty = false;
       render();
+      // Live work is a second, slower question than the board itself, and it
+      // must never hold the board up or blank it: the answer arrives and the
+      // column re-renders.
+      loadInflight().then(render).catch(() => {});
     }catch(e){
       body.innerHTML = '';
       const card = el('div', { class: 'card' });
@@ -140,6 +183,63 @@ export function renderBoard(root, ctx){
       body.append(card);
     }
   };
+
+  /**
+   * What is being worked RIGHT NOW, from the three sources above. Cost is
+   * bounded: ~5 calls for the branch list, 1 for the open PRs, and at most
+   * DATE_BUDGET tip reads — all through the shared 10-minute GET cache.
+   */
+  async function loadInflight(){
+    const workable = new Map(tickets.filter(t => ['open', 'claimed', 'review'].includes(t.state)).map(t => [t.id, t]));
+    const rank = (id) => { const i = queueOrder.indexOf(id); return i < 0 ? 9999 : i; };
+    const found = new Map();   // ticket id → entry, first source wins
+
+    // 1. a claim that has already merged — the ticket itself says so
+    for(const t of tickets){
+      if(t.state === 'claimed' || t.state === 'review'){
+        found.set(t.id, { ticket: t, kind: 'claim merged', branch: null, pr: null, when: null, run: t.claimed_run || null });
+      }
+    }
+
+    // 2. an open steward PR carrying a ticket number
+    let prs = [];
+    try{ prs = await stewardPRs(TICKETS.repo); }catch{ /* anonymous rate limit; the rest still works */ }
+    for(const pr of prs){
+      const ref = pr.head?.ref || '';
+      const hit = [...workable.values()].find(t => branchCarries(ref, t.id));
+      if(hit && !found.has(hit.id)){
+        found.set(hit.id, { ticket: hit, kind: 'PR open', branch: ref, pr, when: pr.updated_at || pr.created_at, run: hit.claimed_run || null });
+      }
+    }
+
+    // 3. a branch pushed inside the run window with no PR yet — the state a run
+    //    spends most of its life in, and the one the old column could never show
+    let branches = [];
+    try{ branches = await listBranches(TICKETS.repo); }catch{ branches = []; }
+    const candidates = [];
+    for(const b of branches){
+      const name = b.name || '';
+      if(!name.startsWith('steward/')) continue;
+      const hit = [...workable.values()].find(t => branchCarries(name, t.id));
+      if(hit && !found.has(hit.id) && !candidates.some(c => c.id === hit.id)) candidates.push({ id: hit.id, ticket: hit, name });
+    }
+    candidates.sort((a, b) => rank(a.id) - rank(b.id));
+    const dated = candidates.slice(0, DATE_BUDGET);
+    const cutoff = Date.now() - RUN_HOURS * 3600e3;
+    await Promise.allSettled(dated.map(async (c) => {
+      const tip = await branchTip(TICKETS.repo, c.name).catch(() => null);
+      const at = tip?.date ? Date.parse(tip.date) : NaN;
+      if(Number.isFinite(at) && at >= cutoff){
+        found.set(c.id, { ticket: c.ticket, kind: 'branch pushed', branch: c.name, pr: null, when: tip.date, run: null });
+      }
+    }));
+
+    inflight = [...found.values()].sort((a, b) => rank(a.ticket.id) - rank(b.ticket.id));
+    const older = candidates.length - dated.length;
+    inflightNote = older > 0
+      ? `${older} more branch${older === 1 ? '' : 'es'} sit on open tickets further down the queue; only the top ${DATE_BUDGET} are dated.`
+      : '';
+  }
 
   const move = (id, dir) => {
     const i = queueOrder.indexOf(id);
@@ -201,6 +301,11 @@ export function renderBoard(root, ctx){
     // truth); the status columns show tickets by state that are NOT queued.
     const queueSet = new Set(queueOrder);
     const side = el('div', { class: 'bd-side' });
+
+    // In progress comes FIRST and is computed, not filtered: a run's claim lives
+    // on its own branch until its PR merges, so `dev` alone cannot see it.
+    side.append(inflightCol());
+
     for(const col of STATUS_COLS){
       const items = tickets.filter(t => col.states.includes(t.state) && !queueSet.has(t.id));
       const c = el('div', { class: 'bd-col bd-col-' + col.key });
@@ -278,9 +383,61 @@ export function renderBoard(root, ctx){
       el('button', { class: 'btn ghost icon xs', title: 'Higher priority (up)', 'aria-label': `Move ${t.id} up`, disabled: idx === 0, html: icon('chev-up'), onclick: stop(() => move(t.id, -1)) }),
       el('button', { class: 'btn ghost icon xs', title: 'Lower priority (down)', 'aria-label': `Move ${t.id} down`, disabled: idx === n - 1, html: icon('chev-down'), onclick: stop(() => move(t.id, +1)) }),
     ]));
-    card.append(gutter, cardMain(t));
+    const main = cardMain(t);
+    // The same ticket can be at the top of the queue AND be the one a run is
+    // working: the claim has not merged yet, so the queue still lists it. Say so
+    // in place rather than leaving the reader to compare two columns.
+    const live = inflight.find(f => f.ticket.id === t.id);
+    if(live) main.append(el('div', { class: 'bd-inflight tiny',
+      html: `<span class="fo-dot ${KIND_DOT[live.kind] || 'muted'}"></span><span class="bd-inflight-kind">${escapeHtml(live.kind)}</span>` }));
+    card.append(gutter, main);
     return card;
   };
+
+  const KIND_DOT = { 'claim merged': 'ok', 'PR open': 'live', 'branch pushed': 'live' };
+
+  function inflightCol(){
+    const c = el('div', { class: 'bd-col bd-col-progress' });
+    const head = el('div', { class: 'bd-col-head' });
+    head.innerHTML = `<h3>In progress <span class="bd-count">${inflight.length}</span></h3>
+      <span class="tiny muted">claimed on a branch, or in review</span>`;
+    c.append(head);
+    const list = el('div', { class: 'bd-cards' });
+    if(!inflight.length){
+      list.append(el('div', { class: 'tiny muted bd-empty',
+        text: inflightNote ? '—' : 'Nothing in flight. A run\u2019s claim shows here within a minute of it pushing its branch.' }));
+    }
+    inflight.forEach((f) => {
+      const t = f.ticket;
+      const card = el('div', { class: 'bd-card is-click' + (t.requested_by === 'owner' ? ' is-owner' : ''),
+        role: 'button', tabindex: '0', onclick: () => openDetail(t),
+        onkeydown: (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openDetail(t); } } });
+      const main = cardMain(t);
+      const line = el('div', { class: 'bd-inflight tiny' });
+      line.append(el('span', { class: `fo-dot ${KIND_DOT[f.kind] || 'muted'}` }));
+      line.append(el('span', { class: 'bd-inflight-kind', text: f.kind }));
+      if(f.when) line.append(el('span', { class: 'muted', text: ago(new Date(f.when).getTime()) }));
+      if(f.pr){
+        line.append(el('a', { class: 'bd-chip link', href: f.pr.html_url, target: '_blank', rel: 'noopener',
+          text: '#' + f.pr.number, onclick: (e) => e.stopPropagation() }));
+      }
+      if(f.branch){
+        line.append(el('a', { class: 'bd-inflight-branch mono', href: `https://github.com/${TICKETS.repo}/tree/${encodeURIComponent(f.branch)}`,
+          target: '_blank', rel: 'noopener', text: f.branch.replace(/^steward\//, ''), title: f.branch,
+          onclick: (e) => e.stopPropagation() }));
+      }
+      if(f.run){
+        line.append(el('a', { class: 'bd-run', href: f.run, target: '_blank', rel: 'noopener',
+          html: `${icon('external')} run`, title: 'the steward run that claimed it', onclick: (e) => e.stopPropagation() }));
+      }
+      main.append(line);
+      card.append(main);
+      list.append(card);
+    });
+    c.append(list);
+    if(inflightNote) c.append(el('div', { class: 'tiny muted bd-inflight-note', text: inflightNote }));
+    return c;
+  }
 
   const statusCard = (t) => {
     const card = el('div', { class: 'bd-card is-click' + (t.requested_by === 'owner' ? ' is-owner' : ''),

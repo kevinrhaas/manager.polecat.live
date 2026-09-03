@@ -264,6 +264,34 @@ export async function journalRecords(){
   return out;
 }
 
+/**
+ * Every branch on a repo. Paged to a bound rather than exhaustively: 500 covers
+ * a repo that has accumulated years of steward branches, and the caller filters
+ * to the handful that carry a live ticket number.
+ */
+export async function listBranches(repo, maxPages = 5){
+  assertReachable(repo);
+  const out = [];
+  for(let page = 1; page <= maxPages; page++){
+    const b = await gh(`/repos/${repo}/branches?per_page=100&page=${page}`);
+    if(!b?.length) break;
+    out.push(...b);
+    if(b.length < 100) break;
+  }
+  return out;
+}
+
+/** A branch's tip commit — one call, used to tell a branch a run pushed twenty
+ *  minutes ago from a branch abandoned three weeks ago. */
+export async function branchTip(repo, branch){
+  assertReachable(repo);
+  const c = await gh(`/repos/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=1`);
+  const top = c?.[0];
+  if(!top) return null;
+  return { sha: top.sha, date: top.commit?.committer?.date || top.commit?.author?.date || null,
+    subject: String(top.commit?.message || '').split('\n')[0] };
+}
+
 /** Commits on a branch, newest first — used to date a merge. A ticket records
  *  when its RUN closed it, which is minutes before the PR merges; the commit
  *  whose subject ends `(#N)` is the merge itself. */
