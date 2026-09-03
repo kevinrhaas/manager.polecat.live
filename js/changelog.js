@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 116,
+    ts: '2026-09-03T17:21:03.387Z',
+    title: 'The 4D board shows what finished, and when — and the Steward log names the ticket each run took',
+    kind: 'feature',
+    items: [
+      'The Board\u2019s finished work is no longer a column of cards in ticket-number order. It is a dated list, newest first, in the order the work was actually finished \u2014 grouped by day, with the time each ticket closed and a link to the pull request that carried it.',
+      'That ordering was not possible before this week: a ticket recorded only the DAY it closed, and nineteen of them can close inside one day. The project now records the instant as well, and for the several hundred finished before that, the pull-request number carries the order.',
+      'A claimed ticket says who holds it and links straight to the steward run that took it \u2014 which is the only way to tell five runs working in parallel apart.',
+      'In the Steward log, every improve run now carries its ticket, its pull request and how it ended (merged, parked, blocked, or died) on the row itself, read from a record the run writes from its own actions rather than from its prose.',
+    ],
+  },
+  {
     v: 115,
     title: 'An API budget meter, and the last of the rate-limit waste',
     kind: 'feature',
