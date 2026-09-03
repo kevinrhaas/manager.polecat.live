@@ -22,6 +22,17 @@ with new, ambitious, fun ideas.
 
 ## Done (recent)
 
+- [x] **The Board sees work in flight, not only work merged** (2026-09-03):
+      In progress read `0` while five steward runs were working. Two causes,
+      both real: a run's claim lives on its own branch until its PR merges (the
+      ticket contract's own guard against two runs holding one ticket), and the
+      column also excluded anything still listed in QUEUE.md — which a claimed
+      ticket always is. It is now computed from three sources, each labelled:
+      claim merged, PR open, and branch pushed inside the 3-hour run window with
+      no PR yet. Branch age is the filter that keeps it honest (484 branches,
+      22 on still-open tickets); only the top of the queue is dated, since that
+      is where the loop takes from.
+
 - [x] **The 4D board answers "what finished, and when" — and the Steward log
       names the ticket each run took** (2026-09-03): the Board's finished work
       was a column of cards in ticket-number order, which is how a day's work

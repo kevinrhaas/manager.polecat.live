@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 117,
+    ts: '2026-09-03T17:40:26.947Z',
+    title: 'The Board shows the work a run is doing right now, not only the work it has finished',
+    kind: 'fix',
+    items: [
+      'In progress read zero while five steward runs were mid-flight. The reason is in how the loop guards itself: a run claims its ticket on its OWN branch, and that claim only reaches the shared branch when its pull request merges at the very end \u2014 so the shared copy still says the ticket is open for the hour or two the work actually takes.',
+      'The column is now built from the three places live work leaves a trace, and says which one each card came from: the claim has merged, a pull request is open, or a branch was pushed within the last three hours with no pull request yet \u2014 which is where a run spends most of its life.',
+      'Branch age is what keeps that honest: this repository carries hundreds of old steward branches, twenty of them on tickets still open. Only branches pushed inside the run window count, and the card links the branch, the pull request and the run.',
+      'A ticket at the top of the queue that a run is working now says so on its queue card too, instead of leaving you to compare two columns.',
+    ],
+  },
+  {
     v: 116,
     ts: '2026-09-03T17:21:03.387Z',
     title: 'The 4D board shows what finished, and when — and the Steward log names the ticket each run took',
