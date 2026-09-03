@@ -16,7 +16,7 @@
 // on click (fetching its .md), and lets the owner reorder the Queue — moving a
 // ticket and committing rewrites QUEUE.md on `dev` via the contents API (sha
 // compare-and-swap, vault token). (This is ticket T-0030.)
-import { el, escapeHtml, toast, confirmDialog, modal, mdToHtml } from '../ui.js';
+import { el, escapeHtml, toast, confirmDialog, modal, mdToHtml, fmtCT } from '../ui.js';
 import { icon } from '../icons.js';
 import { ghToken, getRepoJson, getRepoText, getRepoDir, putRepoText, clearGhCache } from '../github.js';
 
@@ -35,8 +35,35 @@ const TICKETS = {
 const STATUS_COLS = [
   { key: 'progress', title: 'In progress', states: ['claimed', 'review'],             hint: 'claimed or in review' },
   { key: 'blocked',  title: 'Blocked',     states: ['blocked-owner', 'blocked-tech'], hint: 'waiting on a decision or a fix' },
-  { key: 'done',     title: 'Done',        states: ['done'],                          hint: 'shipped' },
 ];
+
+// Finished work is its own section below the board, not a column: there are
+// several hundred of them and the question about them is WHEN, not WHERE.
+const FINISHED_PAGE = 40;
+
+/**
+ * FINISH ORDER — the order the work was actually finished in.
+ *
+ * `closed` is a Central Time DAY and nineteen tickets can close inside one, so a
+ * sort on it alone leaves ties, and ties in tickets.json fall out in ticket-id
+ * order — which is why a day's work used to read as if it had been done
+ * alphabetically. `closed_at` (the instant a run closed the ticket) has been
+ * recorded since 2026-09-03; the several hundred finished before that have only
+ * the day and their PR number, and the PR number rises with time. So: day, then
+ * instant, then PR, and the id only as a last resort.
+ */
+export function byFinish(a, b){
+  return String(b.closed ?? '').localeCompare(String(a.closed ?? ''))
+    || String(b.closed_at ?? '').localeCompare(String(a.closed_at ?? ''))
+    || (Number(b.pr) || 0) - (Number(a.pr) || 0)
+    || String(b.id).localeCompare(String(a.id));
+}
+
+/** When a ticket finished, in the project's clock. The instant when it was
+ *  recorded, the bare day when it is all there is. */
+function finishedWhen(t){
+  return t.closed_at ? fmtCT(t.closed_at) : (t.closed || '—');
+}
 
 const errNote = (e) => `<span class="${/rate.?limit/i.test(e.message) ? 'fo-warn' : 'fo-err'} tiny">${icon('warning')} ${escapeHtml(e.message)}</span>`;
 
@@ -188,6 +215,55 @@ export function renderBoard(root, ctx){
     }
     layout.append(side);
     body.append(layout);
+
+    // --- finished, newest first ------------------------------------------
+    body.append(finishedSection(tickets.filter(t => t.state === 'done').sort(byFinish)));
+  }
+
+  // The record of what has shipped, in the order it shipped. Paged rather than
+  // capped: the whole history is reachable, but the answer to "what has the loop
+  // done today" is the first screen.
+  let finishedShown = FINISHED_PAGE;
+  function finishedSection(finished){
+    const sec = el('div', { class: 'bd-finished' });
+    const head = el('div', { class: 'bd-col-head' });
+    head.innerHTML = `<h3>Finished <span class="bd-count">${finished.length}</span></h3>
+      <span class="tiny muted">newest first — the order they were finished in, not by number</span>`;
+    sec.append(head);
+    if(!finished.length){ sec.append(el('div', { class: 'tiny muted', text: 'Nothing finished yet.' })); return sec; }
+
+    const list = el('div', { class: 'bd-done-list' });
+    const draw = () => {
+      list.innerHTML = '';
+      let day = null;
+      finished.slice(0, finishedShown).forEach((t) => {
+        // A day heading, so a glance answers "what shipped today".
+        if(t.closed !== day){
+          day = t.closed;
+          list.append(el('div', { class: 'bd-done-day tiny', text: day || 'undated' }));
+        }
+        const row = el('div', { class: 'bd-done-row is-click' + (t.requested_by === 'owner' ? ' is-owner' : ''),
+          role: 'button', tabindex: '0', onclick: () => openDetail(t),
+          onkeydown: (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openDetail(t); } } });
+        const when = t.closed_at ? finishedWhen(t).replace(/^.*?, /, '').replace(/^\d{4}, /, '') : '';
+        row.innerHTML = `<span class="bd-done-when tiny mono">${escapeHtml(when || '—')}</span>
+          <span class="bd-tid mono">${escapeHtml(t.id)}</span>
+          <span class="bd-done-title">${escapeHtml(t.title || '(untitled)')}</span>`;
+        const chips = el('span', { class: 'bd-done-chips' });
+        if(t.requested_by === 'owner') chips.append(el('span', { class: 'bd-chip owner', text: 'OWNER' }));
+        if(t.pr) chips.append(el('a', { class: 'bd-chip link', href: `https://github.com/${TICKETS.repo}/pull/${t.pr}`,
+          target: '_blank', rel: 'noopener', text: '#' + t.pr, onclick: (e) => e.stopPropagation() }));
+        row.append(chips);
+        list.append(row);
+      });
+      if(finishedShown < finished.length){
+        list.append(el('button', { class: 'btn ghost sm', text: `Show ${Math.min(FINISHED_PAGE, finished.length - finishedShown)} more of ${finished.length - finishedShown}`,
+          onclick: () => { finishedShown += FINISHED_PAGE; draw(); } }));
+      }
+    };
+    draw();
+    sec.append(list);
+    return sec;
   }
 
   // one queue card: rank number + up/down + the ticket, click opens detail
@@ -230,6 +306,19 @@ export function renderBoard(root, ctx){
     if(t.pr) chips.append(el('span', { class: 'bd-chip', text: 'PR #' + t.pr }));
     if(t.legacy_id) chips.append(el('span', { class: 'bd-chip ghost', title: 'previous id', text: t.legacy_id }));
     if(chips.children.length) main.append(chips);
+    // WHO holds a claimed ticket, and where its log is. `claimed_by` is the
+    // claim time; `claimed_run` is the Actions run that took it, which is the
+    // only way to tell five parallel slices apart.
+    if(t.state === 'claimed' || t.state === 'review'){
+      const held = el('div', { class: 'bd-held tiny muted' });
+      held.append(el('span', { text: t.claimed_by || 'claimed' }));
+      if(t.claimed_run){
+        held.append(el('a', { class: 'bd-run', href: t.claimed_run, target: '_blank', rel: 'noopener',
+          title: 'the steward run holding this ticket', html: `${icon('external')} run`,
+          onclick: (e) => e.stopPropagation() }));
+      }
+      main.append(held);
+    }
     return main;
   };
 
@@ -244,7 +333,9 @@ export function renderBoard(root, ctx){
       meta.append(el('div', { class: 'bd-detail-row', html: `<span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(String(v))}</span>` })); };
     field('State', t.state); field('Epic', t.epic); field('Requested by', t.requested_by);
     field('Effort', t.effort); if(t.needs_bake) field('Needs bake', 'yes'); if(t.seen) field('Seen', 'yes');
-    field('Opened', t.opened); field('Closed', t.closed); field('PR', t.pr ? '#' + t.pr : '');
+    field('Opened', t.opened);
+    field('Finished', t.closed_at ? finishedWhen(t) + ' CT' : t.closed);
+    field('PR', t.pr ? '#' + t.pr : '');
     field('Claimed by', t.claimed_by); field('Blocked on', t.blocked_on); field('Legacy id', t.legacy_id);
     box.append(meta);
 

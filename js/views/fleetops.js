@@ -19,7 +19,8 @@ import {
   whoami, ghCred, ghToken, fleetOpsCfg, setFleetOpsCfg, clearGhCache,
   getRoster, putRoster, dispatchWorkflow, stewardRuns, stewardPRs, sweepIssues,
   checkState, fleetRepos, IMPROVE_WORKFLOW, SWEEP_WORKFLOWS,
-  runJobs, journalFor, issuesCreatedBetween, prsCreatedBetween, prsMergedBetween,
+  runJobs, journalFor, journalRecords, parseStewardRecord,
+  issuesCreatedBetween, prsCreatedBetween, prsMergedBetween,
   rateLimit, ghUsage,
 } from '../github.js';
 
@@ -589,6 +590,44 @@ const LIVE_WORK_TTL_MS = 300000;   // 5 min
 // makes repeated asks identical, which the cache can actually answer. Free:
 // the window is approximate by construction and only ever grows.
 const LIVE_WINDOW_BUCKET = 120000;
+/**
+ * WHAT A RUN PICKED UP — the line the Steward log never had.
+ *
+ * Since 2026-09-03 every improve run journals a machine-readable record built
+ * from its own tool calls (polecat-platform `.github/steward/run-record.mjs`):
+ * the ticket it claimed, the branch it pushed, the PR it opened and whether the
+ * merge actually happened. Before it, five parallel slices posted five entries
+ * under one heading and the only way to tell them apart was to read the prose.
+ * Runs older than that have no record and render exactly as they did.
+ */
+const RECORD_DOT = { merged: 'ok', open: 'live', hold: 'live', blocked: 'err', died: 'err', 'no-pr': 'muted' };
+
+function recordChip(rec, { long = false } = {}){
+  if(!rec) return null;
+  const box = el('span', { class: 'fo-record tiny' + (long ? ' fo-record-line' : '') });
+  const ticket = (rec.tickets_done || []).map(d => d.id).join(', ')
+    || (rec.tickets_claimed || []).join(', ') || 'no ticket';
+  box.append(el('span', { class: `fo-dot ${RECORD_DOT[rec.outcome] || 'muted'}` }));
+  box.append(el('span', { class: 'fo-record-ticket', text: ticket }));
+  if(rec.pr && rec.pr_url){
+    box.append(el('a', { class: 'fo-record-pr', href: rec.pr_url, target: '_blank', rel: 'noopener',
+      text: `#${rec.pr}`, title: `${rec.pr_repo || ''} pull request`, onclick: (e) => e.stopPropagation() }));
+  }
+  box.append(el('span', { class: 'fo-record-outcome', text: rec.outcome }));
+  if(long){
+    const bits = [
+      rec.branch, rec.tool_calls != null ? `${rec.tool_calls} tool calls` : '',
+      rec.turns != null ? `${rec.turns} turns` : '',
+      rec.minutes != null ? `${rec.minutes} min` : '',
+      rec.cost_usd != null ? `$${rec.cost_usd.toFixed(2)}` : '',
+      rec.resumes ? `${rec.resumes} resume after an API 5xx` : '',
+      (rec.salvaged_branches || []).length ? `salvaged ${rec.salvaged_branches.join(', ')}` : '',
+    ].filter(Boolean).join(' · ');
+    if(bits) box.append(el('span', { class: 'muted', text: bits }));
+  }
+  return box;
+}
+
 function runDetail(r){
   const d = el('div', { class: 'fo-run-detail' });
   d.innerHTML = `<span class="tiny muted">Loading run details…</span>`;
@@ -639,6 +678,8 @@ function runDetail(r){
       // every run posts its summary there). This is the review Kevin reads;
       // the CI step breakdown below is demoted to failures only.
       if(journal){
+        const chip = recordChip(parseStewardRecord(journal.body), { long: true });
+        if(chip) d.append(chip);
         const md = String(journal.body || '').replace(/<!--[\s\S]*?-->/g, '').trim();
         d.append(el('div', { class: 'fo-journal', html: mdToHtml(md) }));
       }else if(done){
@@ -692,6 +733,12 @@ function runsCard(){
 
   const openRuns = new Set();
   let shown = 15;   // how many runs to render; "Show more" grows it (history, not just latest)
+  // The journal's run records, so a row can say WHICH ticket it took without
+  // opening it. One paged read of the journal issue, cached like every other
+  // call here, and never allowed to hold up the rows: a rate limit means the
+  // list renders exactly as it did before records existed.
+  let records = new Map();
+  journalRecords().then((m) => { records = m; load(); }).catch(() => {});
   const load = async (fresh = false) => {
     try{
       const runs = await stewardRuns(RUNS_PAGE, fresh);
@@ -727,6 +774,8 @@ function runsCard(){
           el('span', { class: 'tiny muted fo-when', text: ago(new Date(r.created_at).getTime()) }),
           el('a', { class: 'btn ghost icon sm fo-run-link', href: r.html_url, target: '_blank', rel: 'noopener',
             title: 'Open on GitHub', 'aria-label': `Open ${title} on GitHub`, html: icon('external') }));
+        const rec = recordChip(records.get(String(r.id)));
+        if(rec) main.append(rec);
         row.append(exp, main, meta);
         body.append(row);
         if(openRuns.has(r.id)) body.append(runDetail(r));

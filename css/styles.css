@@ -1239,6 +1239,46 @@ a.link:hover{text-decoration:underline}
   border:1px solid color-mix(in srgb,var(--brand-b) 34%,transparent)}
 .bd-chip.warn{color:var(--warning);background:color-mix(in srgb,var(--warning) 14%,transparent)}
 .bd-chip.ghost{color:var(--text-3);background:transparent;border:1px solid var(--border)}
+/* the run record on a steward row: which ticket, which PR, how it ended */
+.fo-record{display:inline-flex;align-items:center;gap:6px;margin-left:8px;flex-wrap:wrap;
+  color:var(--text-3);min-width:0}
+.fo-record .fo-record-ticket{font-weight:650;color:var(--text-2);font-family:var(--mono,ui-monospace,monospace);font-size:11px}
+.fo-record .fo-record-pr{color:var(--brand-b);text-decoration:none}
+.fo-record .fo-record-pr:hover{text-decoration:underline}
+.fo-record .fo-record-outcome{font-size:10px;font-weight:650;letter-spacing:.03em;text-transform:uppercase}
+.fo-record-line{display:flex;margin:0 0 10px;padding:7px 9px;border:1px solid var(--border);
+  border-radius:8px;background:var(--surface-2)}
+@media (max-width:560px){ .fo-record{margin-left:0;width:100%} }
+
+/* who holds a claimed ticket, and the run holding it */
+.bd-held{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.bd-held .bd-run{display:inline-flex;align-items:center;gap:4px;color:var(--brand-b);text-decoration:none}
+.bd-held .bd-run:hover{text-decoration:underline}
+.bd-held svg{width:12px;height:12px}
+
+/* finished, newest first — a dated list, not a column of cards */
+.bd-finished{margin-top:20px}
+.bd-done-list{display:flex;flex-direction:column;gap:1px;margin-top:10px}
+.bd-done-day{position:sticky;top:0;z-index:1;margin:10px 0 2px;padding:3px 0;
+  color:var(--text-3);font-weight:700;letter-spacing:.03em;background:var(--surface-1)}
+.bd-done-day:first-child{margin-top:0}
+.bd-done-row{display:flex;align-items:baseline;gap:10px;padding:7px 9px;border-radius:8px;
+  border:1px solid transparent}
+.bd-done-row.is-click{cursor:pointer;transition:background .12s,border-color .12s}
+.bd-done-row.is-click:hover{background:var(--surface-2);border-color:var(--border)}
+.bd-done-row.is-click:focus-visible{outline:none;box-shadow:var(--ring)}
+.bd-done-row.is-owner .bd-tid{color:var(--brand-b)}
+.bd-done-when{flex:0 0 72px;color:var(--text-3)}
+.bd-done-title{flex:1 1 auto;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+.bd-done-chips{display:inline-flex;gap:5px;flex:0 0 auto}
+.bd-done-chips .bd-chip.link{color:var(--brand-b);text-decoration:none}
+.bd-done-chips .bd-chip.link:hover{text-decoration:underline}
+@media (max-width:560px){
+  .bd-done-row{flex-wrap:wrap;gap:4px 8px}
+  .bd-done-when{flex:0 0 auto}
+  .bd-done-title{flex:1 1 100%}
+}
+
 /* ticket detail modal */
 .bd-detail-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 16px;margin-bottom:14px}
 .bd-detail-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;

@@ -22,6 +22,20 @@ with new, ambitious, fun ideas.
 
 ## Done (recent)
 
+- [x] **The 4D board answers "what finished, and when" — and the Steward log
+      names the ticket each run took** (2026-09-03): the Board's finished work
+      was a column of cards in ticket-number order, which is how a day's work
+      came to read as if it had been done alphabetically. It is now a dated
+      list, newest first, grouped by day, with the instant each ticket closed
+      and its PR — ordered day → instant → PR number, so the several hundred
+      finished before the project recorded an instant still sort by when their
+      PR landed (chicago/4d T-0586 added `closed_at` and `claimed_run`). A
+      claimed card names its holder and links the steward run holding it.
+      In the Steward log, each improve run row carries `ticket · PR · outcome`
+      read from the machine record the run now journals (polecat-platform
+      #150), and the expanded detail leads with branch, tool calls, turns,
+      minutes and cost.
+
 - [x] **An API budget meter, and the last of the rate-limit waste**
       (2026-09-03): recurring `403: rate-limited` notices in Fleet Ops, with no
       way to tell what was spending the quota. Measured against a stubbed API
