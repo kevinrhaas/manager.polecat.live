@@ -22,6 +22,33 @@ with new, ambitious, fun ideas.
 
 ## Done (recent)
 
+- [x] **An API budget meter, and the last of the rate-limit waste**
+      (2026-09-03): recurring `403: rate-limited` notices in Fleet Ops, with no
+      way to tell what was spending the quota. Measured against a stubbed API
+      rather than reasoned about: one tab on the Steward log with a five-slice
+      batch expanded cost **47 calls / 65s — ~2,600/hour core and 18.5/min
+      against GitHub's ~30/min search ceiling**, with a **11% GET-cache hit
+      rate** on the search calls. A concurrent steward fix (v114) had already
+      put the three per-run Search queries behind a 5-minute TTL, which is the
+      largest single cut; this lands on top of it and clears the rest:
+      (1) a still-running run was searched for its journal entry, which a run
+      only writes in its own FINAL step — paging a 250-comment issue every poll
+      to reliably find nothing; (2) the "what did this run produce" window
+      ended at `Date.now()`, so every refetch minted a URL the shared GET cache
+      could never match — now quantised into a 2-minute bucket; (3) the health
+      and runs cards asked for the same run list with different page sizes, and
+      raced on first render — now one page size, and concurrent identical GETs
+      share a single flight. **Re-measured end to end: 7 calls / 65s (~390/hour),
+      search steady-state 0/min.** The remaining per-poll cost is the job/step
+      breakdown, deliberately kept live because that is the part you watch.
+      Visibility shipped with it, since "I can't tell where it's going" was half
+      the problem: a new **API budget meter** reads GitHub's free `/rate_limit`
+      endpoint and shows BOTH pools — core-per-hour and search-per-minute are
+      enforced separately and a 403 never says which one you hit — with real
+      reset moments and this tab's own call tally by endpoint class. The pool is
+      account-wide and shared with the stewards' own runs, so the card says so:
+      a drained budget with a low local tally was spent elsewhere.
+
 - [x] **Chicago 4D joins the fleet** (2026-08-10): a seventh project row —
       a walkable, source-cited 3D reconstruction of downtown Chicago in the
       summer of 1835, living in the `custom` monorepo under `chicago/4d` and

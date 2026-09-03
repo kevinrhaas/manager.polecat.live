@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 115,
+    title: 'An API budget meter, and the last of the rate-limit waste',
+    kind: 'feature',
+    ts: '2026-09-03T05:42:57.998Z',
+    items: [
+      'Fleet Ops has a new API budget meter. GitHub enforces two separate limits — roughly 5,000 requests an hour, but only about 30 searches a minute — and a "403: rate-limited" never tells you which one you hit, or when it clears. The meter shows both pools, how long until each refills, and which kinds of call this tab has been making.',
+      'The budget is shared with the stewards’ own runs, so the card says so: a drained pool with a low count here was spent by something other than this tab.',
+      'Two remaining sources of waste are gone. A run that is still going was being searched for a journal entry it cannot have written yet — it writes one in its own final step — which meant paging through a long comment thread every thirty seconds to reliably find nothing. And two cards asking for the same list of runs at the same moment now share a single request instead of making two.',
+    ],
+  },
+  {
     v: 114,
     title: 'Fleet Ops stops rate-limiting itself while you watch a run',
     kind: 'fix',
