@@ -1338,6 +1338,44 @@ try {
     if ((await count('#view .card')) < 3) return false;
     return foBodiesSettle();
   });
+  // The API-budget meter is the answer to "I'm 403ing and can't tell why":
+  // GitHub enforces core-per-hour and search-per-minute separately and the 403
+  // never says which. The card must render both pools plus this tab's own
+  // tally, and must settle offline like every other Fleet Ops card.
+  await check('Fleet Ops shows an API budget meter (core + search pools, and this tab\'s own call tally)', async () => {
+    if (!(await openSec('fleetops'))) return false;
+    if (!(await foBodiesSettle())) return false;
+    const t = await page.evaluate(() => {
+      const c = [...document.querySelectorAll('#view .card')].find((c) => /API budget/.test(c.textContent));
+      return c ? c.textContent : '';
+    });
+    if (!t) return false;
+    // With a reachable budget: both pools named plus the local tally (the part
+    // that attributes usage). In CI GitHub is typically unreachable or already
+    // rate-limited, so the card must instead settle into an inline note — the
+    // same degradation discipline as every other Fleet Ops card, never a stuck
+    // spinner and never a pageerror.
+    const live = /Core REST/.test(t) && /Search/.test(t) && /This tab:|No calls from this tab/.test(t);
+    const degraded = /GitHub \d{3}|GitHub unreachable|no budget data/.test(t);
+    return live || degraded;
+  });
+  // Regression guard for the rate-limit fix: the "what did this run produce"
+  // search window used to end at Date.now(), minting a fresh URL — and so a
+  // guaranteed cache miss — on every 30s poll. The end bound must be quantised
+  // so repeated polls ask an identical, cacheable question.
+  await check('live run-detail search windows are quantised, so the 30s poll re-asks a cacheable question', async () => {
+    const src = fs.readFileSync(path.join(ROOT, 'js/views/fleetops.js'), 'utf8');
+    if (!/LIVE_WINDOW_BUCKET/.test(src)) return false;
+    // the live branch must round the end bound, never pass a raw Date.now()
+    const m = src.match(/const endMs = done[\s\S]{0,240}?;/);
+    if (!m) return false;
+    return /Math\.ceil\([\s\S]*?LIVE_WINDOW_BUCKET\s*\)\s*\*\s*LIVE_WINDOW_BUCKET/.test(m[0]);
+  });
+  await check('a still-running steward run does not fetch a journal entry it cannot have yet', async () => {
+    const src = fs.readFileSync(path.join(ROOT, 'js/views/fleetops.js'), 'utf8');
+    // journalFor must be reached only on the completed branch
+    return /done \? journalFor\(r\.id\)[\s\S]{0,60}?: Promise\.resolve\(null\)/.test(src);
+  });
   await check('4D board section renders and settles (tickets read from GitHub, degrades to an inline note offline)', async () => {
     if (!(await openSec('board'))) return false;
     // the board's own chrome must render regardless of whether GitHub is reachable

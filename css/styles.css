@@ -820,6 +820,18 @@ a.link:hover{text-decoration:underline}
 .fo-err{color:var(--danger);display:inline-flex;align-items:center;gap:6px}
 .fo-err svg{width:14px;height:14px;flex:0 0 auto}
 .fo-body{display:flex;flex-direction:column;gap:6px;min-width:0}
+/* API budget meter: two pools (core/hour, search/minute) + this tab's tally */
+.fo-budget{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fo-budget-top{display:flex;align-items:center;gap:8px;min-width:0}
+.fo-bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+.fo-bar-fill{display:block;height:100%;border-radius:99px;background:var(--success);
+  transition:width .35s ease,background-color .35s ease}
+.fo-bar-fill.warn{background:var(--warning)}
+.fo-bar-fill.err{background:var(--danger)}
+.fo-usage{display:flex;flex-direction:column;gap:2px;min-width:0;
+  border-top:1px solid var(--line);margin-top:4px;padding-top:8px}
+.fo-usage-row{display:flex;align-items:center;gap:8px;min-width:0}
+.fo-usage-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .fo-app-row{display:flex;align-items:center;gap:10px;min-width:0;padding:4px 0;flex-wrap:wrap}
 .fo-app-name{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .fo-cad{width:auto;max-width:110px;padding:5px 26px 5px 9px;font-size:12px;flex:0 0 auto}

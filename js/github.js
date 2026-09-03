@@ -61,15 +61,69 @@ export function clearGhCache(){
   }catch{}
 }
 
-export async function gh(path, { method = 'GET', body, fresh = false } = {}){
+// ---- usage tally ------------------------------------------------------------
+// Every call that actually leaves the browser is counted, bucketed by endpoint
+// class. This is what turns "something is eating the budget" into a named
+// list: the meter reads it back and shows the top consumers THIS session.
+// Search is tracked apart because it has its own, far tighter limit (~30/min
+// authenticated) — the one Fleet Ops realistically blows first.
+const _usage = { since: Date.now(), total: 0, search: 0, by: Object.create(null) };
+function usageClass(path){
+  if(path.startsWith('/search/')) return 'code/issue search';
+  if(/\/actions\/runs\/\d+\/jobs/.test(path)) return 'run jobs';
+  if(/\/actions\/runs/.test(path)) return 'workflow runs';
+  if(/\/issues\/\d+\/comments/.test(path)) return 'journal comments';
+  if(/\/pulls/.test(path)) return 'pull requests';
+  if(/check-runs/.test(path)) return 'PR checks';
+  if(/\/issues/.test(path)) return 'issues';
+  if(/\/contents\//.test(path)) return 'file contents';
+  return 'other';
+}
+function tally(path){
+  const k = usageClass(path);
+  _usage.total++;
+  if(k === 'code/issue search') _usage.search++;
+  _usage.by[k] = (_usage.by[k] || 0) + 1;
+}
+export function ghUsage(){
+  return { ...(_usage), by: Object.entries(_usage.by).sort((a, b) => b[1] - a[1]) };
+}
+
+// GitHub's own view of the budget. Free by design — "accessing this endpoint
+// does not count against your REST API rate limit" — so the meter can poll it
+// without being part of the problem it reports on.
+export async function rateLimit(){
+  const j = await gh('/rate_limit', { fresh: true, noTally: true });
+  return j?.resources || null;
+}
+
+// Two cards that want the same thing at the same moment used to make the same
+// request twice: the cache only helps once a response has LANDED, and on first
+// render nothing has. Concurrent identical GETs now share one flight.
+const _inflight = new Map();
+
+export async function gh(path, opts = {}){
+  const { method = 'GET', fresh = false } = opts;
+  if(method !== 'GET' || fresh) return _gh(path, opts);
+  const pending = _inflight.get(path);
+  if(pending) return pending;
+  const p = _gh(path, opts).finally(() => { _inflight.delete(path); });
+  _inflight.set(path, p);
+  return p;
+}
+
+async function _gh(path, { method = 'GET', body, fresh = false, ttl, noTally = false } = {}){
   const headers = { 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
   const token = ghToken();
   if(token) headers.Authorization = `Bearer ${token}`;
   const isGet = method === 'GET';
   if(isGet && !fresh){
-    const hit = cacheGet(path, token ? 25000 : 600000);
+    // Default TTL keeps the 30s live-follow honest (25s); callers fetching
+    // slow-moving data pass a longer one rather than re-paying every poll.
+    const hit = cacheGet(path, ttl != null ? ttl : (token ? 25000 : 600000));
     if(hit !== undefined) return hit;
   }
+  if(!noTally) tally(path);
   let res;
   try{
     // Hard 8s deadline: on some networks an unreachable host HANGS the fetch

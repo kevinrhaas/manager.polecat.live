@@ -20,6 +20,7 @@ import {
   getRoster, putRoster, dispatchWorkflow, stewardRuns, stewardPRs, sweepIssues,
   checkState, fleetRepos, IMPROVE_WORKFLOW, SWEEP_WORKFLOWS,
   runJobs, journalFor, issuesCreatedBetween, prsCreatedBetween, prsMergedBetween,
+  rateLimit, ghUsage,
 } from '../github.js';
 
 // Inline error note: a rate limit is a calm, self-healing condition (amber),
@@ -68,6 +69,7 @@ export function renderFleetOps(root, ctx){
   };
   wrap.append(connectCard(ctx, reload));
   wrap.append(grid);
+  wrap.append(budgetCard());
 
   root.append(wrap);
 }
@@ -89,6 +91,86 @@ export function renderStewardLog(root, ctx){
   wrap.append(workCard(ctx));
 
   root.append(wrap);
+}
+
+// ---- API budget meter --------------------------------------------------------
+// "I keep getting 403 rate-limited and I can't tell where it's going."
+// GitHub enforces TWO separate budgets and a 403 never says which one you hit:
+// the core REST pool (5000/hour with a token, ~60 without) and a much tighter
+// search pool (~30/MINUTE). Fleet Ops leans on search for run correlation, so
+// search is nearly always the one that goes first — and because it refills on
+// a one-minute window, it also clears on its own far sooner than "within the
+// hour" implies. Both are shown side by side with their real reset moments.
+//
+// /rate_limit is free ("does not count against your REST API rate limit"), so
+// polling it can never be part of the problem. Alongside GitHub's numbers we
+// show THIS tab's own call tally by endpoint class, which is what actually
+// answers "where is it getting blown" — the budget is account-wide and shared
+// with the stewards' own Actions runs, so a drained pool with a near-zero
+// local tally means something else spent it.
+const BUDGET_POLL_MS = 30000;
+function budgetCard(){
+  const card = el('div', { class: 'card', style: 'margin-top:16px' });
+  const head = el('div', { class: 'section-title', style: 'margin-top:0' });
+  head.innerHTML = `<h2 style="font-size:13px">API budget</h2>`;
+  const refresh = el('button', { class: 'btn ghost icon sm', title: 'Re-read the budget',
+    'aria-label': 'Re-read the budget', html: icon('refresh'), onclick: () => load() });
+  head.append(el('span', { class: 'sp' }), refresh);
+  const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Reading budget…</span>` });
+  card.append(head, body);
+
+  const meter = (label, res, unit, note) => {
+    const wrap = el('div', { class: 'fo-budget' });
+    if(!res){ wrap.append(el('div', { class: 'tiny muted', text: `${label}: unavailable` })); return wrap; }
+    const used = res.limit - res.remaining;
+    const pct = res.limit ? Math.min(100, Math.round(100 * used / res.limit)) : 0;
+    // Amber past two-thirds, red once it's nearly gone — the point is to see
+    // it coming, not to find out at zero.
+    const tone = pct >= 90 ? 'err' : pct >= 66 ? 'warn' : 'ok';
+    const resetMs = (res.reset || 0) * 1000;
+    const secs = Math.max(0, Math.round((resetMs - Date.now()) / 1000));
+    const when = secs < 90 ? `${secs}s` : `${Math.round(secs / 60)} min`;
+    wrap.innerHTML = `<div class="fo-budget-top tiny">
+        <b>${escapeHtml(label)}</b>
+        <span class="sp"></span>
+        <span class="${tone === 'ok' ? 'muted' : 'fo-' + (tone === 'err' ? 'err' : 'warn')}">
+          ${res.remaining} / ${res.limit} left</span></div>
+      <div class="fo-bar"><i class="fo-bar-fill ${tone}" style="width:${pct}%"></i></div>
+      <div class="tiny muted">${escapeHtml(unit)} · refills in ${when}${note ? ' · ' + escapeHtml(note) : ''}</div>`;
+    return wrap;
+  };
+
+  const load = async () => {
+    try{
+      const r = await rateLimit();
+      body.innerHTML = '';
+      if(!r){ body.append(el('div', { class: 'tiny muted', text: 'GitHub returned no budget data.' })); return; }
+      body.append(meter('Core REST', r.core, 'per hour',
+        ghToken() ? '' : 'anonymous — connect a token for 5,000/h'));
+      body.append(meter('Search', r.search, 'per minute', 'run correlation uses this'));
+
+      // this tab's own footprint
+      const u = ghUsage();
+      const mins = Math.max(1, Math.round((Date.now() - u.since) / 60000));
+      const tally = el('div', { class: 'fo-usage' });
+      tally.append(el('div', { class: 'tiny muted', style: 'margin-top:2px',
+        text: `This tab: ${u.total} calls in ${mins} min (${u.search} search).` }));
+      u.by.slice(0, 4).forEach(([k, n]) => {
+        tally.append(el('div', { class: 'tiny fo-usage-row',
+          html: `<span class="fo-usage-name">${escapeHtml(k)}</span><span class="sp"></span><span class="muted">${n}</span>` }));
+      });
+      if(!u.total) tally.append(el('div', { class: 'tiny muted', text: 'No calls from this tab yet.' }));
+      else tally.append(el('div', { class: 'tiny muted', style: 'margin-top:4px',
+        text: 'The budget is account-wide: the stewards’ own runs spend from it too, so a drained pool with a small tally here was spent elsewhere.' }));
+      body.append(tally);
+    }catch(e){ body.innerHTML = errNote(e); }
+  };
+  load();
+  const timer = setInterval(() => {
+    if(!body.isConnected){ clearInterval(timer); return; }
+    if(!document.hidden) load();
+  }, BUDGET_POLL_MS);
+  return card;
 }
 
 // ---- coming up: the computed next-runs timeline ------------------------------
@@ -442,7 +524,7 @@ function healthCard(){
   card.append(body);
   (async () => {
     try{
-      const runs = await stewardRuns(50);
+      const runs = await stewardRuns(RUNS_PAGE);
       body.innerHTML = '';
       HEALTH_JOBS.forEach(job => {
         const last = runs.find(r => job.match.test(r.name || ''));
@@ -465,6 +547,10 @@ function healthCard(){
 // ---- recent steward runs -----------------------------------------------------
 const RUN_DOT = { success: 'ok', failure: 'err', cancelled: 'muted', startup_failure: 'err' };
 const RUNS_POLL_MS = 30000;
+// ONE page size for every reader of the runs list. The health card and the runs
+// card ask for the same thing; asking for 50 and 40 made them two different
+// URLs, so the GET cache saw two misses where one call would have served both.
+const RUNS_PAGE = 50;
 
 // Expanded run detail: the job/step breakdown (an in-panel run log) plus what
 // the run PRODUCED — sweep runs file issues, improve runs open PRs, the
@@ -496,6 +582,13 @@ const RUNS_POLL_MS = 30000;
 const _runDetailCache = new Map();
 const _liveWorkCache = new Map();
 const LIVE_WORK_TTL_MS = 300000;   // 5 min
+// Even behind that TTL the search window ended at NOW, and a bound that moves
+// every millisecond mints a brand-new URL every time it IS refetched — so the
+// shared GET cache could never dedupe it either, across cards or across a
+// reload (measured 11% hit rate). Quantising the end into a coarse bucket
+// makes repeated asks identical, which the cache can actually answer. Free:
+// the window is approximate by construction and only ever grows.
+const LIVE_WINDOW_BUCKET = 120000;
 function runDetail(r){
   const d = el('div', { class: 'fo-run-detail' });
   d.innerHTML = `<span class="tiny muted">Loading run details…</span>`;
@@ -503,13 +596,20 @@ function runDetail(r){
     try{
       const start = r.run_started_at || r.created_at;
       const done = r.status === 'completed';
-      const end = new Date((done ? new Date(r.updated_at).getTime() : Date.now()) + 120000).toISOString();
+      const endMs = done ? new Date(r.updated_at).getTime() + 120000
+        : Math.ceil((Date.now() + 120000) / LIVE_WINDOW_BUCKET) * LIVE_WINDOW_BUCKET;
+      const end = new Date(endMs).toISOString();
       const isJanitor = /janitor/i.test(r.name || '');
       let data = done ? _runDetailCache.get(r.id) : null;
       if(!data){
         // Cheap and genuinely live — always refetched.
         const [journal, jobs] = await Promise.all([
-          journalFor(r.id).catch(() => null),
+          // …with one exception. A run posts its journal entry in its OWN final
+          // step, so a run that is still going has none by construction. Asking
+          // anyway walked up to three pages of a 250-comment issue every poll to
+          // reliably find nothing — the largest remaining waste in the panel
+          // once the search calls were behind a TTL.
+          done ? journalFor(r.id).catch(() => null) : Promise.resolve(null),
           runJobs(r.id).catch(() => []),
         ]);
         // Expensive and slow-moving. A completed run's window is closed, so it
@@ -594,7 +694,7 @@ function runsCard(){
   let shown = 15;   // how many runs to render; "Show more" grows it (history, not just latest)
   const load = async (fresh = false) => {
     try{
-      const runs = await stewardRuns(40, fresh);
+      const runs = await stewardRuns(RUNS_PAGE, fresh);
       body.innerHTML = '';
       if(!runs.length){ body.append(el('div', { class: 'tiny muted', text: 'No steward runs yet.' })); return; }
       runs.slice(0, shown).forEach(r => {
