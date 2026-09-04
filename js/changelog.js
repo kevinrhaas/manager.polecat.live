@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 118,
+    title: 'Fleet Ops queues its GitHub calls instead of firing them all at once',
+    kind: 'fix',
+    ts: '2026-09-04T21:03:12.512Z',
+    items: [
+      'GitHub enforces two unrelated things: a quota, and a separate throttle on sending too many requests at the same moment. Three screens here fanned out across every repo in one burst — around twenty simultaneous calls — which is what trips the second one. Calls are now queued a few at a time. Same data, same speed to your eye, no burst.',
+      'When GitHub does throttle you it says how long to wait, and that wait is usually seconds. Manager was reading the wrong header and showing the top of the next hour instead, so a brief pause looked like an hour-long lockout. It now shows the real wait, pauses requests until it passes rather than hammering through it, and says plainly that this is a burst limit and not your quota.',
+      'That also explains a confusing sight: the budget meter reading completely full while everything errors. Full bars plus failures means the burst limit, and the meter now says so instead of appearing to contradict the errors next to it.',
+    ],
+  },
+  {
     v: 117,
     ts: '2026-09-03T17:40:26.947Z',
     title: 'The Board shows the work a run is doing right now, not only the work it has finished',

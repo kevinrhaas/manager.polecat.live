@@ -21,7 +21,7 @@ import {
   checkState, fleetRepos, IMPROVE_WORKFLOW, SWEEP_WORKFLOWS,
   runJobs, journalFor, journalRecords, parseStewardRecord,
   issuesCreatedBetween, prsCreatedBetween, prsMergedBetween,
-  rateLimit, ghUsage,
+  rateLimit, ghUsage, ghCooldown,
 } from '../github.js';
 
 // Inline error note: a rate limit is a calm, self-healing condition (amber),
@@ -149,6 +149,19 @@ function budgetCard(){
       body.append(meter('Core REST', r.core, 'per hour',
         ghToken() ? '' : 'anonymous — connect a token for 5,000/h'));
       body.append(meter('Search', r.search, 'per minute', 'run correlation uses this'));
+
+      // The confusing case, and the one that actually bit: both pools full and
+      // every call still 403ing. That is the SECONDARY limit — a throttle on
+      // burst shape, not a quota — and without saying so the meter looks like
+      // it is contradicting the errors on screen. Say it plainly, and say it
+      // clears in seconds, because the quota's hourly reset does not apply.
+      const cool = ghCooldown();
+      if(cool > 0){
+        body.append(el('div', { class: 'fo-warn tiny', style: 'margin-top:2px',
+          html: `${icon('warning')} Throttled for ${Math.ceil(cool / 1000)}s — too many requests at once.
+            This is GitHub’s burst limit, not the quota above (which is why both bars can read full while calls fail).
+            Requests are paused until it clears.` }));
+      }
 
       // this tab's own footprint
       const u = ghUsage();

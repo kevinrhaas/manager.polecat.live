@@ -1376,6 +1376,21 @@ try {
     // journalFor must be reached only on the completed branch
     return /done \? journalFor\(r\.id\)[\s\S]{0,60}?: Promise\.resolve\(null\)/.test(src);
   });
+  // GitHub enforces a SECONDARY (burst-shape) limit independently of the
+  // quota: trip it and calls 403 while core/search still read full. Its own
+  // guidance is to queue rather than fan out, and to honour retry-after. Both
+  // are load-bearing here — three views fan out across the whole fleet.
+  await check('the GitHub client queues its fan-out instead of bursting, and honours retry-after', async () => {
+    const src = fs.readFileSync(path.join(ROOT, 'js/github.js'), 'utf8');
+    if (!/MAX_CONCURRENT\s*=\s*[1-9]/.test(src)) return false;          // a cap exists
+    if (!/_acquire\(\)/.test(src) || !/_release\(\)/.test(src)) return false;
+    // retry-after must be preferred over x-ratelimit-reset: both ride on a
+    // secondary 403, and reading the wrong one reports a seconds-long throttle
+    // as an hour-long lockout.
+    const order = src.match(/let resetMs = null;[\s\S]{0,260}?const secs/);
+    if (!order) return false;
+    return order[0].indexOf('retryAfter') < order[0].indexOf('resetHdr');
+  });
   await check('4D board section renders and settles (tickets read from GitHub, degrades to an inline note offline)', async () => {
     if (!(await openSec('board'))) return false;
     // the board's own chrome must render regardless of whether GitHub is reachable
@@ -1482,8 +1497,36 @@ try {
         if(!err) return false;
         // reset moment captured for the UI, and the message names a clock time, not "within the hour"
         if(err.resetAt !== resetEpoch * 1000) return false;
-        if(!/resets \d/.test(err.message)) return false;
+        if(!/resets at \d/.test(err.message)) return false;
+        if(err.secondary) return false;              // a spent quota is NOT the burst limit
         return true;
+      }finally{ window.fetch = realFetch; g.clearGhCache(); }
+    });
+  });
+  // The case that actually bit: a SECONDARY (burst) 403 carries BOTH
+  // retry-after and the hourly x-ratelimit-reset. Reading the latter reported a
+  // seconds-long throttle as an hour-long lockout, next to a budget meter
+  // showing both pools full — which read as a contradiction instead of a clue.
+  await check('a secondary (burst) 403 reports its short retry-after, not the hourly window, and is named as a burst limit', async () => {
+    return await page.evaluate(async () => {
+      const g = await import('/js/github.js');
+      g.clearGhCache();
+      const realFetch = window.fetch;
+      window.fetch = async () => new Response(JSON.stringify({
+        message: 'You have exceeded a secondary rate limit. Please wait a few minutes before you try again.' }), {
+        status: 403, headers: { 'content-type': 'application/json', 'retry-after': '9',
+          'x-ratelimit-remaining': '4999',                                  // quota untouched
+          'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      try{
+        let err;
+        try{ await g.gh('/secondary-probe', { fresh: true }); }catch(e){ err = e; }
+        if(!err || !err.secondary) return false;
+        // the short wait wins over the hour-away window
+        const secsOut = Math.round((err.resetAt - Date.now()) / 1000);
+        if(!(secsOut >= 5 && secsOut <= 12)) return false;
+        // and it says what kind of limit it is, in seconds
+        if(!/clears in \d+s/.test(err.message)) return false;
+        return /burst limit/.test(err.message);
       }finally{ window.fetch = realFetch; g.clearGhCache(); }
     });
   });

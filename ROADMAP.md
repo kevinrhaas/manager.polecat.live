@@ -22,6 +22,34 @@ with new, ambitious, fun ideas.
 
 ## Done (recent)
 
+- [x] **The 403s were the SECONDARY limit, not the quota** (2026-09-04):
+      the budget meter shipped the day before paid for itself immediately — a
+      screenshot showed **core 5000/5000 and search 30/30, both untouched,
+      while every card 403'd**. That combination rules the quota out. GitHub
+      enforces a second, independent throttle on the SHAPE of traffic ("no more
+      than 100 concurrent requests"), and its own guidance is explicit: "make
+      requests serially instead of concurrently... implement a queue system",
+      and "if the retry-after header is present, you should not retry your
+      request until after that many seconds has elapsed." Manager did neither.
+      Three views fan out with `Promise.allSettled(repos.map(...))` — ~11 repos
+      x 2 calls in ONE burst (workCard, steward-signals, pipeline), and two of
+      them can fire at the same moment. Fixed in the client so every caller
+      benefits: a 4-slot queue (measured: 40 simultaneous calls now peak at 4
+      in flight and still finish in 1.3s), plus a global cooldown that parks
+      requests for the retry-after window instead of hammering through it —
+      continuing to send during the penalty is what extends it.
+      **Also a reporting bug of our own making:** a secondary 403 carries BOTH
+      `retry-after` (seconds) and `x-ratelimit-reset` (the hourly window), and
+      the client preferred the latter — so a ~60s throttle was displayed as
+      "resets 4:03 PM" and read as an hour-long outage. retry-after now wins,
+      short waits render as "clears in 43s", and the error names it a burst
+      limit rather than a quota. The meter says the same thing when a cooldown
+      is active, so full bars next to failing cards read as a diagnosis instead
+      of a contradiction. Note for later: no paid GitHub plan raises a user
+      account's 5,000/hour — a GitHub App (own pool, 5,000 rising to 12,500) or
+      a separate machine account is the only way to actually add capacity, and
+      workflow steps that stay in one repo could use `GITHUB_TOKEN` (1,000/hour
+      PER REPO, off the user pool) instead of the shared `STEWARD_PAT`.
 - [x] **The Board sees work in flight, not only work merged** (2026-09-03):
       In progress read `0` while five steward runs were working. Two causes,
       both real: a run's claim lives on its own branch until its PR merges (the
