@@ -102,14 +102,66 @@ export async function rateLimit(){
 // render nothing has. Concurrent identical GETs now share one flight.
 const _inflight = new Map();
 
+// ---- burst control ----------------------------------------------------------
+// GitHub enforces TWO unrelated things, and only one of them is a quota.
+// The quota (core 5000/h, search 30/min) is what /rate_limit reports. The
+// SECONDARY limit is an anti-abuse throttle on the SHAPE of your traffic —
+// notably "too many concurrent requests" — and tripping it 403s you while the
+// quota counters sit untouched at full. That is exactly the state we observed:
+// 5000/5000 core, 30/30 search, and every call 403ing.
+//
+// Manager's own shape was the trigger. Three places fan out across the whole
+// fleet with Promise.allSettled(repos.map(...)) — ~11 repos x 2 calls fired in
+// ONE burst, and steward-signals can be doing the same at the same moment. The
+// fix is not a bigger budget (we aren't short of budget); it is to stop
+// arriving all at once. A small window smooths the fan-out into a queue while
+// staying far faster than serial.
+const MAX_CONCURRENT = 4;
+let _active = 0;
+const _queue = [];
+function _acquire(){
+  if(_active < MAX_CONCURRENT){ _active++; return Promise.resolve(); }
+  return new Promise(resolve => _queue.push(resolve));
+}
+function _release(){
+  const next = _queue.shift();
+  if(next) next();          // hand the slot straight to the next waiter
+  else _active--;
+}
+
+// When GitHub does say "you are going too fast", it tells us for how long via
+// retry-after. Honouring that is not optional: continuing to send during the
+// penalty is what extends it. Every call parks until the window passes rather
+// than each one independently earning another 403.
+let _cooldownUntil = 0;
+export function ghCooldown(){
+  const ms = _cooldownUntil - Date.now();
+  return ms > 0 ? ms : 0;
+}
+const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 export async function gh(path, opts = {}){
   const { method = 'GET', fresh = false } = opts;
-  if(method !== 'GET' || fresh) return _gh(path, opts);
+  if(method !== 'GET' || fresh) return _throttled(path, opts);
   const pending = _inflight.get(path);
   if(pending) return pending;
-  const p = _gh(path, opts).finally(() => { _inflight.delete(path); });
+  const p = _throttled(path, opts).finally(() => { _inflight.delete(path); });
   _inflight.set(path, p);
   return p;
+}
+
+async function _throttled(path, opts){
+  // A cached GET needs no slot and no cooldown — it never leaves the browser.
+  if((opts.method || 'GET') === 'GET' && !opts.fresh){
+    const token = ghToken();
+    const hit = cacheGet(path, opts.ttl != null ? opts.ttl : (token ? 25000 : 600000));
+    if(hit !== undefined) return hit;
+  }
+  const wait = ghCooldown();
+  if(wait > 0) await _sleep(Math.min(wait, 60000));
+  await _acquire();
+  try{ return await _gh(path, opts); }
+  finally{ _release(); }
 }
 
 async function _gh(path, { method = 'GET', body, fresh = false, ttl, noTally = false } = {}){
@@ -154,19 +206,37 @@ async function _gh(path, { method = 'GET', body, fresh = false, ttl, noTally = f
     const isRateLimit = (res.status === 403 || res.status === 429) &&
       (msg.includes('rate limit') || msg.includes('secondary rate') || msg.includes('abuse detection')
         || remaining === '0' || retryAfter != null);
+    // Which of the two limits is this? A SECONDARY (burst) limit is the one
+    // that answers "you are going too fast" — it carries retry-after, and it
+    // leaves the quota counters untouched. Telling them apart matters because
+    // the honest advice is opposite: a spent quota really does mean waiting
+    // until the hour turns, while a burst limit clears in SECONDS.
+    const secondary = msg.includes('secondary rate') || msg.includes('abuse detection') || retryAfter != null;
+    // retry-after WINS over x-ratelimit-reset. Both headers ride on a secondary
+    // 403, and preferring the reset one reported the end of the hourly window —
+    // so a 60-second throttle was shown as an hour-long lockout ("resets 4:03
+    // PM") and looked like a far worse problem than it was.
     let resetMs = null;
-    if(resetHdr) resetMs = parseInt(resetHdr, 10) * 1000;
-    else if(retryAfter) resetMs = Date.now() + parseInt(retryAfter, 10) * 1000;
-    const resetTxt = resetMs ? new Date(resetMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
+    if(retryAfter) resetMs = Date.now() + parseInt(retryAfter, 10) * 1000;
+    else if(resetHdr) resetMs = parseInt(resetHdr, 10) * 1000;
+    const secs = resetMs ? Math.max(0, Math.round((resetMs - Date.now()) / 1000)) : null;
+    // Short waits read as a duration ("in 43s"); long ones as a clock time.
+    const resetTxt = secs == null ? null
+      : secs <= 120 ? `in ${secs}s`
+      : `at ${new Date(resetMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    if(secondary && resetMs) _cooldownUntil = Math.max(_cooldownUntil, resetMs);
     const hint = res.status === 401 ? 'token rejected'
-      : isRateLimit ? (`rate-limited${resetTxt ? ` — resets ${resetTxt}` : ' — resets within the hour'}`
-          + (token ? '' : '; connect a vault token to raise the limit'))
+      : isRateLimit ? (secondary
+          ? `too many requests at once — GitHub is throttling briefly${resetTxt ? `, clears ${resetTxt}` : ''} (a burst limit, not your quota)`
+          : `rate-limited${resetTxt ? ` — resets ${resetTxt}` : ' — resets within the hour'}`
+            + (token ? '' : '; connect a vault token to raise the limit'))
       : res.status === 403 ? `forbidden — ${json?.message || 'token lacks a required scope'} (dispatching runs needs the 'workflow' scope on a classic PAT, or Actions read/write on a fine-grained one)`
       : res.status === 404 ? 'not found (private repo needs a token)'
       : (json?.message || 'request failed');
     const err = new Error(`GitHub ${res.status}: ${hint}`);
     err.status = res.status;
     err.resetAt = resetMs;
+    err.secondary = isRateLimit && secondary;
     throw err;
   }
   if(isGet) cachePut(path, json); else clearGhCache();
