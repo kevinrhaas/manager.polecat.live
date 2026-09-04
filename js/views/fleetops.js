@@ -96,19 +96,34 @@ export function renderStewardLog(root, ctx){
 
 // ---- API budget meter --------------------------------------------------------
 // "I keep getting 403 rate-limited and I can't tell where it's going."
-// GitHub enforces TWO separate budgets and a 403 never says which one you hit:
-// the core REST pool (5000/hour with a token, ~60 without) and a much tighter
-// search pool (~30/MINUTE). Fleet Ops leans on search for run correlation, so
-// search is nearly always the one that goes first — and because it refills on
-// a one-minute window, it also clears on its own far sooner than "within the
-// hour" implies. Both are shown side by side with their real reset moments.
+// A 403 never says WHICH limit you hit, and there are four different answers:
+//
+//   core     5,000/hour   plain REST. What Manager itself spends.
+//   graphql  5,000/hour   a SEPARATE pool, billed in POINTS by query
+//                         complexity — and `gh pr create|merge|comment` and
+//                         `gh issue create|comment` all go through it.
+//   search   ~30/MINUTE   tight, but refills in under a minute.
+//   (secondary)           not a quota at all — a burst throttle. See ghCooldown.
+//
+// GRAPHQL IS THE ONE THAT ACTUALLY EMPTIES HERE, and it was invisible until
+// now. Measured on the platform side (polecat-platform .github/steward/
+// gh-rest.sh, from improve run 1140): graphql remaining 0 of 5000 (used 6690)
+// while core sat at 4969 of 5000. A `gh pr create` failed on finished, gated,
+// pushed work while REST was 99% free. Points are billed by complexity, so
+// "used 6690" is nowhere near 6,690 commands — a handful of parallel slices
+// drains it.
+//
+// Showing core and search alone made the meter actively misleading: both read
+// FULL during exactly the outage we were trying to diagnose, which looked like
+// the meter contradicting the errors beside it. The missing bar was the answer.
+//
+// Manager is REST-only and never spends a GraphQL point, so this pool is a
+// clean read on the stewards: a drained graphql bar is theirs by construction,
+// never this tab's. That asymmetry is the most useful thing on the card, so
+// each meter says who can spend it.
 //
 // /rate_limit is free ("does not count against your REST API rate limit"), so
-// polling it can never be part of the problem. Alongside GitHub's numbers we
-// show THIS tab's own call tally by endpoint class, which is what actually
-// answers "where is it getting blown" — the budget is account-wide and shared
-// with the stewards' own Actions runs, so a drained pool with a near-zero
-// local tally means something else spent it.
+// polling it can never be part of the problem it reports on.
 const BUDGET_POLL_MS = 30000;
 function budgetCard(){
   const card = el('div', { class: 'card', style: 'margin-top:16px' });
@@ -147,7 +162,12 @@ function budgetCard(){
       body.innerHTML = '';
       if(!r){ body.append(el('div', { class: 'tiny muted', text: 'GitHub returned no budget data.' })); return; }
       body.append(meter('Core REST', r.core, 'per hour',
-        ghToken() ? '' : 'anonymous — connect a token for 5,000/h'));
+        ghToken() ? 'this tab + the stewards' : 'anonymous — connect a token for 5,000/h'));
+      // Points, not calls — saying "per hour" here would read as 5,000 commands
+      // and make a drained bar look impossible. And it is spent ENTIRELY by the
+      // stewards: Manager makes no GraphQL calls at all.
+      body.append(meter('GraphQL', r.graphql, 'points per hour — a separate pool',
+        'the stewards only (gh pr / gh issue) — never this tab'));
       body.append(meter('Search', r.search, 'per minute', 'run correlation uses this'));
 
       // The confusing case, and the one that actually bit: both pools full and
@@ -174,8 +194,27 @@ function budgetCard(){
           html: `<span class="fo-usage-name">${escapeHtml(k)}</span><span class="sp"></span><span class="muted">${n}</span>` }));
       });
       if(!u.total) tally.append(el('div', { class: 'tiny muted', text: 'No calls from this tab yet.' }));
-      else tally.append(el('div', { class: 'tiny muted', style: 'margin-top:4px',
-        text: 'The budget is account-wide: the stewards’ own runs spend from it too, so a drained pool with a small tally here was spent elsewhere.' }));
+
+      // THE VERDICT. Four bars still leave you to work out what they mean; the
+      // whole point of the card is to name the culprit. Attribution is possible
+      // because the pools have different spenders: Manager is REST-only, so
+      // graphql is the stewards by construction, and core is shared — which
+      // makes this tab's own tally the tie-breaker there.
+      const low = (res) => res && res.limit && res.remaining / res.limit < 0.15;
+      let verdict = '';
+      if(low(r.graphql)){
+        verdict = 'GraphQL is nearly gone, and Manager never spends it — this is the stewards’ '
+          + 'PR and issue traffic. Fewer parallel slices on the busiest lane is the lever.';
+      }else if(low(r.core)){
+        verdict = u.total > 500
+          ? 'Core is nearly gone and this tab has made a lot of the calls — leaving the Steward log open with runs expanded is the usual cause.'
+          : 'Core is nearly gone but this tab has barely called — the stewards’ runs spent it.';
+      }else if(low(r.search)){
+        verdict = 'Search is nearly gone. It refills every minute, so this clears on its own shortly.';
+      }
+      if(verdict) tally.append(el('div', { class: 'tiny fo-warn', style: 'margin-top:4px', html: `${icon('warning')} ${escapeHtml(verdict)}` }));
+      else if(u.total) tally.append(el('div', { class: 'tiny muted', style: 'margin-top:4px',
+        text: 'All pools healthy. They are account-wide — the stewards’ runs spend from them too, so a drained pool with a small tally here was spent elsewhere.' }));
       body.append(tally);
     }catch(e){ body.innerHTML = errNote(e); }
   };
