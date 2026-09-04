@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 119,
+    title: 'The budget meter now shows the pool that was actually running out',
+    kind: 'fix',
+    ts: '2026-09-04T21:27:26.622Z',
+    items: [
+      'GitHub keeps a second, separate allowance for GraphQL, and the commands the stewards use to open, merge and comment on pull requests all draw on that one rather than the ordinary pool. The meter was not showing it — so during the outage it was built to explain, every bar read full while everything failed.',
+      'It is now shown alongside the others. On the platform side it had been measured at zero while the ordinary pool sat at 99 percent free, which is exactly the picture that looked like a contradiction.',
+      'The card also reads the bars for you now. Manager itself never touches the GraphQL allowance, so when that one is the empty one the answer is unambiguous — it is the scheduled runs, and the number of parallel lanes is the dial. When the ordinary pool is low it says whether this tab or the runs spent it.',
+    ],
+  },
+  {
     v: 118,
     title: 'Fleet Ops queues its GitHub calls instead of firing them all at once',
     kind: 'fix',

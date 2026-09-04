@@ -1342,7 +1342,7 @@ try {
   // GitHub enforces core-per-hour and search-per-minute separately and the 403
   // never says which. The card must render both pools plus this tab's own
   // tally, and must settle offline like every other Fleet Ops card.
-  await check('Fleet Ops shows an API budget meter (core + search pools, and this tab\'s own call tally)', async () => {
+  await check('Fleet Ops shows an API budget meter (all three pools, and this tab\'s own call tally)', async () => {
     if (!(await openSec('fleetops'))) return false;
     if (!(await foBodiesSettle())) return false;
     const t = await page.evaluate(() => {
@@ -1355,9 +1355,40 @@ try {
     // rate-limited, so the card must instead settle into an inline note — the
     // same degradation discipline as every other Fleet Ops card, never a stuck
     // spinner and never a pageerror.
-    const live = /Core REST/.test(t) && /Search/.test(t) && /This tab:|No calls from this tab/.test(t);
+    const live = /Core REST/.test(t) && /GraphQL/.test(t) && /Search/.test(t)
+      && /This tab:|No calls from this tab/.test(t);
     const degraded = /GitHub \d{3}|GitHub unreachable|no budget data/.test(t);
     return live || degraded;
+  });
+  // GRAPHQL IS THE POOL THAT ACTUALLY EMPTIES, and showing only core+search
+  // made the card read as FULL during the exact outage it was meant to explain
+  // (measured on the platform side: graphql 0/5000 while core sat at 4969).
+  // Manager is REST-only and never spends a GraphQL point, so a drained graphql
+  // bar is attributable to the stewards by construction — which is what lets
+  // the card name a culprit instead of showing three bars to interpret.
+  await check('the budget meter reads the GraphQL pool and names who drained it', async () => {
+    return await page.evaluate(async () => {
+      const now = Math.floor(Date.now() / 1000);
+      const realFetch = window.fetch;
+      // the observed failure shape: REST + search untouched, GraphQL gone
+      window.fetch = async () => new Response(JSON.stringify({ resources: {
+        core:    { limit: 5000, remaining: 5000, reset: now + 3600 },
+        graphql: { limit: 5000, remaining: 8,    reset: now + 1200 },
+        search:  { limit: 30,   remaining: 30,   reset: now + 60 } } }),
+        { status: 200, headers: { 'content-type': 'application/json' } });
+      try {
+        const g = await import('/js/github.js');
+        g.clearGhCache();
+        const r = await g.rateLimit();
+        if (!r || !r.graphql) return false;                 // the pool must be surfaced at all
+        if (r.graphql.remaining !== 8) return false;
+        // and /rate_limit must stay off the tally — it is free, and a meter
+        // that bills itself would be part of the problem it reports on.
+        const before = g.ghUsage().total;
+        await g.rateLimit();
+        return g.ghUsage().total === before;
+      } finally { window.fetch = realFetch; }
+    });
   });
   // Regression guard for the rate-limit fix: the "what did this run produce"
   // search window used to end at Date.now(), minting a fresh URL — and so a

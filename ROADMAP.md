@@ -22,6 +22,28 @@ with new, ambitious, fun ideas.
 
 ## Done (recent)
 
+- [x] **The budget meter was missing the pool that was actually emptying**
+      (2026-09-04): the meter shipped two days earlier showed core and search
+      only, and during the very outage it was built to diagnose BOTH read full
+      while every card 403'd. The missing bar was the answer. GitHub meters
+      **GraphQL from a separate 5,000-POINT hourly pool**, and `gh pr
+      create|merge|comment` and `gh issue create|comment` all go through it —
+      measured on the platform side (polecat-platform
+      `.github/steward/gh-rest.sh`, improve run 1140): **graphql 0/5000 (used
+      6690) while core sat at 4969/5000**, failing a `gh pr create` on finished,
+      gated, pushed work. Points are billed by query complexity, so "used 6690"
+      is nowhere near 6,690 commands; a handful of parallel slices drains it.
+      Now shown as a third bar, labelled in POINTS rather than calls so a
+      drained pool doesn't look impossible. **The card also reads itself now:**
+      attribution is possible because the pools have different spenders —
+      Manager is REST-only and never spends a GraphQL point, so a drained
+      graphql bar is the stewards *by construction*, and the tab's own tally is
+      the tie-breaker on the shared core pool. The verdict line names the
+      culprit and the lever (parallel slices) instead of leaving three bars to
+      interpret. Smoke covers the drained-graphql shape and asserts `/rate_limit`
+      stays off the usage tally — a meter that billed itself would be part of
+      the problem it reports on.
+
 - [x] **The 403s were the SECONDARY limit, not the quota** (2026-09-04):
       the budget meter shipped the day before paid for itself immediately — a
       screenshot showed **core 5000/5000 and search 30/30, both untouched,
