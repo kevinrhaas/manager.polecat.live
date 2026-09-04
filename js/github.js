@@ -296,6 +296,81 @@ export async function journalFor(runId){
   return null;
 }
 
+/**
+ * THE RUN RECORD — what a steward run actually picked up, and how it ended.
+ *
+ * Since 2026-09-03 a steward improve entry OPENS with
+ * `<!-- steward-record: {…} -->` (polecat-platform .github/steward/run-record.mjs),
+ * built from the run's own tool calls rather than its prose: the ticket it
+ * claimed, the branch it pushed, the PR it opened and the sha its merge printed.
+ * Before it, five parallel slices posted five entries under one heading and none
+ * could be told apart. Entries older than that date simply have no record and
+ * render as they always did.
+ */
+export function parseStewardRecord(body){
+  const m = /<!-- steward-record: ([\s\S]*?) -->/.exec(String(body || ''));
+  if(!m) return null;
+  try{ return JSON.parse(m[1]); }catch{ return null; }
+}
+
+/** Every run record the journal currently carries, by run id. One paged read of
+ *  the same issue `journalFor` uses; the 300 newest comments cover far more runs
+ *  than any view lists. */
+export async function journalRecords(){
+  const out = new Map();
+  const issues = await gh(`/repos/${PLATFORM_REPO}/issues?labels=steward-journal&state=all&per_page=1`);
+  const issue = issues?.[0];
+  if(!issue) return out;
+  const perPage = 100;
+  const lastPage = Math.max(1, Math.ceil((issue.comments || 0) / perPage));
+  for(let p = lastPage; p >= Math.max(1, lastPage - 2); p--){
+    const cs = await gh(`/repos/${PLATFORM_REPO}/issues/${issue.number}/comments?per_page=${perPage}&page=${p}`);
+    for(const c of cs || []){
+      const run = /steward-run:(\d+)/.exec(c.body || '')?.[1];
+      const rec = run && parseStewardRecord(c.body);
+      if(run && rec) out.set(run, rec);
+    }
+  }
+  return out;
+}
+
+/**
+ * Every branch on a repo. Paged to a bound rather than exhaustively: 500 covers
+ * a repo that has accumulated years of steward branches, and the caller filters
+ * to the handful that carry a live ticket number.
+ */
+export async function listBranches(repo, maxPages = 5){
+  assertReachable(repo);
+  const out = [];
+  for(let page = 1; page <= maxPages; page++){
+    const b = await gh(`/repos/${repo}/branches?per_page=100&page=${page}`);
+    if(!b?.length) break;
+    out.push(...b);
+    if(b.length < 100) break;
+  }
+  return out;
+}
+
+/** A branch's tip commit — one call, used to tell a branch a run pushed twenty
+ *  minutes ago from a branch abandoned three weeks ago. */
+export async function branchTip(repo, branch){
+  assertReachable(repo);
+  const c = await gh(`/repos/${repo}/commits?sha=${encodeURIComponent(branch)}&per_page=1`);
+  const top = c?.[0];
+  if(!top) return null;
+  return { sha: top.sha, date: top.commit?.committer?.date || top.commit?.author?.date || null,
+    subject: String(top.commit?.message || '').split('\n')[0] };
+}
+
+/** Commits on a branch, newest first — used to date a merge. A ticket records
+ *  when its RUN closed it, which is minutes before the PR merges; the commit
+ *  whose subject ends `(#N)` is the merge itself. */
+export async function listCommits(repo, sha = 'dev', perPage = 100){
+  assertReachable(repo);
+  const c = await gh(`/repos/${repo}/commits?sha=${encodeURIComponent(sha)}&per_page=${perPage}`);
+  return c || [];
+}
+
 // Per-run job + step breakdown (the in-panel "run log" skeleton).
 export async function runJobs(runId){
   const j = await gh(`/repos/${PLATFORM_REPO}/actions/runs/${runId}/jobs?per_page=30`);

@@ -9,14 +9,38 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
-    v: 116,
+    v: 118,
     title: 'Fleet Ops queues its GitHub calls instead of firing them all at once',
     kind: 'fix',
-    ts: '2026-09-04T21:01:40.839Z',
+    ts: '2026-09-04T21:03:12.512Z',
     items: [
       'GitHub enforces two unrelated things: a quota, and a separate throttle on sending too many requests at the same moment. Three screens here fanned out across every repo in one burst — around twenty simultaneous calls — which is what trips the second one. Calls are now queued a few at a time. Same data, same speed to your eye, no burst.',
       'When GitHub does throttle you it says how long to wait, and that wait is usually seconds. Manager was reading the wrong header and showing the top of the next hour instead, so a brief pause looked like an hour-long lockout. It now shows the real wait, pauses requests until it passes rather than hammering through it, and says plainly that this is a burst limit and not your quota.',
       'That also explains a confusing sight: the budget meter reading completely full while everything errors. Full bars plus failures means the burst limit, and the meter now says so instead of appearing to contradict the errors next to it.',
+    ],
+  },
+  {
+    v: 117,
+    ts: '2026-09-03T17:40:26.947Z',
+    title: 'The Board shows the work a run is doing right now, not only the work it has finished',
+    kind: 'fix',
+    items: [
+      'In progress read zero while five steward runs were mid-flight. The reason is in how the loop guards itself: a run claims its ticket on its OWN branch, and that claim only reaches the shared branch when its pull request merges at the very end \u2014 so the shared copy still says the ticket is open for the hour or two the work actually takes.',
+      'The column is now built from the three places live work leaves a trace, and says which one each card came from: the claim has merged, a pull request is open, or a branch was pushed within the last three hours with no pull request yet \u2014 which is where a run spends most of its life.',
+      'Branch age is what keeps that honest: this repository carries hundreds of old steward branches, twenty of them on tickets still open. Only branches pushed inside the run window count, and the card links the branch, the pull request and the run.',
+      'A ticket at the top of the queue that a run is working now says so on its queue card too, instead of leaving you to compare two columns.',
+    ],
+  },
+  {
+    v: 116,
+    ts: '2026-09-03T17:21:03.387Z',
+    title: 'The 4D board shows what finished, and when — and the Steward log names the ticket each run took',
+    kind: 'feature',
+    items: [
+      'The Board\u2019s finished work is no longer a column of cards in ticket-number order. It is a dated list, newest first, in the order the work was actually finished \u2014 grouped by day, with the time each ticket closed and a link to the pull request that carried it.',
+      'That ordering was not possible before this week: a ticket recorded only the DAY it closed, and nineteen of them can close inside one day. The project now records the instant as well, and for the several hundred finished before that, the pull-request number carries the order.',
+      'A claimed ticket says who holds it and links straight to the steward run that took it \u2014 which is the only way to tell five runs working in parallel apart.',
+      'In the Steward log, every improve run now carries its ticket, its pull request and how it ended (merged, parked, blocked, or died) on the row itself, read from a record the run writes from its own actions rather than from its prose.',
     ],
   },
   {
