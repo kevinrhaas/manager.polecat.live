@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 120,
+    title: 'Parallel lanes are now always-on slots, not a batch that has to finish',
+    kind: 'feature',
+    ts: '2026-09-05T12:36:28.080Z',
+    items: [
+      'Setting a lane to five used to mean: start five, then wait for every one of them before starting five more. So the lane moved at the speed of its slowest run. Today one lane of ten had nine runs finished and sat for 27 minutes waiting on the tenth — set to ten, running one.',
+      'The number is now a target the lane is held at rather than a batch size. When one run finishes its replacement starts within about a minute and the others carry on, so five means five going, continuously.',
+      'A replacement takes over the exact position the finished run held, which is what keeps it from colliding with work a sibling is already doing. Lowering the number is safe too: the extras are allowed to finish rather than being cancelled.',
+    ],
+  },
+  {
     v: 119,
     title: 'The budget meter now shows the pool that was actually running out',
     kind: 'fix',
