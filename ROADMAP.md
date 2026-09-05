@@ -22,6 +22,21 @@ with new, ambitious, fun ideas.
 
 ## Done (recent)
 
+- [x] **Parallel lanes became slots, not batches** (2026-09-05): `slices: N`
+      meant "fire N, then skip this lane until every one has finished", so a lane
+      moved at the pace of its SLOWEST run — measured on custom at N=10: batch
+      launched 20:55, nine done by 22:08, the tenth ran to 22:35, and for those
+      27 minutes a lane set to ten was running one. `slices` is now a standing
+      concurrency TARGET the scheduler tops up to: each tick fills only the empty
+      slots, so a finishing run frees one and a replacement starts while its
+      siblings carry on. Platform side in polecat-platform#156 (the refill reuses
+      the freed SLICE NUMBER, which matters because the index is both in
+      steward-improve's concurrency group and the k-th-workable-item rule — stable
+      because a claimed ticket keeps its place in the list); every successful run
+      now kicks the scheduler rather than only the last one out. Manager's roster
+      copy and the slice badge follow: "×N" now reads as "keep N going at once",
+      and the badge says which SLOT a run holds. Roster set to ×5.
+
 - [x] **The budget meter was missing the pool that was actually emptying**
       (2026-09-04): the meter shipped two days earlier showed core and search
       only, and during the very outage it was built to diagnose BOTH read full

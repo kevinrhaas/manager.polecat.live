@@ -332,7 +332,7 @@ function rosterCard(onChange){
   const card = el('div', { class: 'card fo-roster' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Focus roster</h2>
     <span class="sp"></span></div>
-    <p class="tiny muted" style="margin:0 0 10px">Per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform; the loop ticks every ~10&nbsp;min). A <b>continuous</b> lane fires its next batch within ~10&nbsp;min of the last one finishing; a coarser cadence gates it to specific hours. Dial the slices (<span class="mono">×N</span>) to fire that many runs <b>in parallel</b> each time the lane is due — N agent lanes on that app at once, each its own PR — fence it to a time window, or give it a start/stop, then commit; the next tick picks it up.</p>`;
+    <p class="tiny muted" style="margin:0 0 10px">Per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform; the loop ticks every ~10&nbsp;min). Dial the slices (<span class="mono">×N</span>) to keep that many runs going <b>at all times</b> — N agent lanes on that app at once, each its own PR. They are slots, not a batch: when one finishes its replacement starts within ~a minute while the others carry on, so the lane stays at N instead of waiting for the slowest run. A <b>continuous</b> lane tops up on every tick; a coarser cadence only refills on the hours it is due. Fence a lane to a time window, or give it a start/stop, then commit; the next tick picks it up.</p>`;
   const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loading roster…</span>` });
   card.append(body);
 
@@ -800,9 +800,9 @@ function runsCard(){
         const state = r.status !== 'completed' ? r.status.replace('_', ' ') : (r.conclusion || 'done');
         const dot = r.status !== 'completed' ? 'live' : (RUN_DOT[r.conclusion] || 'muted');
         // run-name (display_title) carries the target app AND, for one run of a
-        // parallel batch, the slice — "Steward improve — analytics.polecat.live
+        // lane, which SLOT it is filling — "Steward improve — analytics.polecat.live
         // [1/2]". Split the "[n/m]" into its own badge so you can see which of
-        // the batch's runs this is. Fall back to the workflow name for runs
+        // the lane's slots this run holds. Fall back to the workflow name for runs
         // from before the platform annotated them.
         const rawTitle = r.display_title && r.display_title !== r.name ? r.display_title : r.name;
         const sliceM = rawTitle.match(/\s*\[(\d+)\s*\/\s*(\d+)\]\s*$/);
@@ -818,7 +818,7 @@ function runsCard(){
           html: icon('chevron'), onclick: toggle });
         const main = el('button', { class: 'fo-run-main', title: 'What this run did', onclick: toggle,
           html: `<span class="fo-dot ${dot}"></span><span class="fo-run-name">${escapeHtml(title)}</span>`
-            + (sliceM ? `<span class="fo-slice-badge" title="run ${sliceM[1]} of ${sliceM[2]} fired together in this batch">slice ${sliceM[1]}/${sliceM[2]}</span>` : '') });
+            + (sliceM ? `<span class="fo-slice-badge" title="slot ${sliceM[1]} of ${sliceM[2]} — this lane keeps ${sliceM[2]} runs going at once">slice ${sliceM[1]}/${sliceM[2]}</span>` : '') });
         const meta = el('span', { class: 'fo-run-meta' });
         meta.append(
           el('span', { class: 'tiny muted fo-run-event', text: r.event }),
