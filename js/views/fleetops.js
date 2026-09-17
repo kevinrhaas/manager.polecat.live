@@ -413,7 +413,17 @@ function rosterCard(onChange){
       onclick: () => { a.enabled = !a.enabled; touch(); render(); },
     }, el('span', { class: 'fo-knob' }));
     const cad = el('select', { class: 'input fo-cad', 'aria-label': `Cadence for ${display}` });
-    [[1, 'continuous'], [2, 'every 2h'], [3, 'every 3h'], [6, 'every 6h'], [12, 'every 12h'], [24, 'daily']]
+    // `everyHours: 1` is ONE setting with TWO meanings, and the label has to say
+    // which one you are looking at.
+    //   APP LANE — eligible on every ~10 min tick, and the scheduler tops the
+    //     lane back up to `slices` each time. That is genuinely CONTINUOUS.
+    //   PLATFORM JOB — a job has no slices to top up, so the platform gates it
+    //     on the age of its last run instead (steward-focus's AGE GATE): at 1 it
+    //     fires once an HOUR. Labelling that "continuous" is what made an hourly
+    //     janitor look impossible — the setting was already there, reading as
+    //     the one thing the owner did not want.
+    [[1, isApp ? 'continuous' : 'hourly'], [2, 'every 2h'], [3, 'every 3h'],
+     [6, 'every 6h'], [12, 'every 12h'], [24, 'daily']]
       .forEach(([h, t]) => cad.append(el('option', { value: h, text: t, selected: (a.everyHours || 1) === h })));
     cad.addEventListener('change', () => {
       a.everyHours = parseInt(cad.value, 10);
@@ -562,13 +572,19 @@ function dispatchCard(){
 
 // ---- fleet health: is the fleet shipping itself? -----------------------------
 // The zero-touch guarantee rests on three recurring Claude-free jobs: the
-// janitor (re-smokes + merges green steward PRs every 2h) and the two daily
-// sweeps. This strip shows each one's LAST outcome, so a silently-failing
-// safety net is visible from Manager instead of only in the Actions tab.
+// janitor (re-smokes + merges green steward PRs) and the two daily sweeps. This
+// strip shows each one's LAST outcome, so a silently-failing safety net is
+// visible from Manager instead of only in the Actions tab.
+//
+// These subtitles say what each job DOES, never how often. The cadence is a
+// dial in the roster above and can be changed from this very screen, so baking
+// it in here only guarantees the two disagree: this line read "· 2h" while the
+// roster was being set to hourly. The lane row is the one place that reports
+// cadence, and it reads it from the roster.
 const HEALTH_JOBS = [
-  { match: /janitor/i,      label: 'Janitor',    sub: 'merges green steward PRs · 2h' },
-  { match: /sweep \(ux\)/i,  label: 'UX sweep',   sub: 'files findings issues · daily' },
-  { match: /sweep \(tech\)/i, label: 'Tech sweep', sub: 'audits contracts · daily' },
+  { match: /janitor/i,      label: 'Janitor',    sub: 'merges green steward PRs' },
+  { match: /sweep \(ux\)/i,  label: 'UX sweep',   sub: 'files findings issues' },
+  { match: /sweep \(tech\)/i, label: 'Tech sweep', sub: 'audits contracts' },
 ];
 function healthCard(){
   const card = el('div', { class: 'card', style: 'margin-top:16px' });

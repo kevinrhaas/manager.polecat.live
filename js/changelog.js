@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 121,
+    title: 'The janitor can be set to hourly, and the setting now says so',
+    kind: 'fix',
+    ts: '2026-09-17T04:32:01.021Z',
+    items: [
+      'The cadence dropdown offered “continuous” and then jumped to every 2 hours, so an hourly janitor looked impossible. It was not — the setting was already there, wearing the wrong name.',
+      'The lowest setting means two different things depending on what it is set on. For an app lane it really is continuous: the scheduler keeps that lane topped up on every tick. For a platform job like the janitor there is nothing to top up, so it runs once an hour. The dropdown now reads “continuous” on a lane and “hourly” on a job.',
+      'The fleet-health strip no longer prints “· 2h” beside the janitor. That number is a dial you can change on the same screen, so printing it there only guaranteed the two would disagree — and they did. The lane row reads the real cadence from the roster.',
+    ],
+  },
+  {
     v: 120,
     title: 'Parallel lanes are now always-on slots, not a batch that has to finish',
     kind: 'feature',
