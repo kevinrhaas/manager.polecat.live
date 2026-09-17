@@ -22,6 +22,28 @@ with new, ambitious, fun ideas.
 
 ## Done (recent)
 
+- [x] **"Hourly" for a platform job, and a lane edit that starts the lane**
+      (2026-09-17): the owner asked for an hourly janitor and the dropdown
+      seemed to jump from "continuous" to "every 2h". The setting already
+      existed — `everyHours: 1` — but it was MISLABELLED, because that one value
+      means two different things. On an APP lane it is eligible-every-tick and
+      the scheduler tops the lane back up to `slices`, which is genuinely
+      continuous. On a PLATFORM JOB there are no slices to top up, so
+      polecat-platform#168 gates it on the age of the last run: at 1 it fires
+      once an HOUR. The dropdown now reads "continuous" on a lane and "hourly"
+      on a job. The fleet-health strip also stopped printing "· 2h" next to the
+      janitor — that is a dial editable on the same screen, so hardcoding it
+      only guaranteed the two would disagree, and they did.
+      Same report, second cause: `custom` was set to ×3 and sat idle. Nothing
+      was broken — measured, the roster enabled the lane at 04:07:51Z, the last
+      scheduler tick had been 04:02:48Z, and the next had not come 16 minutes
+      later; a manual dispatch filled all three slots in nine seconds. The COLD
+      START is the one gap the self-kick cannot cover: every other refill runs
+      through a finishing run, and a lane with no runs has nothing to kick.
+      Fixed in polecat-platform#170 — a push to focus.json now ticks the
+      scheduler, keyed on the file rather than the author, so it covers Manager,
+      the GitHub UI and any session alike.
+
 - [x] **Parallel lanes became slots, not batches** (2026-09-05): `slices: N`
       meant "fire N, then skip this lane until every one has finished", so a lane
       moved at the pace of its SLOWEST run — measured on custom at N=10: batch
