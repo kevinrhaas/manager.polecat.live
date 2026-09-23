@@ -1266,6 +1266,15 @@ a.link:hover{text-decoration:underline}
 
 /* finished, newest first — a dated list, not a column of cards */
 .bd-finished{margin-top:20px}
+/* the owner's decisions, drawn above the queue */
+.bd-decisions{margin:0 0 14px;border-color:color-mix(in srgb,var(--warn, #f59e0b) 45%,transparent)}
+.bd-decision{display:grid;gap:8px;padding:10px 0;border-top:1px solid var(--line, rgba(127,127,127,.2))}
+.bd-decision:first-of-type{border-top:0}
+.bd-decision-q{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
+.bd-decision-q b{flex:1 1 320px;min-width:0}
+.bd-decision-opts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.bd-decision-opts .btn{white-space:normal;text-align:left;max-width:100%}
+.bd-decision-rec{flex-basis:100%}
 .bd-done-list{display:flex;flex-direction:column;gap:1px;margin-top:10px}
 .bd-done-day{position:sticky;top:0;z-index:1;margin:10px 0 2px;padding:3px 0;
   color:var(--text-3);font-weight:700;letter-spacing:.03em;background:var(--surface-1)}

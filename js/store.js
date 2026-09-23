@@ -156,7 +156,7 @@ export const Store = new (class {
         // here rather than waiting for the next write — the top-up is
         // idempotent, but leaving it unsaved would re-run (and re-insert a
         // deleted row) on every load until something else happened to save.
-        if(topUpFleetProjects(raw)){
+        if(topUpFleetProjects(raw) | migrateMovedProjects(raw)){
           try{ localStorage.setItem(LS_KEY, JSON.stringify(raw)); }catch{}
         }
         return raw;
@@ -1182,11 +1182,11 @@ function fleetProjects(){ return [
       tags:['workspace','analytics','ai'],
       description:'A mixed Pentaho solution-engineering workspace.',
       assessment:'A mixed engineering workspace: Pentaho solution-engineering assets, analytics and data-catalog content, AI/agentic experiments, demos, and automation. Many self-contained projects, not one deployed site.' },
-    { id:'chicago-4d', name:'Chicago 4D', repo:'kevinrhaas/custom', site:'https://kevinrhaas.github.io/custom/chicago/4d/',
+    { id:'chicago-4d', name:'Chicago 4D', repo:'kevinrhaas/chicago', site:'https://chicago.polecat.live/4d/',
       status:'building', icon:'history', pinned:false, cadence:'GitHub Action · hourly',
       tags:['3d','history','research','static'],
       description:'A walkable, source-cited 3D reconstruction of 1835 Chicago.',
-      assessment:'A walkable reconstruction of downtown Chicago in the summer of 1835, built as a research dataset with renderers attached: every building is generated from a record whose every attribute is tagged documented, inferred or conjectural, and the walkthrough can shade the whole town by how much of it is actually known. Lives in the `custom` monorepo under chicago/4d; the steward lane is scoped to that subtree.' },
+      assessment:'A walkable reconstruction of downtown Chicago in the summer of 1835, built as a research dataset with renderers attached: every building is generated from a record whose every attribute is tagged documented, inferred or conjectural, and the walkthrough can shade the whole town by how much of it is actually known. Lives in its own repo, kevinrhaas/chicago (moved out of the `custom` monorepo 2026-09-23), with its tickets in kevinrhaas/chicago-tickets; the steward runs it on the dedicated `chicago` lane.' },
 ]; }
 
 // The ids the ORIGINAL seed shipped, frozen. topUpFleetProjects() uses this to
@@ -1206,6 +1206,34 @@ function seedRow(p, now){ return { slug:p.id, sessionUrl:'', fields:{}, createdA
 // A delete must stay deleted, so this tracks ids OFFERED rather than ids
 // present: once an id is in meta.seededProjects it is never inserted again,
 // whatever the user did with it afterwards.
+// A fleet project that MOVED repositories. The top-up above never touches a row a
+// workspace already holds (a delete must stay deleted, and a user's edits must
+// survive), so a seed edit alone would leave every existing workspace pointing at
+// the old repo and site forever. This rewrites exactly the fields that still hold
+// the OLD seeded value — a row the user has retargeted by hand is left alone.
+// A FUNCTION, not a const, for the reason fleetProjects() is one: the Store instance
+// is built while this module is still evaluating, so a top-level const declared down
+// here is in its temporal dead zone when _load() runs — and _load() catches the
+// ReferenceError and reseeds a blank workspace. (Caught by the smoke's auto-sync and
+// tour checks: every reload wiped the user's data.)
+function movedProjects(){ return [
+  { id:'chicago-4d', // kevinrhaas/custom → kevinrhaas/chicago, 2026-09-23
+    from:{ repo:'kevinrhaas/custom', site:'https://kevinrhaas.github.io/custom/chicago/4d/' },
+    to:{ repo:'kevinrhaas/chicago', site:'https://chicago.polecat.live/4d/' } },
+]; }
+function migrateMovedProjects(db){
+  let changed = false;
+  for(const m of movedProjects()){
+    const row = db.projects?.[m.id];
+    if(!row) continue;
+    for(const k of Object.keys(m.to)){
+      if(row[k] === m.from[k]){ row[k] = m.to[k]; changed = true; }
+    }
+    if(changed) row.updatedAt = Date.now();
+  }
+  return changed;
+}
+
 function topUpFleetProjects(db){
   const meta = db.meta;
   if(!Array.isArray(meta.seededProjects)) meta.seededProjects = legacySeedIds();
