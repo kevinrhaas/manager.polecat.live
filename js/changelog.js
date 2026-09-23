@@ -9,6 +9,18 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 122,
+    title: '4D Chicago moved to its own home, and its decisions come first',
+    kind: 'feature',
+    ts: '2026-09-23T22:42:32.323Z',
+    items: [
+      'Chicago 4D now lives at chicago.polecat.live/4d/ in its own repository, kevinrhaas/chicago. The project card, the Pipeline card and the changelog feed point there, and a workspace that still held the old address is re-pointed on load. A project you retargeted by hand is left alone.',
+      'The 4D Board reads its tickets from kevinrhaas/chicago-tickets, the project’s own ticket repository. Reordering the queue commits straight to its main branch, so it no longer waits on anything.',
+      'Tickets waiting on you now sit at the top of the board under “Needs your decision”, each with its question, its options and a recommendation. Pick one and your answer is written into the ticket for the next run to act on.',
+      'Reordering the queue no longer flattens it. Band headings stay where they are and only the tickets move between them. A decision question stays with its own ticket.',
+    ],
+  },
+  {
     v: 121,
     title: 'The janitor can be set to hourly, and the setting now says so',
     kind: 'fix',

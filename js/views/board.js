@@ -1,34 +1,41 @@
 // board.js — the 4D Chicago ticket board.
 //
-// kevinrhaas/custom's chicago/4d project keeps a lightweight ticket system in
-// `chicago/4d/tickets/` on its working branch (`dev`):
-//   • tickets.json  — the generated, machine-readable list (state, epic,
-//                     requested_by, effort, needs_bake, queue_rank …). Read-only
-//                     here; the repo regenerates it from QUEUE.md + the ticket
-//                     files with `tools/ticket.mjs board`.
-//   • QUEUE.md      — the priority order, top = next. **The owner orders this
-//                     file** (agents only append/remove). This is the one file
-//                     Manager writes: reordering the queue rewrites it.
-//   • T-NNNN-*.md   — one file per ticket: front matter + the ask/acceptance.
+// The 4D Chicago project (kevinrhaas/chicago, chicago.polecat.live/4d/) keeps its
+// tickets in their OWN repository, kevinrhaas/chicago-tickets, since 2026-09-23 —
+// split out of the code repo so ticket and queue edits never ride a code PR and
+// never conflict with one. In that repo:
+//   • QUEUE.md       — the priority order, top = next, on `main`. **The owner
+//                      orders this file** (agents only append/remove). This is
+//                      the one file Manager writes: reordering the queue commits
+//                      it straight to main — no PR, no merge, no conflict lap.
+//   • T-0000-0249/…  — one file per ticket (front matter + the ask/acceptance),
+//                      in folders of 250 by ticket number.
+//   • tickets.json   — generated from the two above by `ticket.mjs board` and
+//                      force-pushed to the `board` branch by the tickets repo's
+//                      own workflow (one writer, never hand-edited). It carries
+//                      each ticket's `path` and `pr_url`, so no directory listing
+//                      is needed to open a ticket.
 //
-// This view READS tickets.json to draw the board (a wide, numbered Queue plus
-// compact In-progress / Blocked / Done columns), opens a ticket's full detail
-// on click (fetching its .md), and lets the owner reorder the Queue — moving a
-// ticket and committing rewrites QUEUE.md on `dev` via the contents API (sha
-// compare-and-swap, vault token). (This is ticket T-0030.)
+// Live work (branches and open PRs carrying a ticket number) is still read from
+// the CODE repo, kevinrhaas/chicago — that is where runs push.
+//
+// Tickets in state `blocked-owner` are the owner's decisions; they are drawn
+// first, above the queue, with the question each one is waiting on. (T-0030 for
+// the board itself.)
 import { el, escapeHtml, toast, confirmDialog, modal, mdToHtml, fmtCT, ago } from '../ui.js';
 import { icon } from '../icons.js';
-import { ghToken, getRepoJson, getRepoText, getRepoDir, putRepoText, clearGhCache,
+import { ghToken, getRepoJson, getRepoText, putRepoText, clearGhCache,
   stewardPRs, listBranches, branchTip } from '../github.js';
 
 const TICKETS = {
-  repo: 'kevinrhaas/custom',
-  branch: 'dev',
+  repo: 'kevinrhaas/chicago-tickets',   // tickets + QUEUE.md
+  branch: 'main',
+  boardBranch: 'board',                 // generated tickets.json, one writer
+  codeRepo: 'kevinrhaas/chicago',       // where runs push branches and open PRs
   label: '4D Chicago',
-  jsonPath: 'chicago/4d/tickets/tickets.json',
-  queuePath: 'chicago/4d/tickets/QUEUE.md',
-  dirPath: 'chicago/4d/tickets',
-  dirUrl: 'https://github.com/kevinrhaas/custom/tree/dev/chicago/4d/tickets',
+  jsonPath: 'tickets.json',
+  queuePath: 'QUEUE.md',
+  dirUrl: 'https://github.com/kevinrhaas/chicago-tickets',
 };
 
 /**
@@ -127,7 +134,7 @@ export function renderBoard(root, ctx){
   wrap.append(title);
 
   const intro = el('p', { class: 'tiny muted', style: 'margin:0 0 12px' });
-  intro.innerHTML = `Ticket data from <span class="mono">${escapeHtml(TICKETS.jsonPath)}</span>, queue order from <span class="mono">QUEUE.md</span> (the file the loop reads), both on <span class="mono">${escapeHtml(TICKETS.branch)}</span>. Click a card for its full ticket. Reorder the <b>Queue</b> with the arrows, then <b>Commit order</b> to rewrite <span class="mono">QUEUE.md</span> (a vault token is needed to commit).`;
+  intro.innerHTML = `Tickets from <span class="mono">${escapeHtml(TICKETS.repo)}</span> — queue order from <span class="mono">QUEUE.md</span> on <span class="mono">${escapeHtml(TICKETS.branch)}</span> (the file the loop reads), ticket data from the generated <span class="mono">${escapeHtml(TICKETS.jsonPath)}</span> on <span class="mono">${escapeHtml(TICKETS.boardBranch)}</span>. Click a card for its full ticket. Reorder the <b>Queue</b> with the arrows, then <b>Commit order</b> to rewrite <span class="mono">QUEUE.md</span> (a vault token is needed to commit).`;
   wrap.append(intro);
 
   const body = el('div', { html: `<div class="card"><span class="tiny muted">Loading tickets…</span></div>` });
@@ -149,15 +156,16 @@ export function renderBoard(root, ctx){
     body.innerHTML = '';
     body.append(el('div', { class: 'card', html: `<span class="tiny muted">Loading tickets…</span>` }));
     try{
-      const [{ json }, q, dir] = await Promise.all([
-        getRepoJson(TICKETS.repo, TICKETS.jsonPath, TICKETS.branch),
+      const [{ json }, q] = await Promise.all([
+        getRepoJson(TICKETS.repo, TICKETS.jsonPath, TICKETS.boardBranch),
         getRepoText(TICKETS.repo, TICKETS.queuePath, TICKETS.branch).catch(() => ({ sha: null })),
-        getRepoDir(TICKETS.repo, TICKETS.dirPath, TICKETS.branch).catch(() => []),
       ]);
       tickets = Array.isArray(json?.tickets) ? json.tickets : [];
       queueSha = q.sha;
+      // tickets.json names each ticket's file (folders of 250), so opening one
+      // needs no directory listing.
       fileById = new Map();
-      for(const e of dir){ const m = (e.name || '').match(/^(T-\d+)-.*\.md$/); if(m) fileById.set(m[1], { name: e.name, path: e.path }); }
+      for(const t of tickets){ if(t.id && t.path) fileById.set(t.id, { name: t.path.split('/').pop(), path: t.path }); }
       // ORDER comes from QUEUE.md — it is the file the owner reorders and the
       // loop reads, and it is authoritative the moment it is committed. Do NOT
       // order by tickets.json's queue_rank: that field is regenerated from
@@ -203,7 +211,7 @@ export function renderBoard(root, ctx){
 
     // 2. an open steward PR carrying a ticket number
     let prs = [];
-    try{ prs = await stewardPRs(TICKETS.repo); }catch{ /* anonymous rate limit; the rest still works */ }
+    try{ prs = await stewardPRs(TICKETS.codeRepo); }catch{ /* anonymous rate limit; the rest still works */ }
     for(const pr of prs){
       const ref = pr.head?.ref || '';
       const hit = [...workable.values()].find(t => branchCarries(ref, t.id));
@@ -215,7 +223,7 @@ export function renderBoard(root, ctx){
     // 3. a branch pushed inside the run window with no PR yet — the state a run
     //    spends most of its life in, and the one the old column could never show
     let branches = [];
-    try{ branches = await listBranches(TICKETS.repo); }catch{ branches = []; }
+    try{ branches = await listBranches(TICKETS.codeRepo); }catch{ branches = []; }
     const candidates = [];
     for(const b of branches){
       const name = b.name || '';
@@ -227,7 +235,7 @@ export function renderBoard(root, ctx){
     const dated = candidates.slice(0, DATE_BUDGET);
     const cutoff = Date.now() - RUN_HOURS * 3600e3;
     await Promise.allSettled(dated.map(async (c) => {
-      const tip = await branchTip(TICKETS.repo, c.name).catch(() => null);
+      const tip = await branchTip(TICKETS.codeRepo, c.name).catch(() => null);
       const at = tip?.date ? Date.parse(tip.date) : NaN;
       if(Number.isFinite(at) && at >= cutoff){
         found.set(c.id, { ticket: c.ticket, kind: 'branch pushed', branch: c.name, pr: null, when: tip.date, run: null });
@@ -282,6 +290,14 @@ export function renderBoard(root, ctx){
       el('button', { class: 'btn sm primary', html: `${icon('check')} Commit order`, disabled: !dirty, onclick: commit }));
     body.append(bar);
 
+    // --- the owner's decisions, above everything --------------------------
+    // A ticket carrying `decision: pending` is waiting on the owner, not on a run:
+    // the loop skips it until it is answered. Each one says its question, its
+    // options and the recommendation, and answering commits the choice to the
+    // ticket file on main — the next run picks it up from there.
+    const decisions = tickets.filter(t => t.decision === 'pending');
+    if(decisions.length) body.append(decisionsSection(decisions));
+
     const layout = el('div', { class: 'bd-layout' });
 
     // --- the Queue: a wide, numbered card grid ---------------------------
@@ -325,6 +341,56 @@ export function renderBoard(root, ctx){
     body.append(finishedSection(tickets.filter(t => t.state === 'done').sort(byFinish)));
   }
 
+  function decisionsSection(list){
+    const sec = el('div', { class: 'card bd-decisions' });
+    const head = el('div', { class: 'bd-col-head' });
+    head.innerHTML = `<h3>Needs your decision <span class="bd-count">${list.length}</span></h3>
+      <span class="tiny muted">the loop skips these until you answer · answering commits to ${escapeHtml(TICKETS.repo)}</span>`;
+    sec.append(head);
+    const rank = (t) => { const i = queueOrder.indexOf(t.id); return i < 0 ? 1e9 : i; };
+    [...list].sort((a, b) => rank(a) - rank(b)).forEach(t => {
+      const row = el('div', { class: 'bd-decision' });
+      const q = el('div', { class: 'bd-decision-q is-click', role: 'button', tabindex: '0', onclick: () => openDetail(t),
+        onkeydown: (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openDetail(t); } } });
+      q.innerHTML = `<span class="bd-tid mono">${escapeHtml(t.id)}</span>
+        <b>${escapeHtml(t.decision_question || t.blocked_on || t.title || '')}</b>
+        <span class="tiny muted">${escapeHtml(t.title || '')}</span>`;
+      row.append(q);
+      const opts = el('div', { class: 'bd-decision-opts' });
+      for(const o of (Array.isArray(t.decision_options) ? t.decision_options : [])){
+        const rec = t.decision_rec && String(t.decision_rec).trim().toLowerCase().startsWith(`(${o.key})`);
+        opts.append(el('button', { class: 'btn sm ' + (rec ? 'primary' : 'ghost'),
+          title: rec ? 'Recommended' : '', text: `(${o.key}) ${o.label}${rec ? ' ★' : ''}`,
+          onclick: () => answerDecision(t, o) }));
+      }
+      if(t.decision_rec) opts.append(el('div', { class: 'tiny muted bd-decision-rec', text: `Recommendation: ${t.decision_rec}` }));
+      row.append(opts);
+      sec.append(row);
+    });
+    return sec;
+  }
+
+  async function answerDecision(t, option){
+    if(!ghToken()){ toast('Connect a GitHub token first', { kind: 'warn', body: 'Answering needs a PAT from the vault (Fleet Ops → GitHub access).' }); return; }
+    if(!t.path){ toast('No ticket file', { kind: 'err', body: `tickets.json names no file for ${t.id}.` }); return; }
+    const ok = await confirmDialog({ title: `Answer ${t.id}: (${option.key})?`,
+      message: `${option.label}\n\nThis commits your answer to ${t.path} on ${TICKETS.branch}. The next run acts on it.`,
+      okText: 'Commit answer' });
+    if(!ok) return;
+    try{
+      const f = await getRepoText(TICKETS.repo, t.path, TICKETS.branch);
+      const next = answerTicketText(f.text, option, new Date());
+      await putRepoText(TICKETS.repo, t.path, next, f.sha, {
+        message: `${t.id}: owner decision (${option.key}) via Manager`, branch: TICKETS.branch });
+      clearGhCache();
+      toast(`${t.id} answered`, { kind: 'ok', body: 'The board shows it once the ticket board regenerates.' });
+      t.decision = 'answered';
+      render();
+    }catch(e){
+      toast('Answer failed', { kind: 'err', body: e.status === 409 ? 'The ticket changed on GitHub since you loaded it — refresh and try again.' : (e.message || 'Could not write the ticket') });
+    }
+  }
+
   // The record of what has shipped, in the order it shipped. Paged rather than
   // capped: the whole history is reachable, but the answer to "what has the loop
   // done today" is the first screen.
@@ -356,7 +422,7 @@ export function renderBoard(root, ctx){
           <span class="bd-done-title">${escapeHtml(t.title || '(untitled)')}</span>`;
         const chips = el('span', { class: 'bd-done-chips' });
         if(t.requested_by === 'owner') chips.append(el('span', { class: 'bd-chip owner', text: 'OWNER' }));
-        if(t.pr) chips.append(el('a', { class: 'bd-chip link', href: `https://github.com/${TICKETS.repo}/pull/${t.pr}`,
+        if(t.pr) chips.append(el('a', { class: 'bd-chip link', href: t.pr_url || `https://github.com/${TICKETS.codeRepo}/pull/${t.pr}`,
           target: '_blank', rel: 'noopener', text: '#' + t.pr, onclick: (e) => e.stopPropagation() }));
         row.append(chips);
         list.append(row);
@@ -422,7 +488,7 @@ export function renderBoard(root, ctx){
           text: '#' + f.pr.number, onclick: (e) => e.stopPropagation() }));
       }
       if(f.branch){
-        line.append(el('a', { class: 'bd-inflight-branch mono', href: `https://github.com/${TICKETS.repo}/tree/${encodeURIComponent(f.branch)}`,
+        line.append(el('a', { class: 'bd-inflight-branch mono', href: `https://github.com/${TICKETS.codeRepo}/tree/${encodeURIComponent(f.branch)}`,
           target: '_blank', rel: 'noopener', text: f.branch.replace(/^steward\//, ''), title: f.branch,
           onclick: (e) => e.stopPropagation() }));
       }
@@ -537,23 +603,64 @@ export function parseQueueIds(text){
 // not in `order` (shouldn't happen for open tickets) are appended in place to
 // avoid dropping anyone.
 export function rewriteQueue(text, order, byId){
-  const lines = String(text || '').split('\n');
-  const header = [];
-  const entryById = new Map();
+  // THE FILE'S SHAPE IS THE OWNER'S TOO. QUEUE.md is banded — `# --- 3B. RECONSTRUCT
+  // RESIDENTS …` headings sit between the ticket lines — and this used to hoist every
+  // comment to the top and rebuild the body as a bare list, so one reorder from the
+  // board flattened every band. Now only the TICKET LINES move: each keeps a slot in
+  // the file, the slots are refilled in the new order, and every other line — band
+  // headings, notes, blanks — stays exactly where it was.
+  //
+  // A `#   ? T-NNNN DECISION: …` line (ticket.mjs ask) belongs to the ticket above it
+  // and moves with it, so a question never ends up under somebody else's ticket.
+  const lines = String(text || '').replace(/\n+$/, '').split('\n');
+  const skeleton = [];            // a string (kept line) or null (a ticket slot)
+  const entryById = new Map();    // id → [its line, …its attached decision lines]
   const fileOrder = [];
-  for(const line of lines){
-    const m = line.match(/^(T-\d+)\b/);
-    if(m){ entryById.set(m[1], line); fileOrder.push(m[1]); }
-    else if(line.trim().startsWith('#')) header.push(line);
-    // blank/other lines are dropped from the rebuilt body (header keeps comments)
+  for(let i = 0; i < lines.length; i++){
+    const m = lines[i].match(/^(T-\d+)\b/);
+    if(!m){ skeleton.push(lines[i]); continue; }
+    const block = [lines[i]];
+    const attached = new RegExp(`^#\\s*\\?\\s*${m[1]}\\b`);
+    while(i + 1 < lines.length && attached.test(lines[i + 1])) block.push(lines[++i]);
+    entryById.set(m[1], block);
+    fileOrder.push(m[1]);
+    skeleton.push(null);
   }
   const seen = new Set();
-  const out = [];
+  const seq = [];
   for(const id of order){
+    if(seen.has(id)) continue;
     seen.add(id);
-    if(entryById.has(id)) out.push(entryById.get(id));
-    else { const t = byId?.(id); out.push(`${id} — ${t?.title || ''}`.trimEnd()); }
+    seq.push(entryById.get(id) || [`${id} — ${byId?.(id)?.title || ''}`.trimEnd()]);
   }
-  for(const id of fileOrder){ if(!seen.has(id)) out.push(entryById.get(id)); }   // never drop an unknown line
-  return header.concat(out).join('\n') + '\n';
+  for(const id of fileOrder){ if(!seen.has(id)){ seen.add(id); seq.push(entryById.get(id)); } }   // never drop an unknown line
+  const out = [];
+  let k = 0;
+  for(const item of skeleton){
+    if(item !== null){ out.push(item); continue; }
+    if(k < seq.length) out.push(...seq[k++]);
+  }
+  while(k < seq.length) out.push(...seq[k++]);   // more tickets than slots: the rest at the foot
+  return out.join('\n') + '\n';
+}
+
+/**
+ * Record an owner's answer in a ticket's text: `decision: pending` → `answered`,
+ * `decision_answer: <key>`, and a dated line appended under the body so the
+ * reasoning trail stays in the ticket. Pure, so the smoke test can hold it.
+ */
+export function answerTicketText(text, option, when = new Date()){
+  const s = String(text || '');
+  if(!s.startsWith('---')) throw new Error('ticket has no front matter');
+  const end = s.indexOf('\n---', 3);
+  if(end < 0) throw new Error('ticket front matter is not closed');
+  let fm = s.slice(0, end);
+  const rest = s.slice(end);
+  if(!/^decision: pending$/m.test(fm)) throw new Error('ticket is not waiting on a decision');
+  fm = fm.replace(/^decision: pending$/m, 'decision: answered');
+  fm = /^decision_answer: /m.test(fm)
+    ? fm.replace(/^decision_answer: .*$/m, `decision_answer: ${option.key}`)
+    : fm + `\ndecision_answer: ${option.key}`;
+  const day = when.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+  return `${fm}${rest.replace(/\s*$/, '')}\n\n**Owner answer (${day}, via Manager):** (${option.key}) ${option.label}\n`;
 }

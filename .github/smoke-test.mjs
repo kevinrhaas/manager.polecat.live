@@ -1462,6 +1462,33 @@ try {
       return okOrder && okHeader && okLabels && okFallback && kept;
     });
   });
+  await check('4D board: rewriteQueue keeps band headings in place and a decision line attached to its ticket', async () => {
+    return await page.evaluate(async () => {
+      const m = await import('/js/views/board.js');
+      const text = ['# QUEUE', '', '# --- 1. FIRST BAND', 'T-0001 — one', '#   ? T-0001 DECISION: a or b?',
+        'T-0002 — two', '', '# --- 2. SECOND BAND', 'T-0003 — three'].join('\n');
+      const out = m.rewriteQueue(text, ['T-0003', 'T-0001', 'T-0002'], () => ({})).split('\n');
+      const at = (l) => out.indexOf(l);
+      return at('# --- 1. FIRST BAND') === 2 && at('T-0003 — three') === 3 && at('T-0001 — one') === 4
+        && at('#   ? T-0001 DECISION: a or b?') === 5 && at('# --- 2. SECOND BAND') > at('#   ? T-0001 DECISION: a or b?')
+        && at('T-0002 — two') > at('# --- 2. SECOND BAND');
+    });
+  });
+  await check('4D board: answerTicketText records an owner decision in the ticket file and refuses a ticket not waiting on one', async () => {
+    return await page.evaluate(async () => {
+      const m = await import('/js/views/board.js');
+      const t = ['---', 'id: T-0042', 'title: Pick a roof', 'state: open', 'decision: pending', '---', '', 'Body.', '',
+        '## Decision needed', '**Question:** Shingles or boards?', '- (a) shingles', '- (b) boards', ''].join('\n');
+      const out = m.answerTicketText(t, { key: 'b', label: 'boards' }, new Date('2026-09-23T15:00:00Z'));
+      const okState = /^decision: answered$/m.test(out) && !/^decision: pending$/m.test(out);
+      const okKey = /^decision_answer: b$/m.test(out.split('\n---')[0]);
+      const okLine = out.trimEnd().endsWith('**Owner answer (2026-09-23, via Manager):** (b) boards');
+      const okBody = out.includes('## Decision needed') && out.includes('Body.');
+      let refused = false;
+      try { m.answerTicketText(out, { key: 'a', label: 'shingles' }); } catch { refused = true; }
+      return okState && okKey && okLine && okBody && refused;
+    });
+  });
   await check('fleet ops control room renders: connect, roster, dispatch, and coming-up cards settle without errors', async () => {
     if (!(await openSec('fleetops'))) return false;
     if (!(await $('.fo-connect'))) return false;
@@ -2764,6 +2791,36 @@ try {
   // LAST on purpose: it reloads the page twice and rewrites the workspace, so
   // it must not run in front of a check that assumes the current view.
   console.log('Fleet projects');
+  await check('a project that moved repos is re-pointed in an existing workspace, and a row the user retargeted is left alone', async () => {
+    const LS = 'manager.workspace.v1';
+    const reload = async () => { await page.reload({ waitUntil: 'domcontentloaded' }); await page.waitForTimeout(500); };
+    const row = () => page.evaluate(async () => {
+      const { Store } = await import('/js/store.js');
+      const p = Store.projects().find((x) => x.id === 'chicago-4d');
+      return p ? { repo: p.repo, site: p.site } : null;
+    });
+    const original = await page.evaluate((k) => localStorage.getItem(k), LS);
+    try {
+      const set = (repo, site) => page.evaluate(([k, r, st]) => {
+        const db = JSON.parse(localStorage.getItem(k));
+        if (!db.projects['chicago-4d']) return false;
+        db.projects['chicago-4d'].repo = r; db.projects['chicago-4d'].site = st;
+        localStorage.setItem(k, JSON.stringify(db)); return true;
+      }, [LS, repo, site]);
+      if (!(await set('kevinrhaas/custom', 'https://kevinrhaas.github.io/custom/chicago/4d/'))) return false;
+      await reload();
+      const moved = await row();
+      const okMoved = moved && moved.repo === 'kevinrhaas/chicago' && moved.site === 'https://chicago.polecat.live/4d/';
+      await set('kevinrhaas/custom', 'https://example.test/my-own/');
+      await reload();
+      const kept = await row();
+      const okKept = kept && kept.repo === 'kevinrhaas/chicago' && kept.site === 'https://example.test/my-own/';
+      return okMoved && okKept;
+    } finally {
+      await page.evaluate(([k, v]) => { if (v) localStorage.setItem(k, v); }, [LS, original]);
+      await reload();
+    }
+  });
   await check('a workspace seeded before a fleet project existed picks it up on next load, and a project you deleted stays deleted', async () => {
     // seed() only runs against a BLANK database, so a project added to
     // fleetProjects() used to reach new workspaces only. topUpFleetProjects()
