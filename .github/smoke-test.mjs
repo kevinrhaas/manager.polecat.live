@@ -1462,6 +1462,17 @@ try {
       return okOrder && okHeader && okLabels && okFallback && kept;
     });
   });
+  await check('a contents-API file over 1 MB (empty body, encoding none) is read from its download_url, not parsed as empty', async () => {
+    return await page.evaluate(async () => {
+      const { contentsText } = await import('/js/github.js');
+      const small = await contentsText({ encoding: 'base64', content: btoa('{"ok":1}') });
+      const big = await contentsText({ encoding: 'none', content: '', size: 1115200, path: 'tickets.json',
+        download_url: location.origin + '/js/changelog.js' });
+      let refused = false;
+      try { await contentsText({ encoding: 'none', content: '', path: 'x.json' }); } catch { refused = true; }
+      return JSON.parse(small).ok === 1 && big.length > 20 && refused;
+    });
+  });
   await check('4D board: rewriteQueue keeps band headings in place and a decision line attached to its ticket', async () => {
     return await page.evaluate(async () => {
       const m = await import('/js/views/board.js');

@@ -471,9 +471,24 @@ export async function workflowRuns(repo, file, limit = 5, fresh = false){
 // Contents-API JSON read/write with the roster's compare-and-swap contract:
 // the sha makes a concurrent edit 409 instead of being clobbered. pipeline.json
 // carries the same "data file — direct commits sanctioned" _doc as focus.json.
+// The text of a contents-API file. OVER 1 MB, GitHub returns the metadata with
+// `encoding: "none"` and an EMPTY `content` — so decoding it yields '' and a JSON
+// parse fails with "Unexpected end of JSON input". The 4D board's tickets.json is
+// ~1.1 MB, which is exactly how the board went blank. Such a file is fetched from
+// its `download_url` instead (raw.githubusercontent.com, CORS-open; for a private
+// repo GitHub signs that URL with a short-lived token).
+export async function contentsText(f){
+  if(f && f.encoding === 'base64' && typeof f.content === 'string') return b64decode(f.content);
+  if(f && f.download_url){
+    const r = await fetch(f.download_url, { cache: 'no-store' });
+    if(!r.ok) throw new Error(`HTTP ${r.status} fetching ${f.path || 'file'} (${f.size ?? '?'} bytes)`);
+    return r.text();
+  }
+  throw new Error(`${f?.path || 'file'} is too large for the contents API and has no download URL`);
+}
 export async function getRepoJson(repo, path, ref = 'main'){
   const f = await gh(`/repos/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`);
-  return { json: JSON.parse(b64decode(f.content)), sha: f.sha };
+  return { json: JSON.parse(await contentsText(f)), sha: f.sha };
 }
 export function putRepoJson(repo, path, value, sha, message){
   return gh(`/repos/${repo}/contents/${encodeURIComponent(path)}`, {
@@ -488,7 +503,7 @@ export function putRepoJson(repo, path, value, sha, message){
 // carry the file's sha so a concurrent edit 409s instead of clobbering.
 export async function getRepoText(repo, path, ref = 'main'){
   const f = await gh(`/repos/${repo}/contents/${encodeURIComponent(path)}?ref=${ref}`);
-  return { text: b64decode(f.content), sha: f.sha };
+  return { text: await contentsText(f), sha: f.sha };
 }
 // List a repo directory (contents API returns an array for a dir) — the board
 // uses it to resolve a ticket id to its `T-NNNN-<slug>.md` file, whose slug is

@@ -9,6 +9,16 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 123,
+    title: 'The 4D Board loads again',
+    kind: 'fix',
+    ts: '2026-09-24T00:31:41.613Z',
+    items: [
+      'The board showed “Unexpected end of JSON input” instead of the tickets. Its ticket list is just over 1 MB, and above that size GitHub hands back the file’s details without its contents.',
+      'Manager now fetches a file that large from its download link, so the queue, the board and Needs your decision all load.',
+    ],
+  },
+  {
     v: 122,
     title: '4D Chicago moved to its own home, and its decisions come first',
     kind: 'feature',
