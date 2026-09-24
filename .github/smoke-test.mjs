@@ -1473,6 +1473,27 @@ try {
       return JSON.parse(small).ok === 1 && big.length > 20 && refused;
     });
   });
+  await check('4D board as rows: QUEUE.md round-trips byte for byte, arrows cross band headings, drag order composes the file', async () => {
+    return await page.evaluate(async () => {
+      const m = await import('/js/views/board.js');
+      const text = ['# QUEUE', '', '# --- 1. FIRST BAND', 'T-0001 — one', '#   ? T-0001 DECISION: a or b?',
+        'T-0002 — two', '', '# --- 2. SECOND BAND ---', '# a note', 'T-0003 — three'].join('\n') + '\n';
+      const items = m.parseQueueItems(text);
+      const roundTrip = m.composeQueue(items) === text;
+      const kinds = items.map(i => i.kind === 't' ? i.id : 'sep').join(',') === 'sep,T-0001,T-0002,sep,T-0003';
+      const attached = items[1].lines.length === 2;
+      const labels = m.bandLabel(items[0].lines) === '1. FIRST BAND' && m.bandLabel(items[3].lines) === '2. SECOND BAND';
+      // T-0003 up one step crosses into band 1, below T-0002
+      const up = m.composeQueue(m.moveQueueItem(items, 'T-0003', -1)).split('\n');
+      const crossed = up.indexOf('T-0003 — three') < up.indexOf('# --- 2. SECOND BAND ---') && up.indexOf('T-0003 — three') > up.indexOf('T-0002 — two');
+      const edge = m.moveQueueItem(items, 'T-0003', +1) === null;
+      // a drag is just a new item order
+      const dragged = m.composeQueue([items[0], items[2], items[1], items[3], items[4]]).split('\n');
+      const dragOk = dragged.indexOf('T-0002 — two') < dragged.indexOf('T-0001 — one')
+        && dragged.indexOf('#   ? T-0001 DECISION: a or b?') === dragged.indexOf('T-0001 — one') + 1;
+      return roundTrip && kinds && attached && labels && crossed && edge && dragOk;
+    });
+  });
   await check('4D board: rewriteQueue keeps band headings in place and a decision line attached to its ticket', async () => {
     return await page.evaluate(async () => {
       const m = await import('/js/views/board.js');
@@ -1497,7 +1518,9 @@ try {
       const okBody = out.includes('## Decision needed') && out.includes('Body.');
       let refused = false;
       try { m.answerTicketText(out, { key: 'a', label: 'shingles' }); } catch { refused = true; }
-      return okState && okKey && okLine && okBody && refused;
+      const withNote = m.answerTicketText(t, { key: 'a', label: 'shingles' }, new Date('2026-09-23T15:00:00Z'), '  https://example.test/src  ');
+      const okNote = withNote.trimEnd().endsWith("**Owner's note:** https://example.test/src") && !/Owner's note/.test(out);
+      return okState && okKey && okLine && okBody && refused && okNote;
     });
   });
   await check('fleet ops control room renders: connect, roster, dispatch, and coming-up cards settle without errors', async () => {
