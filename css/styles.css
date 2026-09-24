@@ -1201,6 +1201,50 @@ a.link:hover{text-decoration:underline}
 .bd-commitbar:not(.on){opacity:.7}
 /* the Queue fills the width; the status columns sit in a compact right rail */
 .bd-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+/* 4D board as ROWS (2026-09-24, owner: "nice tight rows that we can move … the right
+   pane of in progress and blocked could be collapsible sections at the top") */
+.bd-sect{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:0 0 10px;min-width:0}
+.bd-sect-head{display:flex;align-items:baseline;gap:10px;padding:10px 12px;cursor:pointer;list-style:none;flex-wrap:wrap}
+.bd-sect-head::-webkit-details-marker{display:none}
+.bd-sect-head h3{margin:0;font-size:13.5px;display:flex;align-items:center;gap:8px}
+.bd-sect-caret{display:inline-flex;color:var(--text-3);transition:transform .15s;align-self:center}
+.bd-sect-caret svg{width:14px;height:14px}
+.bd-sect:not([open]) .bd-sect-caret{transform:rotate(-90deg)}
+.bd-sect .bd-rows{padding:0 6px 8px}
+.bd-rows,.bd-qlist{display:flex;flex-direction:column}
+.bd-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:5px 8px;border-radius:8px;min-width:0;
+  border-left:3px solid transparent}
+.bd-row + .bd-row{border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+.bd-row.is-owner{border-left-color:color-mix(in srgb,var(--brand-b) 60%,var(--border))}
+.bd-row.is-click{cursor:pointer}
+.bd-row.is-click:hover{background:var(--surface-2)}
+.bd-row.is-click:focus-visible{outline:none;box-shadow:var(--ring)}
+.bd-row-main{display:flex;align-items:center;gap:8px;flex:1 1 0;min-width:0}
+.bd-row-main .bd-tid{flex:0 0 auto}
+.bd-row-title{flex:1 1 auto;min-width:0;font-size:13px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-row-chips{display:flex;gap:4px;flex:0 0 auto;align-items:center}
+.bd-row-sub{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-left:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-row-live{display:inline-flex}
+.bd-queue{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:4px;min-width:0}
+.bd-qlist{margin-top:8px}
+.bd-qrow{gap:6px}
+.bd-qrow .bd-rank{min-width:26px;text-align:right;font-size:11.5px}
+.bd-qrow .bd-move{flex-direction:row;gap:2px;opacity:.55}
+.bd-qrow:hover .bd-move,.bd-qrow:focus-within .bd-move{opacity:1}
+.bd-grip{flex:0 0 auto;width:22px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--text-3);
+  cursor:grab;touch-action:none}
+.bd-grip svg{width:15px;height:15px}
+.bd-grip:active{cursor:grabbing}
+.bd-qitem.dragging{opacity:.4}
+.bd-band{font-size:10.5px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);
+  padding:12px 8px 4px;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-sep-quiet{height:0}
+@media (max-width:560px){
+  .bd-row-main{flex-wrap:wrap}
+  .bd-row-title{flex-basis:100%;order:3}
+  .bd-qrow .bd-move{opacity:1}
+}
 .bd-col-head h3{margin:0;font-size:14px;display:flex;align-items:center;gap:8px}
 .bd-count{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text-2);
   background:var(--surface-3);border-radius:999px;padding:1px 8px}

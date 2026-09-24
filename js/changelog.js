@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 124,
+    title: 'A tighter 4D Board: rows you drag, sections you fold',
+    kind: 'improvement',
+    ts: '2026-09-24T00:50:35.362Z',
+    items: [
+      'The queue is one list of tight rows instead of big cards: drag a row by its handle, or use the arrows. Answering a question also opens a note box, for a source or a detail.',
+      'The band headings from the queue file show inline. Drag a ticket past a heading and it moves into that band; Commit writes the file in exactly the order you see.',
+      'In progress and Blocked are folding sections at the top instead of a side column. Each remembers whether you left it open.',
+    ],
+  },
+  {
     v: 123,
     title: 'The 4D Board loads again',
     kind: 'fix',
