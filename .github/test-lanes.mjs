@@ -68,6 +68,7 @@ try {
     assert.equal(await page.getByLabel('Effort for chicago',{exact:true}).isDisabled(),true);
     for(const theme of ['dark','light']){
       await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      await page.waitForTimeout(250); // let the app's theme transition finish before visual QA
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${width} ${theme} overflow`);
       await page.screenshot({path:`/tmp/fleet-lanes-${width}-${theme}.png`,fullPage:true});
     }

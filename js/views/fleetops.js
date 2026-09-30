@@ -333,7 +333,10 @@ function rosterCard(onChange){
   const card = el('div', { class: 'card fo-roster' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Focus roster</h2>
     <span class="sp"></span></div>
-    <p class="tiny muted" style="margin:0 0 10px">Choose a processor, model, effort, and worker count for each lane. Add another lane to run different models on the same app. GPT uses the platform’s OPENAI_API_KEY secret; model access and supported efforts depend on that account. Per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform; the loop ticks every ~10&nbsp;min). Dial the slices (<span class="mono">×N</span>) to keep that many runs going <b>at all times</b> — N agent lanes on that app at once, each its own PR. They are slots, not a batch: when one finishes its replacement starts within ~a minute while the others carry on, so the lane stays at N instead of waiting for the slowest run. A <b>continuous</b> lane tops up on every tick; a coarser cadence only refills on the hours it is due. Fence a lane to a time window, or give it a start/stop, then commit; the next tick picks it up.</p>`;
+    <p class="tiny muted" style="margin:0 0 10px">Give each lane its own processor, model, effort, and worker count. Add another lane to run different models on the same app. <b>×N</b> keeps N workers running; finished slots refill automatically.</p>
+    <details class="tiny muted" style="margin-bottom:12px"><summary>Scheduling and setup</summary>
+      <p>Continuous lanes refill on each tick (about 10 minutes, or sooner after a worker finishes). Use the schedule button for time windows and start/stop dates. Commit the roster to apply changes.</p>
+      <p>GPT lanes use the OPENAI_API_KEY Actions secret on polecat-platform. Model access and effort support depend on your provider account. Each worker runs a separate unit of work with its own PR.</p></details>`;
   const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loading roster…</span>` });
   card.append(body);
 
