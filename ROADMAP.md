@@ -1993,3 +1993,7 @@ with new, ambitious, fun ideas.
   every user-visible feature.
 - **A changelog entry** (`js/changelog.js`) for anything user-visible: newest at
   the top, bump `v`, `ts: ''` (the workflow stamps the real time), 1–4 `items`.
+
+
+
+- [x] Fleet Ops supports named lanes per app, Claude/GPT processors, model and effort controls, and one-off processor selection. Scheduler and runner support ships with the companion polecat-platform change.

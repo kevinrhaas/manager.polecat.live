@@ -28,3 +28,17 @@ jobs:
           for f in $(git ls-files '.github/*.mjs'); do
             node --check "$f"
           done
+      - name: Install browser test tools
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Fleet lane controls on desktop and mobile
+        run: node .github/test-lanes.mjs
+      - name: Full app smoke
+        run: node .github/smoke-test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fleet-lanes-preview
+          path: /tmp/fleet-lanes-*.png
+
