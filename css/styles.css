@@ -1353,3 +1353,12 @@ a.link:hover{text-decoration:underline}
 @media (prefers-reduced-motion: reduce){
   *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
+
+/* Fleet processor settings use the same quiet, wrapping fields in both themes. */
+.fo-processors{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:10px 0;min-width:0}
+.fo-processor-field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fo-processors .input{width:100%;min-width:0;max-width:100%}
+.fo-processor-note{grid-column:1/-1;line-height:1.5}
+.fo-lane-summary{padding:0 0 8px 44px;overflow-wrap:anywhere}
+.fo-lane-actions .input{flex:1;min-width:120px}
+.fo-roster .fo-row>.input{max-width:100%;min-width:0}

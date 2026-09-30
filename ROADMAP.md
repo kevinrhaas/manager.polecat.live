@@ -22,6 +22,8 @@ with new, ambitious, fun ideas.
 
 ## Done (recent)
 
+- [x] **Independent processor lanes (2026-09-30).** Fleet Ops adds named lanes alongside existing app lanes, per-lane processor/model/effort, ×1–10 concurrency, preserved custom model IDs, and one-off batches. The platform runner executes either Claude Code or Codex with the same claim/salvage/journal flow. GPT credentials stay in the platform repository secrets.
+
 - **4D Chicago moved repos (2026-09-23).** `chicago-4d` now points at kevinrhaas/chicago + https://chicago.polecat.live/4d/ (store `MOVED_PROJECTS` migration re-points existing workspaces, leaves hand-retargeted rows alone). The 4D Board reads kevinrhaas/chicago-tickets — `QUEUE.md` on main (owner writes it directly), `tickets.json` on the generated `board` branch (carries each ticket's `path` and `pr_url`), live work from the code repo — and draws a **Needs your decision** strip for `decision: pending` tickets with one-click answers committed to the ticket file.
 
 - [x] **"Hourly" for a platform job, and a lane edit that starts the lane**

@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 125,
+    title: 'Independent lanes, with a processor and effort for each',
+    kind: 'feature',
+    ts: '2026-09-30T16:16:22.759Z',
+    items: [
+      'Add named lanes to any app, each with its own schedule and one to ten concurrent runs. Existing app lanes keep their settings.',
+      'Choose Claude Code or GPT / Codex, select a model or enter a custom ID, and set reasoning effort. Fable remains available in the expanded model list.',
+      'Run a lane once with its current settings, or dispatch a separate one-off batch. GPT runs use the platform OpenAI API key; ongoing runs keep their original settings.',
+    ],
+  },
+  {
     v: 124,
     title: 'A tighter 4D Board: rows you drag, sections you fold',
     kind: 'improvement',

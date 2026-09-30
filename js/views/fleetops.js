@@ -10,6 +10,7 @@
 // GitHub PAT picked from the Credentials vault (see js/github.js — only the
 // vault row's id is stored, never the token). Everything degrades to inline
 // error/empty states — no call here may crash the view or log to console.
+import { appLanes, EFFORTS, validateLane, dispatchInputs } from '../lanes.js';
 import { Store } from '../store.js';
 import { el, escapeHtml, toast, ago, confirmDialog } from '../ui.js';
 import { fmtCT, mdToHtml } from '../ui.js';
@@ -240,8 +241,8 @@ function upcomingCard(){
     body.innerHTML = '';
     if(!roster){ body.append(el('div', { class: 'tiny muted', text: 'Roster unavailable.' })); return; }
     const entries = [];
-    for(const [name, lane] of Object.entries(roster.apps || {})){
-      const n = nextRunAt(lane); if(n) entries.push({ label: name, mono: true, at: n, slices: slicesOf(lane) });
+    for(const { id, app, config: lane } of appLanes(roster)){
+      const n = nextRunAt(lane); if(n) entries.push({ label: app + (id ? ' / ' + (lane.name || id) : ''), mono: true, at: n, slices: slicesOf(lane) });
     }
     for(const [job, lane] of Object.entries(roster.jobs || {})){
       const n = nextRunAt(lane); if(n) entries.push({ label: JOB_META[job]?.label || job, mono: false, at: n, slices: 1 });
@@ -308,6 +309,75 @@ function connectCard(ctx, onReload){
   return card;
 }
 
+// Provider controls shared by recurring lanes and one-off dispatches. Unknown
+// model IDs are preserved so a saved future/custom model never silently resets.
+const MODEL_OPTIONS = {
+  claude: [['', 'Fleet default (Opus 5)'], ['claude-opus-5-5', 'Opus 5.5'],
+    ['claude-fable-5-1', 'Fable 5.1'], ['claude-fable-5', 'Fable 5'],
+    ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-opus-5', 'Opus 5'],
+    ['claude-sonnet-5', 'Sonnet 5'], ['claude-haiku-4-5', 'Haiku 4.5']],
+  codex: [['', 'Fleet default (GPT-6 Astra)'], ['gpt-6-astra', 'GPT-6 Astra'],
+    ['gpt-6-sol', 'GPT-6 Sol'], ['gpt-6.1-sol', 'GPT-6.1 Sol']],
+};
+async function runBatch(app, config, button){
+  if(!ghToken()){ toast('Connect a GitHub token first', { kind: 'warn' }); return; }
+  const lane = { id: 'manual-' + crypto.randomUUID(), app: app || 'fleet', config: { ...config, slices: slicesOf(config) } };
+  let sent = 0;
+  try{
+    validateLane(lane); button.disabled = true;
+    for(let k = 1; k <= lane.config.slices; k++){
+      await dispatchWorkflow(IMPROVE_WORKFLOW, dispatchInputs(lane, k)); sent++;
+      if(k < lane.config.slices) await new Promise(r => setTimeout(r, 1500));
+    }
+    toast('Improve runs dispatched', { kind: 'ok', body: `${sent} run(s) for ${app || 'fleet pick'}. This batch does not recur.` });
+  }catch(e){ toast('Dispatch stopped', { kind: 'err', body: `${sent} run(s) dispatched. ${e.message}` }); }
+  finally{ button.disabled = false; }
+}
+function processorControls(a, name, changed){
+  const box = el('div', { class: 'fo-processors' });
+  const draw = () => {
+    box.innerHTML = '';
+    const processor = a.processor || 'claude';
+    const field = (text, control) => {
+      const label = el('label', { class: 'fo-processor-field tiny muted' });
+      label.append(el('span', { text }), control); box.append(label);
+    };
+    const engine = el('select', { class: 'input', 'aria-label': `Processor for ${name}` });
+    [['claude', 'Claude Code'], ['codex', 'GPT / Codex']].forEach(([value, text]) =>
+      engine.append(el('option', { value, text, selected: processor === value })));
+    if(!MODEL_OPTIONS[processor]) engine.append(el('option', { value: processor, text: processor, selected: true }));
+    engine.onchange = () => { a.processor = engine.value; delete a.model; delete a.effort; changed(); draw(); };
+    field('Processor', engine);
+    const options = MODEL_OPTIONS[processor] || [];
+    const custom = a.model && !options.some(([v]) => v === a.model);
+    const model = el('select', { class: 'input', 'aria-label': `Model for ${name}` });
+    options.forEach(([value, text]) => model.append(el('option', { value, text, selected: !custom && (a.model || '') === value })));
+    model.append(el('option', { value: '__custom', text: 'Custom model ID…', selected: !!custom }));
+    field('Model', model);
+    const modelId = el('input', { class: 'input', value: a.model || '', placeholder: 'Exact provider model ID',
+      'aria-label': `Custom model ID for ${name}`, hidden: !custom });
+    box.append(modelId);
+    modelId.oninput = () => { a.model = modelId.value.trim(); changed(); };
+    model.onchange = () => {
+      if(model.value === '__custom'){ modelId.hidden = false; modelId.focus(); return; }
+      if(model.value) a.model = model.value; else delete a.model;
+      if(/haiku/.test(a.model || '')) delete a.effort;
+      changed(); draw();
+    };
+    const effort = el('select', { class: 'input', 'aria-label': `Effort for ${name}`, disabled: /haiku/.test(a.model || '') });
+    const efforts = EFFORTS[processor] || [''];
+    [...new Set([...efforts, a.effort || ''])].forEach(value => effort.append(el('option', {
+      value, text: value || 'Model default', selected: (a.effort || '') === value })));
+    effort.onchange = () => { if(effort.value) a.effort = effort.value; else delete a.effort; changed(); };
+    field('Effort', effort);
+    const note = processor === 'codex'
+      ? 'Uses the platform’s OPENAI_API_KEY secret. Model access depends on that API account. The 150-minute run cap applies; Claude’s tool-call limit does not.'
+      : 'Uses the platform’s Claude credential. Effort support depends on the model and account.';
+    box.append(el('div', { class: 'tiny muted fo-processor-note', text: note }));
+  };
+  draw(); return box;
+}
+
 // ---- focus roster: full schedule control per lane ---------------------------
 // Each lane carries the platform's schedule fields (see js/schedule.js and
 // the canonical evaluator in polecat-platform): cadence, offset ("runs at"),
@@ -332,7 +402,7 @@ function rosterCard(onChange){
   const card = el('div', { class: 'card fo-roster' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Focus roster</h2>
     <span class="sp"></span></div>
-    <p class="tiny muted" style="margin:0 0 10px">Per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform; the loop ticks every ~10&nbsp;min). Dial the slices (<span class="mono">×N</span>) to keep that many runs going <b>at all times</b> — N agent lanes on that app at once, each its own PR. They are slots, not a batch: when one finishes its replacement starts within ~a minute while the others carry on, so the lane stays at N instead of waiting for the slowest run. A <b>continuous</b> lane tops up on every tick; a coarser cadence only refills on the hours it is due. Fence a lane to a time window, or give it a start/stop, then commit; the next tick picks it up.</p>`;
+    <p class="tiny muted" style="margin:0 0 10px">Run independent lanes on the same app with different processors, models and effort. Each lane keeps ×N runs active and refills finished slots. Add a lane, choose its settings, then commit. Changes apply to new runs; existing runs finish with their original settings.</p>`;
   const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loading roster…</span>` });
   card.append(body);
 
@@ -430,22 +500,6 @@ function rosterCard(onChange){
       if(a.offset != null) a.offset = a.offset % Math.max(1, a.everyHours);
       touch(); render();   // re-render: the align options depend on cadence
     });
-    // Model pin (apps only): which Claude model the lane's runs use. '' = the
-    // Claude Code CLI default. steward-focus passes it through to each run's
-    // --model (focus.json lane `model`). Pinned lanes light up like ×N does.
-    let modelSel = null;
-    if(isApp){
-      modelSel = el('select', { class: 'input fo-cad fo-model' + (a.model ? ' pinned' : ''),
-        'aria-label': `Model for ${display}`,
-        title: 'Model — which Claude model this lane’s improve runs use. “auto” is the fleet default: opus.' });
-      [['', 'auto (opus)'], ['claude-fable-5', 'fable'], ['claude-sonnet-5', 'sonnet'], ['claude-opus-5', 'opus'], ['claude-haiku-4-5', 'haiku']]
-        .forEach(([v, t]) => modelSel.append(el('option', { value: v, text: t, selected: (a.model || '') === v })));
-      modelSel.addEventListener('change', () => {
-        if(modelSel.value) a.model = modelSel.value; else delete a.model;
-        modelSel.classList.toggle('pinned', !!modelSel.value);
-        touch();
-      });
-    }
     // Slices per run (apps only): fire N independent improve runs each time the
     // lane is due — each a full unit of work (its own PR + smoke gate), all
     // running AT ONCE (the platform dispatches slice=1..N in one tick, and each
@@ -466,7 +520,7 @@ function rosterCard(onChange){
       });
     }
     const gear = el('button', { class: 'btn ghost icon sm fo-gear' + (openEditors.has(key) ? ' on' : ''),
-      title: 'Schedule details', 'aria-label': `Schedule details for ${display}`, 'aria-expanded': String(openEditors.has(key)),
+      title: 'Model, effort and schedule', 'aria-label': `Schedule details for ${display}`, 'aria-expanded': String(openEditors.has(key)),
       html: icon('sliders'),
       onclick: () => { openEditors.has(key) ? openEditors.delete(key) : openEditors.add(key); render(); } });
     const name = el('span', { class: 'fo-app-name' + (mono ? ' mono' : ''), text: display });
@@ -477,17 +531,55 @@ function rosterCard(onChange){
     const idCol = el('div', { class: 'fo-app-id' });
     idCol.append(name, nextEl);
     r.append(tog, idCol, el('span', { class: 'sp' }), cad);
-    if(modelSel) r.append(modelSel);
+
     if(slicesSel) r.append(slicesSel);
+    if(isApp){
+      const run = el('button', { class: 'btn ghost sm', text: 'Run once',
+        'aria-label': `Run once for ${display}`, title: 'Start a separate, non-recurring batch using these settings; adds to any scheduled runs.' });
+      run.onclick = () => runBatch(a.app || key, a, run);
+      r.append(run);
+    }
     r.append(gear);
     body.append(r);
+    if(isApp){
+      const label = el('div', { class: 'tiny muted fo-lane-summary' });
+      const updateLabel = () => { label.textContent = `${a.processor === 'codex' ? 'GPT / Codex' : 'Claude Code'} · ${a.model || 'fleet default'} · ${a.effort || 'default'} effort`; };
+      updateLabel(); body.append(label);
+      if(openEditors.has(key)){
+        body.append(processorControls(a, display, () => { touch(); updateLabel(); }));
+        if(key.startsWith('lane:')){
+          const laneId = key.slice(5);
+          const controls = el('div', { class: 'fo-row fo-lane-actions' });
+          const title = el('input', { class: 'input', value: a.name || laneId, 'aria-label': `Lane name for ${display}` });
+          title.onchange = () => { a.name = title.value.trim().slice(0, 80); touch(); render(); };
+          controls.append(title, el('button', { class: 'btn ghost sm', text: 'Remove lane', onclick: async () => {
+            if(!await confirmDialog({ title: 'Remove lane?', message: 'After committing, this lane stops scheduling. Existing runs finish normally.', okText: 'Remove' })) return;
+            delete state.roster.lanes[laneId]; openEditors.delete(key); touch(); render();
+          } }));
+          body.append(controls);
+        }
+      }
+    }
     if(openEditors.has(key)) body.append(laneEditor(display, a, refreshRow));
   };
 
   const render = () => {
     body.innerHTML = '';
     const apps = state.roster.apps || {};
-    Object.keys(apps).forEach(name => laneRow(name, apps[name], name, '', true, true));
+    appLanes(state.roster).forEach(({ id, app, config }) => laneRow(id ? 'lane:' + id : app, config,
+      app + (id ? ' / ' + (config.name || id) : ''), id ? `Lane ID: ${id}` : 'Default app lane', true, true));
+    const add = el('div', { class: 'fo-row', style: 'margin-top:10px' });
+    const target = el('select', { class: 'input', 'aria-label': 'App for new lane' });
+    const names = new Set([...Object.keys(apps), ...Store.projects().filter(p => p.repo?.startsWith('kevinrhaas/')).map(p => p.repo.split('/')[1])]);
+    [...names].sort().forEach(value => target.append(el('option', { value, text: value })));
+    add.append(target, el('button', { class: 'btn sm', text: 'Add lane', onclick: () => {
+      if(!target.value) return;
+      const id = 'lane-' + crypto.randomUUID();
+      state.roster.lanes ||= {};
+      state.roster.lanes[id] = { app: target.value, name: 'New lane', enabled: false, everyHours: 1, processor: 'claude' };
+      openEditors.add('lane:' + id); touch(); render();
+    } }));
+    body.append(add);
     const jobs = state.roster.jobs || {};
     if(Object.keys(jobs).length){
       body.append(el('div', { class: 'fo-repo-name tiny', style: 'margin-top:8px',
@@ -503,16 +595,18 @@ function rosterCard(onChange){
 
   const save = el('button', { class: 'btn sm primary', html: `${icon('check')} Commit roster`, disabled: true, onclick: async () => {
     if(!ghToken()){ toast('Connect a GitHub token first', { kind: 'warn', body: 'Roster writes need a PAT from the vault.' }); return; }
+    try{ appLanes(state.roster).forEach(validateLane); }
+    catch(e){ toast('Check lane settings', { kind: 'warn', body: e.message }); return; }
     const on = [
-      ...Object.entries(state.roster.apps || {}).filter(([, a]) => a.enabled).map(([n]) => n),
+      ...appLanes(state.roster).filter(l => l.config.enabled).map(l => l.app + (l.id ? ' / ' + (l.config.name || l.id) : '')),
       ...Object.entries(state.roster.jobs || {}).filter(([, a]) => a.enabled).map(([n]) => JOB_META[n]?.label || n),
     ];
-    const ok = await confirmDialog({ title:'Commit the focus roster?', message:on.length ? `Scheduled improve lanes will run for: ${on.join(', ')}. This spends tokens on the platform's Claude credentials.` :
+    const ok = await confirmDialog({ title:'Commit the focus roster?', message:on.length ? `Scheduled improve lanes will run for: ${on.join(', ')}. This uses the platform’s credentials for each selected processor.` :
       'All lanes will be paused.', okText: 'Commit to main' });
     if(!ok) return;
     save.disabled = true;
     // keep the roster file tidy: drop schedule fields at their defaults
-    [...Object.values(state.roster.apps || {}), ...Object.values(state.roster.jobs || {})].forEach(a => {
+    [...appLanes(state.roster).map(l => l.config), ...Object.values(state.roster.jobs || {})].forEach(a => {
       if(!a.offset) delete a.offset;
       if(!a.startAt) delete a.startAt;
       if(!a.until) delete a.until;
@@ -544,21 +638,22 @@ function rosterCard(onChange){
 function dispatchCard(){
   const card = el('div', { class: 'card' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Run the steward now</h2></div>
-    <p class="tiny muted" style="margin:0 0 10px">One-off <span class="mono">workflow_dispatch</span> runs on polecat-platform — free to start, they don’t recur.</p>`;
+    <p class="tiny muted" style="margin:0 0 10px">Start a separate batch with these settings. It uses the selected provider’s credits and does not recur.</p>`;
 
   const sel = el('select', { class: 'input', style: 'max-width:280px', 'aria-label': 'App to focus' });
   sel.append(el('option', { value: '', text: 'Fleet pick (steward chooses)' }));
   Store.projects().filter(p => p.repo && p.repo.startsWith('kevinrhaas/')).forEach(p =>
     sel.append(el('option', { value: p.repo.split('/')[1], text: p.name })));
 
+  const config = { processor: 'claude', slices: 1 };
+  card.append(processorControls(config, 'one-off run', () => {}));
+  const count = el('select', { class: 'input fo-slices', 'aria-label': 'Concurrent one-off runs' });
+  for(let n = 1; n <= 10; n++) count.append(el('option', { value: n, text: '×' + n }));
+  count.onchange = () => { config.slices = Number(count.value); };
   const runBtn = el('button', { class: 'btn sm primary', html: `${icon('play')} Improve run`, onclick: async () => {
-    if(!ghToken()){ toast('Connect a GitHub token first', { kind: 'warn' }); return; }
-    try{
-      await dispatchWorkflow(IMPROVE_WORKFLOW, { app: sel.value });
-      toast('Improve run dispatched', { kind: 'ok', body: sel.value ? `Focused on ${sel.value}.` : 'Fleet pick.' });
-    }catch(e){ toast('Dispatch failed', { kind: 'err', body: e.message }); }
+    await runBatch(sel.value, config, runBtn);
   } });
-  card.append(el('div', { class: 'fo-row' }, [sel, runBtn]));
+  card.append(el('div', { class: 'fo-row', style: 'margin-top:10px' }, [sel, count, runBtn]));
 
   const sweeps = el('div', { class: 'fo-row', style: 'margin-top:8px' });
   SWEEP_WORKFLOWS.forEach(w => sweeps.append(el('button', { class: 'btn sm', html: `${icon('eye')} ${w.label}`, onclick: async () => {
