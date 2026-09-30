@@ -1353,3 +1353,13 @@ a.link:hover{text-decoration:underline}
 @media (prefers-reduced-motion: reduce){
   *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
+
+
+/* Processor choices live below the lane identity so narrow panels stay legible. */
+.fo-processor-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin:6px 0;min-width:0}
+.fo-processor-field{display:flex;flex:1 1 130px;flex-direction:column;gap:3px;min-width:0}
+.fo-processor-controls .input{width:100%;max-width:none;min-width:0}
+.fo-processor-controls .fo-custom-model{flex:1 1 210px}
+.fo-processor-controls [hidden]{display:none}
+.fo-lane-actions{padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid var(--border)}
+@media(max-width:520px){.fo-processor-controls .input,.fo-lane-actions .btn{min-height:44px}}

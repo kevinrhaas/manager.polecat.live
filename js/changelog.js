@@ -9,6 +9,17 @@
 // UTC; the panel formats it to Central Time (shown as CT).
 export const CHANGELOG = [
   {
+    v: 125,
+    ts: '2026-09-30T16:13:50.135Z',
+    title: 'Choose the processor for every Fleet Ops lane',
+    kind: 'feature',
+    items: [
+      'Run separate Claude and GPT lanes on the same app, each with its own model, effort, schedule, and worker count.',
+      'Add or remove named lanes without changing the original app lane. New lanes start paused until you enable and commit them.',
+      'The same model and effort controls are available for one-off runs, including an exact model ID for custom choices.',
+    ],
+  },
+  {
     v: 124,
     title: 'A tighter 4D Board: rows you drag, sections you fold',
     kind: 'improvement',
@@ -1341,3 +1352,4 @@ export const CHANGELOG = [
 ];
 
 export const LATEST_VERSION = CHANGELOG[0].v;
+

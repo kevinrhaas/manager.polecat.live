@@ -1426,11 +1426,11 @@ try {
     if (!(await openSec('board'))) return false;
     // the board's own chrome must render regardless of whether GitHub is reachable
     if (!(await page.$eval('#view .section-title h2', (n) => /4D Board/i.test(n.textContent)).catch(() => false))) return false;
-    // it settles into either the board grid (data) or an inline card (offline/404) — never a stuck spinner or a pageerror
-    for (let i = 0; i < 16; i++) {
+    // it settles into either the queue rows (data) or an inline card (offline/404) — never a stuck spinner or a pageerror
+    for (let i = 0; i < 32; i++) {
       await page.waitForTimeout(400);
       const settled = await page.evaluate(() =>
-        !![...document.querySelectorAll('#view .bd-layout, #view .card')].find((n) => !/Loading tickets/.test(n.textContent)));
+        !![...document.querySelectorAll('#view .bd-queue, #view .card')].find((n) => !/Loading tickets/.test(n.textContent)));
       if (settled) return true;
     }
     return false;

@@ -10,6 +10,7 @@
 // GitHub PAT picked from the Credentials vault (see js/github.js — only the
 // vault row's id is stored, never the token). Everything degrades to inline
 // error/empty states — no call here may crash the view or log to console.
+import { processorControls, rosterLanes, validateProcessor } from '../lane-controls.js';
 import { Store } from '../store.js';
 import { el, escapeHtml, toast, ago, confirmDialog } from '../ui.js';
 import { fmtCT, mdToHtml } from '../ui.js';
@@ -240,7 +241,7 @@ function upcomingCard(){
     body.innerHTML = '';
     if(!roster){ body.append(el('div', { class: 'tiny muted', text: 'Roster unavailable.' })); return; }
     const entries = [];
-    for(const [name, lane] of Object.entries(roster.apps || {})){
+    for(const { label: name, config: lane } of rosterLanes(roster)){
       const n = nextRunAt(lane); if(n) entries.push({ label: name, mono: true, at: n, slices: slicesOf(lane) });
     }
     for(const [job, lane] of Object.entries(roster.jobs || {})){
@@ -332,7 +333,10 @@ function rosterCard(onChange){
   const card = el('div', { class: 'card fo-roster' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Focus roster</h2>
     <span class="sp"></span></div>
-    <p class="tiny muted" style="margin:0 0 10px">Per-app improve lanes (<span class="mono">.github/steward/focus.json</span> on polecat-platform; the loop ticks every ~10&nbsp;min). Dial the slices (<span class="mono">×N</span>) to keep that many runs going <b>at all times</b> — N agent lanes on that app at once, each its own PR. They are slots, not a batch: when one finishes its replacement starts within ~a minute while the others carry on, so the lane stays at N instead of waiting for the slowest run. A <b>continuous</b> lane tops up on every tick; a coarser cadence only refills on the hours it is due. Fence a lane to a time window, or give it a start/stop, then commit; the next tick picks it up.</p>`;
+    <p class="tiny muted" style="margin:0 0 10px">Give each lane its own processor, model, effort, and worker count. Add another lane to run different models on the same app. <b>×N</b> keeps N workers running; finished slots refill automatically.</p>
+    <details class="tiny muted" style="margin-bottom:12px"><summary>Scheduling and setup</summary>
+      <p>Continuous lanes refill on each tick (about 10 minutes, or sooner after a worker finishes). Use the schedule button for time windows and start/stop dates. Commit the roster to apply changes.</p>
+      <p>GPT lanes use the OPENAI_API_KEY Actions secret on polecat-platform. Model access and effort support depend on your provider account. Each worker runs a separate unit of work with its own PR.</p></details>`;
   const body = el('div', { class: 'fo-body', html: `<span class="tiny muted">Loading roster…</span>` });
   card.append(body);
 
@@ -430,22 +434,6 @@ function rosterCard(onChange){
       if(a.offset != null) a.offset = a.offset % Math.max(1, a.everyHours);
       touch(); render();   // re-render: the align options depend on cadence
     });
-    // Model pin (apps only): which Claude model the lane's runs use. '' = the
-    // Claude Code CLI default. steward-focus passes it through to each run's
-    // --model (focus.json lane `model`). Pinned lanes light up like ×N does.
-    let modelSel = null;
-    if(isApp){
-      modelSel = el('select', { class: 'input fo-cad fo-model' + (a.model ? ' pinned' : ''),
-        'aria-label': `Model for ${display}`,
-        title: 'Model — which Claude model this lane’s improve runs use. “auto” is the fleet default: opus.' });
-      [['', 'auto (opus)'], ['claude-fable-5', 'fable'], ['claude-sonnet-5', 'sonnet'], ['claude-opus-5', 'opus'], ['claude-haiku-4-5', 'haiku']]
-        .forEach(([v, t]) => modelSel.append(el('option', { value: v, text: t, selected: (a.model || '') === v })));
-      modelSel.addEventListener('change', () => {
-        if(modelSel.value) a.model = modelSel.value; else delete a.model;
-        modelSel.classList.toggle('pinned', !!modelSel.value);
-        touch();
-      });
-    }
     // Slices per run (apps only): fire N independent improve runs each time the
     // lane is due — each a full unit of work (its own PR + smoke gate), all
     // running AT ONCE (the platform dispatches slice=1..N in one tick, and each
@@ -477,17 +465,33 @@ function rosterCard(onChange){
     const idCol = el('div', { class: 'fo-app-id' });
     idCol.append(name, nextEl);
     r.append(tog, idCol, el('span', { class: 'sp' }), cad);
-    if(modelSel) r.append(modelSel);
+
     if(slicesSel) r.append(slicesSel);
     r.append(gear);
     body.append(r);
+    if(isApp){
+      body.append(processorControls(a, display, touch));
+      const actions = el('div', { class: 'fo-row fo-lane-actions' });
+      actions.append(el('button', { class: 'btn ghost sm', text: 'Add lane for this app', onclick: () => {
+        state.roster.lanes ||= {};
+        const app = a.app || key;
+        let index = 2, id = app.replace(/[^a-z0-9-]/g, '-').slice(0, 45) + '-lane-' + index;
+        while(state.roster.lanes[id]) id = app.replace(/[^a-z0-9-]/g, '-').slice(0, 45) + '-lane-' + (++index);
+        state.roster.lanes[id] = { ...a, app, enabled: false };
+        touch(); render();
+      }}));
+      if(key.startsWith('lane:')) actions.append(el('button', { class: 'btn ghost sm', text: 'Remove lane', onclick: async () => {
+        if(!await confirmDialog({ title: 'Remove lane?', message: 'Active runs will finish. This lane will stop refilling after you commit the roster.', okText: 'Remove lane' })) return;
+        delete state.roster.lanes[key.slice(5)]; touch(); render();
+      }}));
+      body.append(actions);
+    }
     if(openEditors.has(key)) body.append(laneEditor(display, a, refreshRow));
   };
 
   const render = () => {
     body.innerHTML = '';
-    const apps = state.roster.apps || {};
-    Object.keys(apps).forEach(name => laneRow(name, apps[name], name, '', true, true));
+    rosterLanes(state.roster).forEach(lane => laneRow(lane.key, lane.config, lane.label, '', true, true));
     const jobs = state.roster.jobs || {};
     if(Object.keys(jobs).length){
       body.append(el('div', { class: 'fo-repo-name tiny', style: 'margin-top:8px',
@@ -504,21 +508,24 @@ function rosterCard(onChange){
   const save = el('button', { class: 'btn sm primary', html: `${icon('check')} Commit roster`, disabled: true, onclick: async () => {
     if(!ghToken()){ toast('Connect a GitHub token first', { kind: 'warn', body: 'Roster writes need a PAT from the vault.' }); return; }
     const on = [
-      ...Object.entries(state.roster.apps || {}).filter(([, a]) => a.enabled).map(([n]) => n),
+      ...rosterLanes(state.roster).filter(lane => lane.config.enabled).map(lane => lane.label),
       ...Object.entries(state.roster.jobs || {}).filter(([, a]) => a.enabled).map(([n]) => JOB_META[n]?.label || n),
     ];
-    const ok = await confirmDialog({ title:'Commit the focus roster?', message:on.length ? `Scheduled improve lanes will run for: ${on.join(', ')}. This spends tokens on the platform's Claude credentials.` :
+    try { rosterLanes(state.roster).forEach(lane => validateProcessor(lane.config)); }
+    catch(e) { toast('Check lane settings', { kind: 'warn', body: e.message }); return; }
+    const ok = await confirmDialog({ title:'Commit the focus roster?', message:on.length ? `Scheduled improve lanes will run for: ${on.join(', ')}. This uses the selected processors’ credentials and billing on polecat-platform.` :
       'All lanes will be paused.', okText: 'Commit to main' });
     if(!ok) return;
     save.disabled = true;
     // keep the roster file tidy: drop schedule fields at their defaults
-    [...Object.values(state.roster.apps || {}), ...Object.values(state.roster.jobs || {})].forEach(a => {
+    [...rosterLanes(state.roster).map(lane => lane.config), ...Object.values(state.roster.jobs || {})].forEach(a => {
       if(!a.offset) delete a.offset;
       if(!a.startAt) delete a.startAt;
       if(!a.until) delete a.until;
       if(!Array.isArray(a.window) || a.window.length !== 2) delete a.window;
       if(!(a.slices > 1)) delete a.slices; else a.slices = Math.min(10, Math.max(2, Math.floor(a.slices)));
       if(!a.model) delete a.model;
+      if(!a.effort) delete a.effort;
     });
     try{
       const res = await putRoster(state.roster, state.sha, `fleet-ops: roster update via Manager (${on.length} lane${on.length === 1 ? '' : 's'} on)`);
@@ -544,21 +551,26 @@ function rosterCard(onChange){
 function dispatchCard(){
   const card = el('div', { class: 'card' });
   card.innerHTML = `<div class="section-title" style="margin-top:0"><h2 style="font-size:13px">Run the steward now</h2></div>
-    <p class="tiny muted" style="margin:0 0 10px">One-off <span class="mono">workflow_dispatch</span> runs on polecat-platform — free to start, they don’t recur.</p>`;
+    <p class="tiny muted" style="margin:0 0 10px">One-off <span class="mono">workflow_dispatch</span> runs on polecat-platform — they don’t recur; selected-provider usage is billed.</p>`;
 
   const sel = el('select', { class: 'input', style: 'max-width:280px', 'aria-label': 'App to focus' });
   sel.append(el('option', { value: '', text: 'Fleet pick (steward chooses)' }));
   Store.projects().filter(p => p.repo && p.repo.startsWith('kevinrhaas/')).forEach(p =>
     sel.append(el('option', { value: p.repo.split('/')[1], text: p.name })));
 
+  const runConfig = {};
+  const controls = processorControls(runConfig, 'one-off run', () => {});
   const runBtn = el('button', { class: 'btn sm primary', html: `${icon('play')} Improve run`, onclick: async () => {
     if(!ghToken()){ toast('Connect a GitHub token first', { kind: 'warn' }); return; }
     try{
-      await dispatchWorkflow(IMPROVE_WORKFLOW, { app: sel.value });
+      validateProcessor(runConfig);
+      runBtn.disabled = true;
+      await dispatchWorkflow(IMPROVE_WORKFLOW, { app: sel.value, processor: runConfig.processor || 'claude', model: runConfig.model || '', effort: runConfig.effort || '' });
       toast('Improve run dispatched', { kind: 'ok', body: sel.value ? `Focused on ${sel.value}.` : 'Fleet pick.' });
     }catch(e){ toast('Dispatch failed', { kind: 'err', body: e.message }); }
+    finally { runBtn.disabled = false; }
   } });
-  card.append(el('div', { class: 'fo-row' }, [sel, runBtn]));
+  card.append(controls, el('div', { class: 'fo-row' }, [sel, runBtn]));
 
   const sweeps = el('div', { class: 'fo-row', style: 'margin-top:8px' });
   SWEEP_WORKFLOWS.forEach(w => sweeps.append(el('button', { class: 'btn sm', html: `${icon('eye')} ${w.label}`, onclick: async () => {
@@ -957,3 +969,4 @@ export function projectStewardCard(p){
   })();
   return card;
 }
+
